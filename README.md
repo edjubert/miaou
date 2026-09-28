@@ -10,7 +10,7 @@ data (no credentials, no undocumented APIs).
 Vibe sessions (~/.vibe/logs/session/unified/)
         │
         ▼
-vibe-god-cli (Rust, local binary)      https://github.com/edjubert/vibe-god-cli
+vibe-god-cli (Rust, local binary)      edjubert/vibe-god-cli (private repo)
         │  summary --json / budget --json / daily --json / ...
         ▼
 VibeGod (SwiftUI menu bar app, this repo)
@@ -48,8 +48,8 @@ month-to-date budget, today's usage and quick commands, polling
 swift build && swift run
 ```
 
-Requires `vibe-god-cli` in PATH (`cargo install --git
-https://github.com/edjubert/vibe-god-cli`). Without model prices
+Requires `vibe-god-cli` in PATH (private repo: `cargo install --git
+ssh://git@github.com/edjubert/vibe-god-cli.git`). Without model prices
 configured, the bar shows month tokens instead of a cost percentage.
 
 Structure: `Sources/VibeGod` (app + CLI bridge), `Sources/VibeGodTests`
