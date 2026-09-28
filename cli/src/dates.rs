@@ -34,6 +34,16 @@ pub fn local_ymd(ms: u64) -> String {
         .unwrap_or_default()
 }
 
+/// Local calendar month of an epoch-ms timestamp, `YYYY-MM`.
+pub fn local_ym(ms: u64) -> String {
+    chrono::Local::now()
+        .timezone()
+        .timestamp_millis_opt(ms as i64)
+        .single()
+        .map(|d| d.format("%Y-%m").to_string())
+        .unwrap_or_default()
+}
+
 /// Local date and time of an epoch-ms timestamp.
 pub fn local_time(ms: u64) -> String {
     chrono::Local::now()

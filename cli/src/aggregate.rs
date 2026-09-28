@@ -1,6 +1,6 @@
 //! Aggregation of usage events.
 
-use crate::dates::local_ymd;
+use crate::dates::{local_ym, local_ymd};
 use crate::{SessionUsage, UsageEvent};
 use chrono::{DateTime, Local, TimeZone};
 
@@ -60,19 +60,23 @@ pub fn event_time(e: &UsageEvent) -> DateTime<Local> {
         .unwrap_or_else(Local::now)
 }
 
-/// Aggregate all events by local calendar day.
-pub fn aggregate_daily(sessions: &[SessionUsage]) -> Vec<Row> {
+/// Aggregate all events by a period key (e.g. `YYYY-MM-DD`, `YYYY-MM`).
+/// `sessions` counts, per bucket, the number of distinct sessions active in it.
+pub fn aggregate_by_period(
+    sessions: &[SessionUsage],
+    key_of: impl Fn(u64) -> String,
+) -> Vec<Row> {
     let mut rows: std::collections::BTreeMap<String, Row> = Default::default();
     for s in sessions {
         let mut seen = std::collections::HashSet::new();
         for e in &s.events {
-            let day = local_ymd(e.timestamp_ms);
-            let row = rows.entry(day.clone()).or_insert_with(|| Row {
-                key: day.clone(),
+            let key = key_of(e.timestamp_ms);
+            let row = rows.entry(key.clone()).or_insert_with(|| Row {
+                key: key.clone(),
                 sessions: 0,
                 totals: Totals::default(),
             });
-            if seen.insert(day) {
+            if seen.insert(key) {
                 row.sessions += 1;
             }
             row.totals.requests += 1;
@@ -83,6 +87,17 @@ pub fn aggregate_daily(sessions: &[SessionUsage]) -> Vec<Row> {
         }
     }
     rows.into_values().collect()
+}
+
+/// Aggregate all events by local calendar day.
+pub fn aggregate_daily(sessions: &[SessionUsage]) -> Vec<Row> {
+    aggregate_by_period(sessions, local_ymd)
+}
+
+/// Aggregate all events by local calendar month (`YYYY-MM`).
+/// This is the "reset" view for monthly plans: each month starts at zero.
+pub fn aggregate_monthly(sessions: &[SessionUsage]) -> Vec<Row> {
+    aggregate_by_period(sessions, local_ym)
 }
 
 /// Aggregate by project (basename of the session's working directory).
@@ -243,6 +258,56 @@ mod tests {
         assert_eq!(row2.sessions, 1);
         assert_eq!(row2.totals.requests, 1);
         assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn monthly_buckets_reset_at_month_boundaries() {
+        use chrono::Datelike;
+        // Local noons on the 1st of two consecutive months.
+        let noon_first = |months_ahead: i64| {
+            let today = chrono::Local::now().date_naive();
+            let date = today
+                .with_day(1)
+                .unwrap()
+                .checked_add_months(chrono::Months::new(months_ahead as u32))
+                .unwrap();
+            let naive = date.and_hms_opt(12, 0, 0).unwrap();
+            naive
+                .and_local_timezone(chrono::Local)
+                .single()
+                .unwrap()
+                .timestamp_millis() as u64
+        };
+        let this_month = noon_first(0);
+        let next_month = noon_first(1);
+
+        // Same session spanning two months: requests split per month,
+        // and each month bucket counts the session once.
+        let a = session("a", None, this_month, vec![
+            event(this_month, 10, 1),
+            event(this_month + 3_600_000, 20, 2),
+            event(next_month, 40, 4),
+        ]);
+        let rows = aggregate_monthly(std::slice::from_ref(&a));
+        assert_eq!(rows.len(), 2);
+
+        let m0 = rows.iter().find(|r| r.key == local_ym(this_month)).unwrap();
+        assert_eq!(m0.sessions, 1);
+        assert_eq!(m0.totals.requests, 2);
+        assert_eq!(m0.totals.input_tokens, 30);
+        assert_eq!(m0.totals.output_tokens, 3);
+
+        let m1 = rows.iter().find(|r| r.key == local_ym(next_month)).unwrap();
+        assert_eq!(m1.sessions, 1);
+        assert_eq!(m1.totals.requests, 1);
+        assert_eq!(m1.totals.input_tokens, 40);
+
+        // A second session in the same month bumps the session count only there.
+        let b = session("b", None, this_month, vec![event(this_month, 50, 5)]);
+        let rows = aggregate_monthly(&[a, b]);
+        let m0 = rows.iter().find(|r| r.key == local_ym(this_month)).unwrap();
+        assert_eq!(m0.sessions, 2);
+        assert_eq!(m0.totals.requests, 3);
     }
 
     #[test]

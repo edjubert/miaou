@@ -48,6 +48,12 @@ enum Command {
         #[arg(long)]
         days: Option<usize>,
     },
+    /// Per-month breakdown (each month starts at zero — the "reset" view).
+    Monthly {
+        /// Number of recent months to show (default: all).
+        #[arg(long)]
+        months: Option<usize>,
+    },
     /// Per-project breakdown.
     Projects,
     /// Per-session breakdown.
@@ -155,6 +161,22 @@ fn main() {
             } else {
                 println!("day             sessions  requests     input   cached    output     total      cost");
                 for row in &daily {
+                    print_row(row, &price_of);
+                }
+            }
+        }
+        Command::Monthly { months } => {
+            let (sessions, price_of, json) = render(cli.json);
+            let mut monthly = priced(vibe_god::aggregate_monthly(&sessions), &price_of);
+            if let Some(n) = months {
+                let len = monthly.len();
+                monthly = monthly.into_iter().skip(len.saturating_sub(n)).collect();
+            }
+            if json {
+                println!("{}", serde_json::to_string_pretty(&monthly).unwrap());
+            } else {
+                println!("month   sessions  requests     input   cached    output     total      cost");
+                for row in &monthly {
                     print_row(row, &price_of);
                 }
             }

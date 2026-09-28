@@ -33,6 +33,7 @@ $VIBE_HOME/logs/session/unified/<session-id>/
 vibe-god summary              # totals + per-day overview
 vibe-god today                # today's totals
 vibe-god daily [--days N]     # per-day breakdown
+vibe-god monthly [--months N] # per-month breakdown (each month starts at zero)
 vibe-god projects             # per-project breakdown (session cwd basename)
 vibe-god sessions             # per-session breakdown
 vibe-god events               # raw events (one line per model call)
@@ -57,6 +58,13 @@ attributed to one model:
 With no price declared for the model, the cost column shows `-` and tokens
 remain the source of truth. Plan-based usage (e.g. Vibe Pro) is not billed per
 token anyway.
+
+## Monthly reset semantics
+
+There is no deletion or explicit reset: `monthly` buckets usage by local
+calendar month (`YYYY-MM`), so each month naturally starts at zero while the
+full history stays queryable. Use `--since`/`--until` for arbitrary windows.
+If a plan resets on a different day, filter with `--since 2026-09-28`.
 
 ## Known limits
 

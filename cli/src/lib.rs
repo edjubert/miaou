@@ -14,7 +14,7 @@ pub mod journal;
 pub mod prices;
 pub mod scan;
 
-pub use aggregate::{aggregate_daily, aggregate_by_project, aggregate_by_session, Totals};
+pub use aggregate::{aggregate_by_period, aggregate_by_project, aggregate_by_session, aggregate_daily, aggregate_monthly, Totals};
 pub use journal::{parse_session, UsageEvent};
 pub use scan::{discover_sessions, SessionMeta};
 
