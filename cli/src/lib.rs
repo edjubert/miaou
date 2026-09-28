@@ -11,6 +11,7 @@
 pub mod aggregate;
 pub mod dates;
 pub mod journal;
+pub mod plan;
 pub mod prices;
 pub mod scan;
 

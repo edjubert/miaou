@@ -56,6 +56,8 @@ enum Command {
     },
     /// Per-project breakdown.
     Projects,
+    /// Show the plan type from Vibe's local whoami cache.
+    Plan,
     /// Per-session breakdown.
     Sessions,
     /// Raw usage events.
@@ -115,12 +117,19 @@ fn main() {
                         "sessions": sessions_count,
                         "totals": grand,
                         "model": price.as_ref().map(|p| p.name.clone()),
+                        "plan": vibe_god::plan::read_cached(&vibe_home),
                         "daily": daily,
                     })
                 );
             } else {
                 let model = price.as_ref().map(|p| p.name.clone()).unwrap_or_default();
-                println!("Vibe usage — {} sessions (model: {})", sessions_count, if model.is_empty() { "n/a" } else { &model });
+                let plan = vibe_god::plan::read_cached(&vibe_home);
+                println!(
+                    "Vibe usage — {} sessions (model: {}, plan: {})",
+                    sessions_count,
+                    if model.is_empty() { "n/a" } else { &model },
+                    plan.as_ref().map(|p| p.describe()).unwrap_or_else(|| "unknown".into())
+                );
                 print_totals(&grand);
                 println!("\nPer day:");
                 for row in vibe_god::aggregate_daily(&sessions) {
@@ -178,6 +187,30 @@ fn main() {
                 println!("month   sessions  requests     input   cached    output     total      cost");
                 for row in &monthly {
                     print_row(row, &price_of);
+                }
+            }
+        }
+        Command::Plan => {
+            match vibe_god::plan::read_cached(&vibe_home) {
+                Some(plan) => {
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&plan).unwrap());
+                    } else {
+                        println!("plan: {}", plan.describe());
+                        println!("plan_type: {}", plan.plan_type.as_deref().unwrap_or("?"));
+                        println!("plan_name: {}", plan.plan_name.as_deref().unwrap_or("?"));
+                        println!(
+                            "organization_kind: {}",
+                            plan.organization_kind.as_deref().unwrap_or("?")
+                        );
+                    }
+                }
+                None => {
+                    if cli.json {
+                        println!("null");
+                    } else {
+                        println!("plan: unknown (no whoami cache; run /whoami in Vibe once)");
+                    }
                 }
             }
         }

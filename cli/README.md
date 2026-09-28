@@ -35,6 +35,7 @@ vibe-god today                # today's totals
 vibe-god daily [--days N]     # per-day breakdown
 vibe-god monthly [--months N] # per-month breakdown (each month starts at zero)
 vibe-god projects             # per-project breakdown (session cwd basename)
+vibe-god plan                 # plan type from Vibe's whoami cache
 vibe-god sessions             # per-session breakdown
 vibe-god events               # raw events (one line per model call)
 vibe-god watch [--interval S] # re-scan and print a line on change
@@ -58,6 +59,14 @@ attributed to one model:
 With no price declared for the model, the cost column shows `-` and tokens
 remain the source of truth. Plan-based usage (e.g. Vibe Pro) is not billed per
 token anyway.
+
+## Plan information
+
+`vibe-god plan` reads `~/.vibe/whoami_cache.json`, the local cache Vibe
+maintains for its own `/whoami` command (TTL ~6h, refreshed by Vibe). No
+network call, no credentials. The plan type vocabulary (`api` / `chat` /
+`mistral_code`) matches Vibe's `AccountPlanKind`. Run `/whoami` in Vibe once
+if the cache does not exist yet. `summary` also shows the plan.
 
 ## Monthly reset semantics
 
