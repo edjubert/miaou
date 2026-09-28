@@ -4,6 +4,17 @@ Monitor Mistral Vibe usage from the **macOS menu bar**, in the spirit of
 [Claude God](https://github.com/Lcharvol/Claude-God), but reading only local
 data (no credentials, no undocumented APIs).
 
+## DISCLAIMER: local data only, desynchronized from Mistral
+
+Every number shown in the menu bar comes from `vibe-god-cli`, which reads
+the **local session journals** of this machine. It is not the account-wide
+truth: usage from other machines, Vibe on the web, the IDE plugin or mobile
+is not counted, and Mistral exposes no public endpoint to fetch account
+consumption. The Mistral Console web UI is the only authoritative source
+for billing, and it may differ from these numbers. The remaining plan
+envelope cannot be known locally (thresholds are observed or manually
+configured values, not server data).
+
 ## Architecture
 
 ```
@@ -53,6 +64,6 @@ ssh://git@github.com/edjubert/vibe-god-cli.git`). Without model prices
 configured, the bar shows month tokens instead of a cost percentage.
 
 Structure: `Sources/VibeGod` (app + CLI bridge), `Sources/VibeGodTests`
-(decode tests against vibe-god-cli JSON). No `.xcodeproj` — the package can
+(decode tests against vibe-god-cli JSON). No `.xcodeproj`: the package can
 be adopted into an Xcode app bundle later for login-at-startup and
 notarization.
