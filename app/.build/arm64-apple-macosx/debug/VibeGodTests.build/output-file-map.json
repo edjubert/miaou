@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/primary.swiftdeps"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGodTests/DecodeTests.swift": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.dia"
+  }
+}
