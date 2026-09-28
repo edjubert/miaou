@@ -88,4 +88,57 @@ mod tests {
         assert_eq!(iso_to_ms(Some("garbage")), None);
         assert_eq!(iso_to_ms(None), None);
     }
+
+    fn write_session(unified: &Path, id: &str, meta_json: &str) {
+        let dir = unified.join(id);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("meta.json"), meta_json).unwrap();
+    }
+
+    #[test]
+    fn discovers_and_sorts_sessions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let unified = tmp.path().join("logs").join("session").join("unified");
+        std::fs::create_dir_all(&unified).unwrap();
+
+        write_session(
+            &unified,
+            "newer",
+            r#"{"session_id": "newer",
+                "environment": {"working_directory": "/home/me/proj-a"},
+                "start_time": "2026-09-28T13:00:00+00:00",
+                "end_time": "2026-09-28T14:00:00+00:00",
+                "parent_session_id": null,
+                "child_sessions": ["kid-1"],
+                "title": "Some title"}"#,
+        );
+        write_session(
+            &unified,
+            "older",
+            r#"{"session_id": "older",
+                "environment": {"working_directory": "/home/me/proj-b"},
+                "start_time": "2026-09-27T09:00:00+00:00",
+                "parent_session_id": "some-parent",
+                "child_sessions": []}"#,
+        );
+        // Decoys: no meta.json, not a directory.
+        std::fs::create_dir(unified.join("no-meta")).unwrap();
+        std::fs::write(unified.join("stray.txt"), "").unwrap();
+
+        let found = discover_sessions(tmp.path());
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].0.session_id, "older"); // sorted by start_time
+        assert_eq!(found[1].0.session_id, "newer");
+
+        let newer = &found[1].0;
+        assert_eq!(newer.cwd.as_deref(), Some("/home/me/proj-a"));
+        assert_eq!(newer.title.as_deref(), Some("Some title"));
+        assert!(newer.parent_session_id.is_none());
+        assert_eq!(newer.child_sessions, vec!["kid-1".to_string()]);
+        assert_eq!(newer.start_time_ms, Some(1790600400000)); // 2026-09-28T13:00Z
+
+        let older = &found[0].0;
+        assert_eq!(older.parent_session_id.as_deref(), Some("some-parent"));
+        assert!(older.title.is_none());
+    }
 }

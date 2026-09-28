@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
-use chrono::TimeZone;
 use std::path::PathBuf;
 use vibe_god::aggregate::{Row, SessionRow};
+use vibe_god::dates::{local_time, local_ymd, parse_local_date_end, parse_local_date_start};
 use vibe_god::prices::VibeConfig;
 use vibe_god::{collect_all, default_vibe_home, Totals};
 
@@ -78,8 +78,8 @@ fn main() {
         let mut sessions = collect_all(&vibe_home);
         for s in &mut sessions {
             s.events.retain(|e| {
-                since_ms.map_or(true, |t| e.timestamp_ms >= t)
-                    && until_ms.map_or(true, |t| e.timestamp_ms < t)
+                since_ms.is_none_or(|t| e.timestamp_ms >= t)
+                    && until_ms.is_none_or(|t| e.timestamp_ms < t)
             });
         }
         sessions.retain(|s| !s.events.is_empty());
@@ -282,41 +282,4 @@ fn print_row(row: &Row, price_of: &impl Fn(&Totals) -> Option<f64>) {
 
 fn cost_str(cost: Option<f64>) -> String {
     cost.map(|c| format!("${c:.4}")).unwrap_or_else(|| "-".to_string())
-}
-
-fn parse_local_date_start(s: &str) -> Option<u64> {
-    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .ok()?
-        .and_hms_opt(0, 0, 0)?
-        .and_local_timezone(chrono::Local)
-        .single()
-        .map(|dt| dt.timestamp_millis().max(0) as u64)
-}
-
-fn parse_local_date_end(s: &str) -> Option<u64> {
-    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .ok()?
-        .succ_opt()?
-        .and_hms_opt(0, 0, 0)?
-        .and_local_timezone(chrono::Local)
-        .single()
-        .map(|dt| dt.timestamp_millis().max(0) as u64)
-}
-
-fn local_ymd(ms: u64) -> String {
-    chrono::Local::now()
-        .timezone()
-        .timestamp_millis_opt(ms as i64)
-        .single()
-        .map(|d| d.format("%Y-%m-%d").to_string())
-        .unwrap_or_default()
-}
-
-fn local_time(ms: u64) -> String {
-    chrono::Local::now()
-        .timezone()
-        .timestamp_millis_opt(ms as i64)
-        .single()
-        .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
-        .unwrap_or_default()
 }

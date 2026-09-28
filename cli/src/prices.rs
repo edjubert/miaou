@@ -47,10 +47,10 @@ pub struct VibeConfig {
 impl VibeConfig {
     pub fn load(vibe_home: &Path) -> Self {
         let path = vibe_home.join("config.toml");
-        Self::from_str(&std::fs::read_to_string(path).unwrap_or_default())
+        Self::parse(&std::fs::read_to_string(path).unwrap_or_default())
     }
 
-    pub fn from_str(raw: &str) -> Self {
+    pub fn parse(raw: &str) -> Self {
         let mut cfg = VibeConfig::default();
         let Ok(value) = raw.parse::<toml::Value>() else {
             return cfg;
@@ -105,7 +105,7 @@ output_price = 7.5
 name = "no-prices"
 alias = "bare"
 "#;
-        let cfg = VibeConfig::from_str(raw);
+        let cfg = VibeConfig::parse(raw);
         assert_eq!(cfg.active_model.as_deref(), Some("glm-5-3"));
         assert_eq!(cfg.models.len(), 2);
         let m = cfg.resolve(None).unwrap();

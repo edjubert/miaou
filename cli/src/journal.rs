@@ -248,4 +248,114 @@ mod tests {
         assert_eq!(e.finish_reason, "tool_call");
         std::fs::remove_dir_all(&dir).ok();
     }
+
+    #[test]
+    fn ignores_failures_and_unrelated_records() {
+        let failed = record(
+            5,
+            "action_result",
+            serde_json::json!({
+                "result": {"result": {"usage": {"input_tokens": 1}}, "type": "completion_failed"},
+                "state": "failed"
+            }),
+        );
+        let tool_result = record(
+            6,
+            "action_result",
+            serde_json::json!({
+                "result": {"result": {"output": "ls"}, "type": "success"},
+                "state": "succeeded"
+            }),
+        );
+        let malformed = "{\"type\": \"action_result\", \"sequence\": 7,"; // truncated line
+
+        let tmp = tempfile::tempdir().unwrap();
+        let journal = tmp.path().join("journal");
+        std::fs::create_dir_all(&journal).unwrap();
+        std::fs::write(journal.join("a.jsonl"), format!("{failed}\n{tool_result}\n{malformed}\n")).unwrap();
+
+        let meta = SessionMeta { session_id: "s".into(), ..Default::default() };
+        assert!(parse_session(tmp.path(), &meta).is_empty());
+    }
+
+    #[test]
+    fn missing_usage_object_is_ignored() {
+        let no_usage = record(
+            3,
+            "action_result",
+            serde_json::json!({
+                "result": {"result": {"finish_reason": "stop"}, "type": "completion_succeeded"},
+                "state": "succeeded"
+            }),
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        let journal = tmp.path().join("journal");
+        std::fs::create_dir_all(&journal).unwrap();
+        std::fs::write(journal.join("a.jsonl"), format!("{no_usage}\n")).unwrap();
+        let meta = SessionMeta { session_id: "s".into(), ..Default::default() };
+        assert!(parse_session(tmp.path(), &meta).is_empty());
+    }
+
+    #[test]
+    fn timestamp_falls_back_to_session_start_without_anchors() {
+        let completion = record(
+            42,
+            "action_result",
+            serde_json::json!({
+                "result": {
+                    "result": {"finish_reason": "stop", "usage": {"input_tokens": 10, "output_tokens": 5,
+                                  "cached_input_tokens": 0, "total_tokens": 15}},
+                    "type": "completion_succeeded"
+                }
+            }),
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        let journal = tmp.path().join("journal");
+        std::fs::create_dir_all(&journal).unwrap();
+        std::fs::write(journal.join("a.jsonl"), format!("{completion}\n")).unwrap();
+        let meta = SessionMeta { session_id: "s".into(), start_time_ms: Some(123456), ..Default::default() };
+        let events = parse_session(tmp.path(), &meta);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].timestamp_ms, 123456);
+    }
+
+    #[test]
+    fn merges_journal_files_and_keeps_last_anchor() {
+        let completion = record(
+            100,
+            "action_result",
+            serde_json::json!({
+                "result": {
+                    "result": {"usage": {"input_tokens": 1, "output_tokens": 1,
+                                  "cached_input_tokens": 0, "total_tokens": 2}},
+                    "type": "completion_succeeded"
+                }
+            }),
+        );
+        // Anchors split across two files; the latest one at or below seq 100 wins.
+        let anchor_old = record(50, "core_input",
+            serde_json::json!({"input": {"determinism": {"time_unix_ms": 1111}}}));
+        let anchor_near = record(90, "core_input",
+            serde_json::json!({"input": {"determinism": {"time_unix_ms": 2222}}}));
+        let anchor_after = record(150, "core_input",
+            serde_json::json!({"input": {"determinism": {"time_unix_ms": 9999}}}));
+
+        let tmp = tempfile::tempdir().unwrap();
+        let journal = tmp.path().join("journal");
+        std::fs::create_dir_all(&journal).unwrap();
+        std::fs::write(journal.join("0000000000000001.jsonl"), format!("{anchor_old}\n{anchor_near}\n")).unwrap();
+        std::fs::write(journal.join("0000000000000002.jsonl"), format!("{completion}\n{anchor_after}\n")).unwrap();
+
+        let meta = SessionMeta { session_id: "s".into(), start_time_ms: Some(1), ..Default::default() };
+        let events = parse_session(tmp.path(), &meta);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].timestamp_ms, 2222);
+    }
+
+    #[test]
+    fn missing_journal_dir_is_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let meta = SessionMeta { session_id: "s".into(), ..Default::default() };
+        assert!(parse_session(tmp.path(), &meta).is_empty());
+    }
 }

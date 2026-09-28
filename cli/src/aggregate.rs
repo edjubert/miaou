@@ -1,5 +1,6 @@
 //! Aggregation of usage events.
 
+use crate::dates::local_ymd;
 use crate::{SessionUsage, UsageEvent};
 use chrono::{DateTime, Local, TimeZone};
 
@@ -52,15 +53,6 @@ pub struct Row {
     pub totals: Totals,
 }
 
-fn local_date(ms: u64) -> String {
-    Local
-        .timestamp_millis_opt(ms as i64)
-        .single()
-        .unwrap_or_else(Local::now)
-        .format("%Y-%m-%d")
-        .to_string()
-}
-
 pub fn event_time(e: &UsageEvent) -> DateTime<Local> {
     Local
         .timestamp_millis_opt(e.timestamp_ms as i64)
@@ -74,7 +66,7 @@ pub fn aggregate_daily(sessions: &[SessionUsage]) -> Vec<Row> {
     for s in sessions {
         let mut seen = std::collections::HashSet::new();
         for e in &s.events {
-            let day = local_date(e.timestamp_ms);
+            let day = local_ymd(e.timestamp_ms);
             let row = rows.entry(day.clone()).or_insert_with(|| Row {
                 key: day.clone(),
                 sessions: 0,
@@ -152,4 +144,143 @@ pub struct SessionRow {
     pub started_ms: Option<u64>,
     #[serde(flatten)]
     pub totals: Totals,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scan::SessionMeta;
+
+    fn event(ts: u64, input: u64, output: u64) -> UsageEvent {
+        UsageEvent {
+            session_id: "s".into(),
+            parent_session_id: None,
+            sequence: 0,
+            timestamp_ms: ts,
+            input_tokens: input,
+            output_tokens: output,
+            cached_input_tokens: 0,
+            total_tokens: input + output,
+            finish_reason: "stop".into(),
+        }
+    }
+
+    fn session(id: &str, cwd: Option<&str>, start: u64, events: Vec<UsageEvent>) -> SessionUsage {
+        SessionUsage {
+            meta: SessionMeta {
+                session_id: id.into(),
+                cwd: cwd.map(str::to_owned),
+                start_time_ms: Some(start),
+                parent_session_id: None,
+                ..Default::default()
+            },
+            events,
+        }
+    }
+
+    #[test]
+    fn totals_sum_tokens() {
+        let evs = [event(0, 100, 10), event(0, 50, 5)];
+        let t = Totals::from_events(evs.iter());
+        assert_eq!(t.requests, 2);
+        assert_eq!(t.input_tokens, 150);
+        assert_eq!(t.output_tokens, 15);
+        assert_eq!(t.total_tokens, 165);
+        assert_eq!(t.cached_input_tokens, 0);
+    }
+
+    #[test]
+    fn add_merges_cost_when_both_sides_priced() {
+        let mut a = Totals { requests: 1, cost_usd: Some(0.5), ..Default::default() };
+        let b = Totals { requests: 2, cost_usd: Some(1.5), ..Default::default() };
+        a.add(&b);
+        assert_eq!(a.requests, 3);
+        assert_eq!(a.cost_usd, Some(2.0));
+
+        // One side unpriced keeps the priced value.
+        let mut c = Totals::default();
+        c.add(&b);
+        assert_eq!(c.cost_usd, Some(1.5));
+
+        let mut d = Totals { cost_usd: Some(1.0), ..Default::default() };
+        d.add(&Totals::default());
+        assert_eq!(d.cost_usd, Some(1.0));
+    }
+
+    #[test]
+    fn daily_groups_by_local_date_and_counts_sessions() {
+        // Local noons: stable within a calendar day in any timezone
+        // (DST transitions happen at night, never between noon hours).
+        let noon = |days_ahead: i64| {
+            let date = chrono::Local::now().date_naive() + chrono::Duration::days(days_ahead);
+            let naive = date.and_hms_opt(12, 0, 0).unwrap();
+            naive
+                .and_local_timezone(chrono::Local)
+                .single()
+                .unwrap()
+                .timestamp_millis() as u64
+        };
+        let noon0 = noon(0);
+        let noon2 = noon(2);
+
+        let a = session("a", None, noon0, vec![event(noon0, 10, 1), event(noon0 + 3_600_000, 20, 2)]);
+        let b = session("b", None, noon0, vec![event(noon0, 30, 3)]);
+        let c = session("c", None, noon2, vec![event(noon2, 40, 4)]);
+
+        let rows = aggregate_daily(&[a, b, c]);
+        let by_key: std::collections::BTreeMap<_, _> =
+            rows.iter().map(|r| (r.key.clone(), r.clone())).collect();
+
+        // Day of noon0: sessions a and b, 3 requests.
+        let row0 = &by_key[&local_ymd(noon0)];
+        assert_eq!(row0.sessions, 2);
+        assert_eq!(row0.totals.requests, 3);
+        assert_eq!(row0.totals.input_tokens, 60);
+        assert_eq!(row0.totals.output_tokens, 6);
+
+        // Day of noon2: session c alone. noon1 has no events, so only 2 buckets.
+        let row2 = &by_key[&local_ymd(noon2)];
+        assert_eq!(row2.sessions, 1);
+        assert_eq!(row2.totals.requests, 1);
+        assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn projects_use_cwd_basename_and_unknown_fallback() {
+        let a = session("a", Some("/home/me/proj-x"), 0, vec![event(0, 10, 1)]);
+        let b = session("b", Some("/home/me/proj-x/sub"), 0, vec![event(0, 20, 2)]);
+        let c = session("c", None, 0, vec![event(0, 30, 3)]);
+
+        let rows = aggregate_by_project(&[a, b, c]);
+        let find = |k: &str| rows.iter().find(|r| r.key == k).unwrap();
+
+        assert_eq!(find("proj-x").sessions, 1);
+        assert_eq!(find("proj-x").totals.input_tokens, 10);
+        assert_eq!(find("sub").sessions, 1); // basename, not path
+        assert_eq!(find("(unknown)").totals.input_tokens, 30);
+    }
+
+    #[test]
+    fn session_rows_skip_empty_and_sort_newest_first() {
+        let older = session("older", Some("/p/aaa"), 100, vec![event(100, 10, 1)]);
+        let newer = session("newer", Some("/p/bbb"), 200, vec![event(200, 20, 2)]);
+        let empty = session("empty", Some("/p/ccc"), 300, vec![]);
+
+        let mut rows = aggregate_by_session(&[older, newer, empty]);
+        assert_eq!(rows.len(), 2); // empty session filtered out
+        rows.sort_by_key(|r| std::cmp::Reverse(r.started_ms.unwrap_or(0)));
+        assert_eq!(rows[0].session_id, "newer");
+        assert_eq!(rows[0].project, "bbb");
+        assert_eq!(rows[0].totals.requests, 1);
+        assert!(!rows[0].subagent);
+    }
+
+    #[test]
+    fn session_row_flags_subagent() {
+        let mut s = session("kid", Some("/p"), 0, vec![event(0, 1, 1)]);
+        s.meta.parent_session_id = Some("parent".into());
+        let rows = aggregate_by_session(&[s]);
+        assert!(rows[0].subagent);
+        assert_eq!(rows[0].short_id, "kid");
+    }
 }

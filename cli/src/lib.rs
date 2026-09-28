@@ -9,6 +9,7 @@
 //!     used as time anchors to interpolate timestamps for usage records.
 
 pub mod aggregate;
+pub mod dates;
 pub mod journal;
 pub mod prices;
 pub mod scan;
