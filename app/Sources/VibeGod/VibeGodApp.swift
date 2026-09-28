@@ -150,20 +150,21 @@ struct MenuContent: View {
     }
 
     private func projectsSection(_ dashboard: DashboardReport) -> some View {
+        let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
         let top = dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }.prefix(5)
-        let maxTokens = top.map { $0.totalTokens }.max() ?? 1
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Projects").font(.headline)
+            Text("Projects (share of month tokens)").font(.headline)
             ForEach(Array(top), id: \.key) { row in
                 VStack(alignment: .leading, spacing: 1) {
                     HStack {
                         Text(row.key).font(.caption)
                         Spacer()
-                        Text("\(row.requests) req, \(formatTokens(Double(row.totalTokens))) tok")
+                        let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
+                        Text(String(format: "%.0f%%, %@ tok", share, formatTokens(Double(row.totalTokens))))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    ProgressView(value: Double(row.totalTokens), total: Double(max(maxTokens, 1)))
+                    ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
                         .frame(height: 4)
                 }
             }
