@@ -51,9 +51,12 @@ as-is.
 
 ## Status
 
-Milestone 1: menu bar app (Swift Package, `MenuBarExtra`) showing the
-month-to-date budget, today's usage and quick commands, polling
-`vibe-god-cli` every 60 s.
+Milestone 2: menu bar app consuming the single `vibe-god-cli dashboard`
+JSON endpoint. Bar shows the envelope percentage (tokens fallback) plus a
+live-session dot; the window shows budget progress, today's usage, a
+14-day token sparkline (Swift Charts), top-5 projects and quick commands.
+Refreshes every 60 s and on menu open. The binary is resolved from
+`~/.cargo/bin` explicitly: GUI processes inherit a minimal PATH.
 
 ```bash
 swift build && swift run

@@ -4,9 +4,9 @@ import AppKit
 
 /// Polls vibe-god-cli and publishes the values shown in the menu bar.
 final class AppModel: ObservableObject {
-    @Published private(set) var budget: BudgetReport?
-    @Published private(set) var today: TodayReport?
+    @Published private(set) var dashboard: DashboardReport?
     @Published private(set) var lastError: String?
+    @Published private(set) var lastRefresh: Date?
 
     private var timer: AnyCancellable?
 
@@ -21,12 +21,11 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         do {
-            let budget = try VibeGodCLI.json(BudgetReport.self, ["budget"])
-            let today = try VibeGodCLI.json(TodayReport.self, ["today"])
+            let dashboard = try VibeGodCLI.dashboard()
             DispatchQueue.main.async {
-                self.budget = budget
-                self.today = today
+                self.dashboard = dashboard
                 self.lastError = nil
+                self.lastRefresh = Date()
             }
         } catch {
             DispatchQueue.main.async {
@@ -36,21 +35,21 @@ final class AppModel: ObservableObject {
     }
 
     /// Short label in the menu bar: envelope percentage when cost is
-    /// available, month tokens otherwise.
+    /// available, month tokens otherwise. Green dot suffix while a session
+    /// is live.
     var barTitle: String {
-        guard let budget else { return "…" }
-        if let used = budget.usedUsd, let effective = budget.effectiveUsd, effective > 0 {
-            let pct = used / effective * 100
-            return String(format: "%.0f%%", pct)
+        let base: String
+        if let dashboard {
+            let status = dashboard.budgetStatus
+            if let used = status.usedUsd, let effective = status.budget.effectiveUsd, effective > 0 {
+                base = String(format: "%.0f%%", used / effective * 100)
+            } else {
+                base = formatTokens(Double(status.usedTokens))
+            }
+        } else {
+            base = "…"
         }
-        return formatTokens(Double(budget.usedTokens))
-    }
-
-    var statusColor: String {
-        guard let budget else { return "secondary" }
-        if budget.over { return "red" }
-        if budget.inOverageUsd != nil { return "orange" }
-        return "primary"
+        return dashboard?.liveSessions.isEmpty == false ? base + " •" : base
     }
 
     private static func describe(_ error: Error) -> String {
