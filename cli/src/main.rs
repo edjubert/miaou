@@ -56,6 +56,8 @@ enum Command {
     },
     /// Per-project breakdown.
     Projects,
+    /// Combined JSON snapshot for menu bar / bar widget consumers.
+    Dashboard,
     /// Show the plan type from Vibe's local whoami cache.
     Plan,
     /// Month-to-date usage against the plan budget (see README).
@@ -175,6 +177,63 @@ fn main() {
                 print_totals(&grand);
             }
         }
+        Command::Dashboard => {
+            let (sessions, price_of, _) = render(false);
+            let now_ms = now_ms();
+            let today = local_ymd(now_ms);
+            let current_month = vibe_god_cli::dates::local_ym(now_ms);
+
+            let mut grand = Totals::default();
+            for s in &sessions {
+                grand.add(&s.totals());
+            }
+            grand.cost_usd = price_of(&grand);
+
+            let mut today_totals = day_totals(&sessions, &today);
+            today_totals.cost_usd = price_of(&today_totals);
+            let mtd = month_to_date(&sessions, &current_month);
+            let used_usd = price_of(&mtd);
+
+            let (budget, plan) = resolve_budget(
+                &vibe_home,
+                &vibe_god_cli::budget::default_config_path(),
+            );
+            let status = vibe_god_cli::budget::BudgetStatus::evaluate(
+                &current_month,
+                used_usd,
+                mtd.total_tokens,
+                mtd.requests,
+                budget.clone(),
+            );
+
+            let daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
+            let monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            let projects = priced(vibe_god_cli::aggregate_by_project(&sessions), &price_of);
+            let mut session_rows = vibe_god_cli::aggregate_by_session(&sessions);
+            for r in &mut session_rows {
+                r.totals.cost_usd = price_of(&r.totals);
+            }
+
+            println!(
+                "{}",
+                serde_json::json!({
+                    "generated_at_ms": now_ms,
+                    "today": today,
+                    "current_month": current_month,
+                    "plan": plan,
+                    "totals": grand,
+                    "today_totals": today_totals,
+                    "month_to_date": mtd,
+                    "budget_status": status,
+                    "budget": budget,
+                    "daily": daily,
+                    "monthly": monthly,
+                    "projects": projects,
+                    "sessions": session_rows,
+                    "active": vibe_god_cli::status::active_sessions(&vibe_home),
+                })
+            );
+        }
         Command::Daily { days } => {
             let (sessions, price_of, json) = render(cli.json);
             let mut daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
@@ -231,37 +290,15 @@ fn main() {
             }
 
             // Budget source: config file wins, then plan defaults.
-            let from_file = vibe_god_cli::budget::Budget::load(&config_path);
-            let plan = vibe_god_cli::plan::read_cached(&vibe_home);
-            let configured = from_file.monthly_usd.is_some()
-                || from_file.overage_usd.is_some()
-                || from_file.monthly_tokens.is_some();
-            let budget = if configured {
-                from_file
-            } else {
-                plan.as_ref()
-                    .and_then(vibe_god_cli::budget::Budget::defaults_for_plan)
-                    .unwrap_or(from_file)
-            };
-
-            // Month-to-date usage.
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0);
-            let current_month = vibe_god_cli::dates::local_ym(now_ms);
+            let current_month = vibe_god_cli::dates::local_ym(now_ms());
             let (sessions, price_of, _) = render(false);
-            let mut mtd = vibe_god_cli::Totals::default();
-            for s in &sessions {
-                let events: Vec<&vibe_god_cli::UsageEvent> = s
-                    .events
-                    .iter()
-                    .filter(|e| vibe_god_cli::dates::local_ym(e.timestamp_ms) == current_month)
-                    .collect();
-                mtd.add(&vibe_god_cli::Totals::from_events(events.into_iter()));
-            }
+            let mtd = month_to_date(&sessions, &current_month);
             let used_usd = price_of(&mtd);
 
+            let (budget, plan) = resolve_budget(
+                &vibe_home,
+                &config_path,
+            );
             let status = vibe_god_cli::budget::BudgetStatus::evaluate(
                 &current_month,
                 used_usd,
@@ -487,6 +524,59 @@ overage_allowed = {overage_allowed}
         overage_usd = line("No overage allowance by default.", "overage_usd", defaults.as_ref().and_then(|b| b.overage_usd).map(|v| v.to_string())),
         overage_allowed = defaults.map(|b| b.overage_allowed).unwrap_or(true),
     )
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Totals of the events in `sessions` that fall on local day `ymd`.
+fn day_totals(sessions: &[vibe_god_cli::SessionUsage], ymd: &str) -> Totals {
+    let mut totals = Totals::default();
+    for s in sessions {
+        let events: Vec<&vibe_god_cli::UsageEvent> =
+            s.events.iter().filter(|e| local_ymd(e.timestamp_ms) == ymd).collect();
+        totals.add(&Totals::from_events(events.into_iter()));
+    }
+    totals
+}
+
+/// Totals of the events in `sessions` that fall in local month `ym`.
+fn month_to_date(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
+    let mut totals = Totals::default();
+    for s in sessions {
+        let events: Vec<&vibe_god_cli::UsageEvent> = s
+            .events
+            .iter()
+            .filter(|e| vibe_god_cli::dates::local_ym(e.timestamp_ms) == ym)
+            .collect();
+        totals.add(&Totals::from_events(events.into_iter()));
+    }
+    totals
+}
+
+/// Budget from the config file (when it declares one), else plan defaults.
+/// Returns the plan for display purposes.
+fn resolve_budget(
+    vibe_home: &std::path::Path,
+    config_path: &std::path::Path,
+) -> (vibe_god_cli::budget::Budget, Option<vibe_god_cli::plan::PlanInfo>) {
+    let from_file = vibe_god_cli::budget::Budget::load(config_path);
+    let plan = vibe_god_cli::plan::read_cached(vibe_home);
+    let configured = from_file.monthly_usd.is_some()
+        || from_file.overage_usd.is_some()
+        || from_file.monthly_tokens.is_some();
+    let budget = if configured {
+        from_file
+    } else {
+        plan.as_ref()
+            .and_then(vibe_god_cli::budget::Budget::defaults_for_plan)
+            .unwrap_or(from_file)
+    };
+    (budget, plan)
 }
 
 fn priced(mut rows: Vec<Row>, price_of: &impl Fn(&Totals) -> Option<f64>) -> Vec<Row> {

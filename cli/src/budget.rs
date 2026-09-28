@@ -90,7 +90,7 @@ impl Budget {
 }
 
 /// Month-to-date usage evaluated against a budget.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct BudgetStatus {
     pub month: String,
     pub used_usd: Option<f64>,

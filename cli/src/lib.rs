@@ -15,6 +15,7 @@ pub mod journal;
 pub mod plan;
 pub mod prices;
 pub mod scan;
+pub mod status;
 
 pub use aggregate::{aggregate_by_period, aggregate_by_project, aggregate_by_session, aggregate_daily, aggregate_monthly, Totals};
 pub use journal::{parse_session, UsageEvent};
