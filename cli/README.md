@@ -1,8 +1,27 @@
 # vibe-god-cli
 
-Track Mistral Vibe CLI usage from local session journals — tokens, requests and
-estimated cost — in the spirit of [Claude God](https://github.com/Lcharvol/Claude-God),
+Track Mistral Vibe CLI usage (tokens, requests, estimated cost) from local
+session journals, in the spirit of [Claude God](https://github.com/Lcharvol/Claude-God),
 but reading only local files (no credentials, no undocumented APIs).
+
+## DISCLAIMER: local data only, desynchronized from Mistral
+
+Everything reported here is computed from the **local session journals**
+written by the Vibe CLI on **this machine**. It is an observation of what
+ran locally, not the account-wide truth.
+
+- Usage on other machines, in Vibe on the web, in the IDE plugin or on
+  mobile is **not** counted.
+- Mistral exposes **no public, documented endpoint** to fetch account
+  consumption. The only account-wide source is the Mistral Console web UI.
+- Server-side billing may differ from these numbers (batching, rounding,
+  what counts as a request, plan-specific accounting).
+- The remaining plan envelope cannot be known locally: the monthly budget
+  thresholds used by `budget` are observed or manually configured values,
+  not server data.
+
+The Mistral Console remains the authoritative source for billing. This
+tool reads no credentials and calls no undocumented API.
 
 ```
 cargo install --path .
@@ -76,9 +95,9 @@ if the cache does not exist yet. `summary` also shows the plan.
 Threshold resolution order:
 
 1. `~/.config/vibe-god-cli/config.toml` (create with `vibe-god-cli budget --init`,
-   or point at another file with `--config PATH`) — always wins;
-2. hardcoded plan defaults deduced from the whoami cache (Pro/INDIVIDUAL:
-   $255/month of Vibe usage — an observed value, not an official limit).
+   or point at another file with `--config PATH`). This file always wins.
+2. Hardcoded plan defaults deduced from the whoami cache (Pro/INDIVIDUAL:
+   $255/month of Vibe usage, an observed value, not an official limit).
 
 ```toml
 [budget]
@@ -104,8 +123,9 @@ If a plan resets on a different day, filter with `--since 2026-09-28`.
 
 ## Known limits
 
-- Model name per completion is not in the journals — cost is an estimate
+- Model name per completion is not in the journals, so cost is an estimate
   attributed to the configured model.
 - Only what ran on this machine: sessions on other machines, Vibe on web or
-  the mobile app are invisible (see Mistral Console for account-wide usage).
+  the mobile app are invisible (see the disclaimer above and the Mistral
+  Console for account-wide usage).
 - Vibe may prune old sessions; the journals under `$VIBE_HOME` are the archive.
