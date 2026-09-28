@@ -1,7 +1,7 @@
 # VibeGod plugin (vibe-god-plugin)
 
 Mistral Vibe plugin that surfaces **usage tracking inside the Vibe TUI**,
-powered by [`vibe-god-cli`](https://github.com/edjubert/vibe-god-cli).
+powered by `vibe-god-cli` (edjubert/vibe-god-cli, private repo).
 
 Two integration points, following the Agent Plugins 1.0 format:
 
