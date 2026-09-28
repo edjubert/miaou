@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Charts
 
 @main
 struct VibeGodApp: App {
@@ -40,67 +41,131 @@ struct MenuContent: View {
                 Text("Is vibe-god-cli installed and in PATH?")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-            } else {
-                budgetSection
+            } else if let dashboard = model.dashboard {
+                budgetSection(dashboard)
                 Divider()
-                if let today = model.today {
-                    todaySection(today)
+                todaySection(dashboard)
+                if !dashboard.liveSessions.isEmpty {
                     Divider()
+                    liveSection(dashboard)
                 }
+                Divider()
+                dailyChart(dashboard)
+                if !dashboard.projects.isEmpty {
+                    Divider()
+                    projectsSection(dashboard)
+                }
+                Divider()
                 commandsSection
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
             }
             Divider()
-            Button("Refresh") { model.refresh() }
-                .keyboardShortcut("r")
-            Text(refreshedAt)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .frame(minWidth: 260)
-    }
-
-    private var budgetSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let budget = model.budget {
-                Text("Month \(budget.month)")
-                    .font(.headline)
-                if let used = budget.usedUsd, let effective = budget.effectiveUsd {
-                    let pct = effective > 0 ? used / effective * 100 : 0
-                    ProgressView(value: min(pct, 100), total: 100)
-                        .tint(budget.over ? Color.red : (budget.inOverageUsd != nil ? Color.orange : Color.accentColor))
-                    Text(String(format: "$%.2f used of $%.2f (%.1f%%)", used, effective, pct))
-                        .font(.callout)
-                } else {
-                    Text("\(budget.usedRequests) requests — \(formatTokens(Double(budget.usedTokens))) tokens")
-                        .font(.callout)
-                }
-                if let over = budget.inOverageUsd {
-                    Text(String(format: "In PAYG overage: $%.2f beyond the envelope", over))
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-                if let over = budget.overLimitUsd {
-                    Text(String(format: "Over the ceiling by $%.2f", over))
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                if !budget.budget.overageAllowed {
-                    Text("Overage not allowed")
+            HStack {
+                Button("Refresh") { model.refresh() }
+                    .keyboardShortcut("r")
+                Spacer()
+                if let refreshed = model.lastRefresh {
+                    Text(refreshed.formatted(date: .omitted, time: .standard))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+        .padding(12)
+        .frame(minWidth: 300)
+        .onAppear { model.refresh() }
     }
 
-    private func todaySection(_ today: TodayReport) -> some View {
+    private func budgetSection(_ dashboard: DashboardReport) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let status = dashboard.budgetStatus
+            Text("Month \(status.month)")
+                .font(.headline)
+            if let used = status.usedUsd, let effective = status.budget.effectiveUsd, effective > 0 {
+                let pct = used / effective * 100
+                ProgressView(value: min(pct, 100), total: 100)
+                    .tint(overTint(dashboard))
+                Text(String(format: "$%.2f used of $%.2f (%.1f%%)", used, effective, pct))
+                    .font(.callout)
+            } else {
+                Text("\(status.usedRequests) requests, \(formatTokens(Double(status.usedTokens))) tokens this month")
+                    .font(.callout)
+            }
+            if let over = dashboard.budgetStatus.usedUsd,
+               let envelope = status.budget.monthlyUsd,
+               over > envelope {
+                Text(status.budget.overageAllowed
+                     ? String(format: "In PAYG overage: $%.2f beyond the envelope", over - envelope)
+                     : String(format: "Over the envelope by $%.2f", over - envelope))
+                    .font(.caption)
+                    .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
+            }
+        }
+    }
+
+    private func todaySection(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Today").font(.headline)
-            Text("\(today.totals.requests) requests — \(formatTokens(Double(today.totals.totalTokens))) tokens")
+            let t = dashboard.todayTotals
+            Text("\(t.requests) requests, \(formatTokens(Double(t.totalTokens))) tokens")
                 .font(.callout)
-            if let cost = today.totals.costUsd {
+            if let cost = t.costUsd {
                 Text(String(format: "$%.4f", cost)).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func liveSection(_ dashboard: DashboardReport) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(.green)
+                .frame(width: 8, height: 8)
+            Text("Active session")
+                .font(.callout)
+            Spacer()
+            Text(dashboard.liveSessions[0].id.prefix(8))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func dailyChart(_ dashboard: DashboardReport) -> some View {
+        let days = dashboard.daily.suffix(14)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Daily usage (tokens, last 14 days)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart(days, id: \.key) { row in
+                BarMark(
+                    x: .value("Day", String(row.key.suffix(5))),
+                    y: .value("Tokens", row.totalTokens)
+                )
+                .foregroundStyle(Color.accentColor.opacity(0.85))
+            }
+            .chartXAxis(.hidden)
+            .frame(height: 70)
+        }
+    }
+
+    private func projectsSection(_ dashboard: DashboardReport) -> some View {
+        let top = dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }.prefix(5)
+        let maxTokens = top.map { $0.totalTokens }.max() ?? 1
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Projects").font(.headline)
+            ForEach(Array(top), id: \.key) { row in
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack {
+                        Text(row.key).font(.caption)
+                        Spacer()
+                        Text("\(row.requests) req, \(formatTokens(Double(row.totalTokens))) tok")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: Double(row.totalTokens), total: Double(max(maxTokens, 1)))
+                        .frame(height: 4)
+                }
             }
         }
     }
@@ -114,8 +179,12 @@ struct MenuContent: View {
         }
     }
 
-    private var refreshedAt: String {
-        "Refreshed at " + Date.now.formatted(date: .omitted, time: .standard)
+    private func overTint(_ dashboard: DashboardReport) -> Color {
+        let status = dashboard.budgetStatus
+        guard let used = status.usedUsd else { return .accentColor }
+        if let effective = status.budget.effectiveUsd, used > effective { return .red }
+        if let envelope = status.budget.monthlyUsd, used > envelope { return .orange }
+        return .accentColor
     }
 
     private func run(_ command: String) {
