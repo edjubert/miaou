@@ -58,6 +58,15 @@ enum Command {
     Projects,
     /// Show the plan type from Vibe's local whoami cache.
     Plan,
+    /// Month-to-date usage against the plan budget (see README).
+    Budget {
+        /// Write a template config file to the config path and exit.
+        #[arg(long)]
+        init: bool,
+        /// Config file overriding the default (~/.config/vibe-god/config.toml).
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
     /// Per-session breakdown.
     Sessions,
     /// Raw usage events.
@@ -190,6 +199,134 @@ fn main() {
                 }
             }
         }
+        Command::Budget { init, config } => {
+            let config_path = config
+                .clone()
+                .unwrap_or_else(vibe_god::budget::default_config_path);
+            if init {
+                if config_path.exists() {
+                    eprintln!("config already exists: {}", config_path.display());
+                } else {
+                    let plan = vibe_god::plan::read_cached(&vibe_home);
+                    let template = budget_template(plan.as_ref());
+                    if let Some(parent) = config_path.parent() {
+                        std::fs::create_dir_all(parent).ok();
+                    }
+                    match std::fs::write(&config_path, &template) {
+                        Ok(()) => println!("wrote {}", config_path.display()),
+                        Err(e) => eprintln!("cannot write {}: {e}", config_path.display()),
+                    }
+                }
+                return;
+            }
+
+            // Budget source: config file wins, then plan defaults.
+            let from_file = vibe_god::budget::Budget::load(&config_path);
+            let plan = vibe_god::plan::read_cached(&vibe_home);
+            let configured = from_file.monthly_usd.is_some()
+                || from_file.overage_usd.is_some()
+                || from_file.monthly_tokens.is_some();
+            let budget = if configured {
+                from_file
+            } else {
+                plan.as_ref()
+                    .and_then(vibe_god::budget::Budget::defaults_for_plan)
+                    .unwrap_or(from_file)
+            };
+
+            // Month-to-date usage.
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            let current_month = vibe_god::dates::local_ym(now_ms);
+            let (sessions, price_of, _) = render(false);
+            let mut mtd = vibe_god::Totals::default();
+            for s in &sessions {
+                let events: Vec<&vibe_god::UsageEvent> = s
+                    .events
+                    .iter()
+                    .filter(|e| vibe_god::dates::local_ym(e.timestamp_ms) == current_month)
+                    .collect();
+                mtd.add(&vibe_god::Totals::from_events(events.into_iter()));
+            }
+            let used_usd = price_of(&mtd);
+
+            let status = vibe_god::budget::BudgetStatus::evaluate(
+                &current_month,
+                used_usd,
+                mtd.total_tokens,
+                mtd.requests,
+                budget.clone(),
+            );
+
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "month": status.month,
+                        "used_usd": status.used_usd,
+                        "used_tokens": status.used_tokens,
+                        "used_requests": status.used_requests,
+                        "budget": budget,
+                        "effective_usd": budget.effective_usd(),
+                        "remaining_usd": status.remaining_usd(),
+                        "in_overage_usd": status.in_overage_usd(),
+                        "over_limit_usd": status.over_limit_usd(),
+                        "over": status.over(),
+                    })
+                );
+            } else if budget.monthly_usd.is_none() && budget.monthly_tokens.is_none() {
+                println!(
+                    "no budget configured — create one with `vibe-god budget --init` ({})",
+                    config_path.display()
+                );
+            } else {
+                println!("Month {} — plan: {}", status.month, plan.as_ref().map(|p| p.describe()).unwrap_or_else(|| "unknown".into()));
+                println!(
+                    "usage: {} requests, {} tokens",
+                    status.used_requests, status.used_tokens
+                );
+                if budget.monthly_usd.is_some() {
+                    match (status.used_usd, budget.effective_usd()) {
+                        (Some(used), Some(eff)) => {
+                            println!(
+                                "cost:   ${used:.2} / ${eff:.2} ({:.1}%)",
+                                status.pct_usd().unwrap_or(0.0) * 100.0
+                            );
+                            if let Some(over) = status.in_overage_usd() {
+                                println!("  in overage (PAYG): ${over:.2} beyond the envelope");
+                            }
+                            if let Some(over) = status.over_limit_usd() {
+                                println!("  OVER by ${over:.2}");
+                            } else if let Some(remaining) = status.remaining_usd() {
+                                println!("  remaining: ${remaining:.2}");
+                            }
+                        }
+                        _ => {
+                            println!(
+                                "cost:   n/a — add input_price/output_price to the model entry in {}",
+                                vibe_home.join("config.toml").display()
+                            );
+                        }
+                    }
+                } else {
+                    println!("cost:   n/a (no price configured for the model)");
+                }
+                if let Some(token_ceiling) = budget.monthly_tokens {
+                    println!(
+                        "tokens: {} / {token_ceiling} ({:.1}%){}",
+                        status.used_tokens,
+                        status.pct_tokens().unwrap_or(0.0) * 100.0,
+                        status.over_limit_tokens().map(|o| format!(" — OVER by {o}")).unwrap_or_default()
+                    );
+                }
+                println!(
+                    "overage: {}",
+                    if budget.overage_allowed { "allowed (PAYG)" } else { "not allowed" }
+                );
+            }
+        }
         Command::Plan => {
             match vibe_god::plan::read_cached(&vibe_home) {
                 Some(plan) => {
@@ -299,6 +436,37 @@ fn main() {
             }
         }
     }
+}
+
+fn budget_template(plan: Option<&vibe_god::plan::PlanInfo>) -> String {
+    let defaults = plan.and_then(vibe_god::budget::Budget::defaults_for_plan);
+    let line = |comment: &str, key: &str, value: Option<String>| match value {
+        Some(v) => format!("{key} = {v}"),
+        None => format!("# {comment}\n# {key} = 0.0"),
+    };
+    format!(
+        r#"# vibe-god budget configuration.
+# Values here override the hardcoded plan defaults.
+# Cost estimation also needs model prices in Vibe's config.toml
+# ([[models]] input_price / output_price / cached_input_price).
+
+[budget]
+# Plan envelope for the month, USD of API-equivalent usage.
+{monthly_usd}
+
+# Extra allowance consumed only when overage_allowed is true (PAYG credits).
+{overage_usd}
+
+# Whether usage beyond the envelope is permitted at all.
+overage_allowed = {overage_allowed}
+
+# Optional token ceiling (used when cost estimation is not available).
+# monthly_tokens = 50_000_000
+"#,
+        monthly_usd = line("No plan default found; set your envelope.", "monthly_usd", defaults.as_ref().and_then(|b| b.monthly_usd).map(|v| v.to_string())),
+        overage_usd = line("No overage allowance by default.", "overage_usd", defaults.as_ref().and_then(|b| b.overage_usd).map(|v| v.to_string())),
+        overage_allowed = defaults.map(|b| b.overage_allowed).unwrap_or(true),
+    )
 }
 
 fn priced(mut rows: Vec<Row>, price_of: &impl Fn(&Totals) -> Option<f64>) -> Vec<Row> {

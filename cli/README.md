@@ -36,6 +36,7 @@ vibe-god daily [--days N]     # per-day breakdown
 vibe-god monthly [--months N] # per-month breakdown (each month starts at zero)
 vibe-god projects             # per-project breakdown (session cwd basename)
 vibe-god plan                 # plan type from Vibe's whoami cache
+vibe-god budget [--init]      # month-to-date usage vs plan budget
 vibe-god sessions             # per-session breakdown
 vibe-god events               # raw events (one line per model call)
 vibe-god watch [--interval S] # re-scan and print a line on change
@@ -67,6 +68,32 @@ maintains for its own `/whoami` command (TTL ~6h, refreshed by Vibe). No
 network call, no credentials. The plan type vocabulary (`api` / `chat` /
 `mistral_code`) matches Vibe's `AccountPlanKind`. Run `/whoami` in Vibe once
 if the cache does not exist yet. `summary` also shows the plan.
+
+## Budget
+
+`vibe-god budget` compares month-to-date usage against a monthly envelope.
+
+Threshold resolution order:
+
+1. `~/.config/vibe-god/config.toml` (create with `vibe-god budget --init`,
+   or point at another file with `--config PATH`) — always wins;
+2. hardcoded plan defaults deduced from the whoami cache (Pro/INDIVIDUAL:
+   $255/month of Vibe usage — an observed value, not an official limit).
+
+```toml
+[budget]
+monthly_usd = 255.0    # plan envelope
+overage_usd = 50.0      # extra PAYG allowance, only granted when:
+overage_allowed = true # usage beyond the envelope is permitted
+# monthly_tokens = 50_000_000  # optional token ceiling
+```
+
+The effective ceiling is `monthly_usd + overage_usd` when `overage_allowed`
+is true, else `monthly_usd`. The command reports the used share, remaining
+amount, whether usage sits in the overage allowance (PAYG) or beyond the
+effective ceiling. Cost tracking requires model prices in Vibe's
+`config.toml` (`[[models]] input_price`/`output_price`); without prices the
+token ceiling applies instead.
 
 ## Monthly reset semantics
 
