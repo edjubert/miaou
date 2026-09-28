@@ -80,6 +80,12 @@ enum Command {
 }
 
 fn main() {
+    // Die silently on SIGPIPE (e.g. `vibe-god events | head`), like cat/grep.
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+
     let cli = Cli::parse();
     let vibe_home = cli
         .vibe_home
@@ -141,8 +147,10 @@ fn main() {
                 );
                 print_totals(&grand);
                 println!("\nPer day:");
-                for row in vibe_god::aggregate_daily(&sessions) {
-                    print_row(&row, &price_of);
+                let daily = vibe_god::aggregate_daily(&sessions);
+                let w = key_width(3, &daily);
+                for row in &daily {
+                    print_row(row, w, &price_of);
                 }
             }
         }
@@ -177,9 +185,10 @@ fn main() {
             if json {
                 println!("{}", serde_json::to_string_pretty(&daily).unwrap());
             } else {
-                println!("day             sessions  requests     input   cached    output     total      cost");
+                let w = key_width(3, &daily);
+                println!("{:<w$} sessions  requests     input   cached    output     total      cost", "day");
                 for row in &daily {
-                    print_row(row, &price_of);
+                    print_row(row, w, &price_of);
                 }
             }
         }
@@ -193,9 +202,10 @@ fn main() {
             if json {
                 println!("{}", serde_json::to_string_pretty(&monthly).unwrap());
             } else {
-                println!("month   sessions  requests     input   cached    output     total      cost");
+                let w = key_width(5, &monthly);
+                println!("{:<w$} sessions  requests     input   cached    output     total      cost", "month");
                 for row in &monthly {
-                    print_row(row, &price_of);
+                    print_row(row, w, &price_of);
                 }
             }
         }
@@ -357,9 +367,10 @@ fn main() {
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());
             } else {
-                println!("project         sessions  requests     input   cached    output     total      cost");
+                let w = key_width(7, &rows);
+                println!("{:<w$} sessions  requests     input   cached    output     total      cost", "project");
                 for row in &rows {
-                    print_row(row, &price_of);
+                    print_row(row, w, &price_of);
                 }
             }
         }
@@ -372,11 +383,20 @@ fn main() {
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());
             } else {
-                println!("session   project             requests     input   cached    output     total      cost");
+                let pw = rows
+                    .iter()
+                    .map(|r| r.project.len())
+                    .max()
+                    .unwrap_or(0)
+                    .max(7);
+                println!(
+                    "{:<9} {:<pw$} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
+                    "session", "project", "req", "input", "cached", "output", "total", "cost"
+                );
                 for r in &rows {
-                    let name = if r.subagent { format!("{}*{}", r.short_id, "") } else { r.short_id.clone() };
+                    let name = if r.subagent { format!("{}*", r.short_id) } else { r.short_id.clone() };
                     println!(
-                        "{:<9} {:<18} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
+                        "{:<9} {:<pw$} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
                         name,
                         r.project,
                         r.totals.requests,
@@ -488,10 +508,10 @@ fn print_totals(t: &Totals) {
     );
 }
 
-fn print_row(row: &Row, price_of: &impl Fn(&Totals) -> Option<f64>) {
+fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<f64>) {
     let cost = price_of(&row.totals);
     println!(
-        "{:<14} {:<8} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
+        "{:<key_width$} {:<8} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
         row.key,
         row.sessions,
         row.totals.requests,
@@ -501,6 +521,15 @@ fn print_row(row: &Row, price_of: &impl Fn(&Totals) -> Option<f64>) {
         row.totals.total_tokens,
         cost_str(cost),
     );
+}
+
+/// Column width for a key: at least the header length, at most the longest key.
+fn key_width(header_len: usize, rows: &[Row]) -> usize {
+    rows.iter()
+        .map(|r| r.key.len())
+        .max()
+        .unwrap_or(0)
+        .max(header_len)
 }
 
 fn cost_str(cost: Option<f64>) -> String {
