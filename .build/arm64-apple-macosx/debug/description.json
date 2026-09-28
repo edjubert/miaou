@@ -1,0 +1,676 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.xctest/Contents/MacOS/VibeGodPackageTests",
+      "packagePath" : "/Users/frx43946/workspace/edjubert/VibeGod",
+      "productName" : "VibeGodPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.VibeGod-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/sources",
+      "importPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "VibeGod",
+      "moduleOutputPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGod.swiftmodule",
+      "objects" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "VibeGod_main",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "vibegod"
+      ],
+      "outputFileMapPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGod.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift",
+        "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift",
+        "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
+      ],
+      "tempsPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VibeGodPackageTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/sources",
+      "importPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGodTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VibeGodPackageTests",
+      "moduleOutputPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGodPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/include/VibeGodPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "vibegod"
+      ],
+      "outputFileMapPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGodPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VibeGodTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/sources",
+      "importPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGodTests/DecodeTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VibeGodTests",
+      "moduleOutputPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGodTests.swiftmodule",
+      "objects" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "vibegod"
+      ],
+      "outputFileMapPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules/VibeGodTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGodTests/DecodeTests.swift"
+      ],
+      "tempsPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "VibeGod" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "VibeGod",
+      "-package-name",
+      "vibegod",
+      "-c",
+      "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift",
+      "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift",
+      "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift",
+      "-I",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "VibeGod_main",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "vibegod",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "VibeGodPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "VibeGodPackageTests",
+      "-package-name",
+      "vibegod",
+      "-c",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/include/VibeGodPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "vibegod",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "VibeGodTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "VibeGodTests",
+      "-package-name",
+      "vibegod",
+      "-c",
+      "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGodTests/DecodeTests.swift",
+      "-I",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "vibegod",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "VibeGod" : [
+
+    ],
+    "VibeGodPackageTests" : [
+      "VibeGodTests",
+      "VibeGod"
+    ],
+    "VibeGodTests" : [
+      "VibeGod"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod-entitlement.plist"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/sources"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.product/Objects.LinkFileList"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/sources"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/DecodeTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGodTests/DecodeTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGodTests.build/sources"
+    },
+    "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/primary.swiftdeps"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.dia"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.dia"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.dia"
+  }
+}

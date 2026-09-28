@@ -40,5 +40,19 @@ as-is.
 
 ## Status
 
-Scaffold. The backend (`vibe-god-cli`) is functional and tested; frontend
-work starts here.
+Milestone 1: menu bar app (Swift Package, `MenuBarExtra`) showing the
+month-to-date budget, today's usage and quick commands, polling
+`vibe-god-cli` every 60 s.
+
+```bash
+swift build && swift run
+```
+
+Requires `vibe-god-cli` in PATH (`cargo install --git
+https://github.com/edjubert/vibe-god-cli`). Without model prices
+configured, the bar shows month tokens instead of a cost percentage.
+
+Structure: `Sources/VibeGod` (app + CLI bridge), `Sources/VibeGodTests`
+(decode tests against vibe-god-cli JSON). No `.xcodeproj` — the package can
+be adopted into an Xcode app bundle later for login-at-startup and
+notarization.
