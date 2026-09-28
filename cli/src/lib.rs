@@ -10,6 +10,7 @@
 
 pub mod aggregate;
 pub mod budget;
+pub mod calibrate;
 pub mod dates;
 pub mod journal;
 pub mod plan;

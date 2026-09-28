@@ -5,6 +5,25 @@ use vibe_god_cli::dates::{local_time, local_ymd, parse_local_date_end, parse_loc
 use vibe_god_cli::prices::VibeConfig;
 use vibe_god_cli::{collect_all, default_vibe_home, Totals};
 
+#[derive(Subcommand)]
+enum CalibrateAction {
+    /// Record one observation: a Console cost at a period end (UTC).
+    Add {
+        /// Console period end, UTC (e.g. "2026-09-28T09:36:00Z").
+        #[arg(short = 'a', long)]
+        at: String,
+        /// Cost shown by the Console for the month, in its display currency.
+        #[arg(short = 'c', long)]
+        cost: f64,
+    },
+    /// Show the calibration ledger.
+    List,
+    /// Least-squares fit of the ledger into per-million prices.
+    Solve,
+    /// Delete the calibration ledger.
+    Clear,
+}
+
 #[derive(Parser)]
 #[command(
     name = "vibe-god-cli",
@@ -60,6 +79,11 @@ enum Command {
     Dashboard,
     /// Show the plan type from Vibe's local whoami cache.
     Plan,
+    /// Calibrate per-token prices against Mistral Console costs.
+    Calibrate {
+        #[command(subcommand)]
+        action: CalibrateAction,
+    },
     /// Month-to-date usage against the plan budget (see README).
     Budget {
         /// Write a template config file to the config path and exit.
@@ -372,6 +396,85 @@ fn main() {
                     "overage: {}",
                     if budget.overage_allowed { "allowed (PAYG)" } else { "not allowed" }
                 );
+            }
+        }
+        Command::Calibrate { action } => {
+            let ledger = vibe_god_cli::budget::default_config_path()
+                .parent()
+                .map(|p| p.join("calibration.toml"))
+                .unwrap_or_else(|| PathBuf::from("calibration.toml"));
+            match action {
+                CalibrateAction::Add { at, cost } => {
+                    let parsed = chrono::DateTime::parse_from_rfc3339(&at)
+                        .map_err(|e| {
+                            eprintln!("invalid --at (expect RFC3339 UTC, e.g. 2026-09-28T09:36:00Z): {e}");
+                            std::process::exit(2);
+                        })
+                        .unwrap();
+                    let at_ms = parsed.timestamp_millis().max(0) as u64;
+                    let sessions = collect_all(&vibe_home);
+                    let mut observation = vibe_god_cli::calibrate::month_tokens_at(&sessions, at_ms);
+                    observation.cost = cost;
+                    vibe_god_cli::calibrate::append_ledger(&ledger, &observation).unwrap();
+                    println!(
+                        "recorded observation at {at}: cost {cost}, {} input / {} cached / {} output tokens (UTC month {})",
+                        observation.input_tokens,
+                        observation.cached_input_tokens,
+                        observation.output_tokens,
+                        vibe_god_cli::dates::utc_ym(at_ms)
+                    );
+                    let count = vibe_god_cli::calibrate::load_ledger(&ledger).len();
+                    if count < 4 {
+                        println!("ledger has {count} observation(s); 4+ (3 deltas with varied token mixes) are needed to solve");
+                    }
+                }
+                CalibrateAction::List => {
+                    let all = vibe_god_cli::calibrate::load_ledger(&ledger);
+                    if all.is_empty() {
+                        println!("ledger is empty: {}", ledger.display());
+                    }
+                    for o in &all {
+                        println!(
+                            "{}  cost={:<10.4}  in={:<9} cached={:<9} out={:<7}",
+                            chrono::DateTime::from_timestamp((o.at_ms / 1000) as i64, 0)
+                                .map(|d| d.to_rfc3339())
+                                .unwrap_or_default(),
+                            o.cost,
+                            o.input_tokens,
+                            o.cached_input_tokens,
+                            o.output_tokens
+                        );
+                    }
+                }
+                CalibrateAction::Solve => {
+                    let all = vibe_god_cli::calibrate::load_ledger(&ledger);
+                    match vibe_god_cli::calibrate::solve(&all) {
+                        Some(s) => {
+                            println!("fitted over {} observations (prices in observation currency, per million tokens):", all.len());
+                            println!("input_price         = {:.4}", s.input_price);
+                            println!("cached_input_price  = {:.4}", s.cached_input_price);
+                            println!("output_price        = {:.4}", s.output_price);
+                            println!("rms error            = {:.6}", s.rms);
+                            for (i, r) in s.residuals.iter().enumerate() {
+                                println!("  obs {i}: residual {r:+.6}");
+                            }
+                            println!("\nPaste into the [[models]] entry in ~/.vibe/config.toml.");
+                        }
+                        None => {
+                            if all.len() < 4 {
+                                eprintln!("need at least 4 observations (3 deltas) to solve, have {}", all.len());
+                            } else {
+                                eprintln!("observations are degenerate: token mixes too similar to separate input/cached/output prices");
+                            }
+                        }
+                    }
+                }
+                CalibrateAction::Clear => {
+                    match std::fs::remove_file(&ledger) {
+                        Ok(()) => println!("deleted {}", ledger.display()),
+                        Err(_) => println!("no ledger at {}", ledger.display()),
+                    }
+                }
             }
         }
         Command::Plan => {

@@ -44,6 +44,16 @@ pub fn local_ym(ms: u64) -> String {
         .unwrap_or_default()
 }
 
+/// UTC calendar month of an epoch-ms timestamp, `YYYY-MM`. The Mistral
+/// Console reports usage in UTC.
+pub fn utc_ym(ms: u64) -> String {
+    chrono::Utc
+        .timestamp_millis_opt(ms as i64)
+        .single()
+        .map(|d| d.format("%Y-%m").to_string())
+        .unwrap_or_default()
+}
+
 /// Local date and time of an epoch-ms timestamp.
 pub fn local_time(ms: u64) -> String {
     chrono::Local::now()

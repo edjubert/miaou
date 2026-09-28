@@ -114,6 +114,45 @@ effective ceiling. Cost tracking requires model prices in Vibe's
 `config.toml` (`[[models]] input_price`/`output_price`); without prices the
 token ceiling applies instead.
 
+## Calibrating per-token prices
+
+Mistral does not publish the hosted rate for every model (verified for
+`zai-glm-5-3` in September 2026). Two tracks:
+
+1. **Lookup**: Console pricing page or invoice line items. Authoritative
+   when available.
+2. **Calibration** against the Console usage page, using the `calibrate`
+   subcommands:
+
+```
+vibe-god-cli calibrate add --at "2026-09-28T09:36:00Z" --cost 2.36
+vibe-god-cli calibrate list
+vibe-god-cli calibrate solve
+```
+
+Each observation pairs a Console month cost with the local token mix at the
+same instant. The fit runs on **deltas between consecutive observations**
+(`cost_i - cost_{i-1} = d_in*A + d_cached*B + d_out*C`), because the month
+total includes usage that never touched this machine (web, mobile, remote
+agents, pruned sessions) and would bias an absolute fit. Protocol:
+
+- Take the `--at` timestamp from the Console period end (shown in UTC),
+  not the wall clock: it is the exact data freshness boundary.
+- Keep the display currency identical across observations; the solved
+  prices come out in that currency.
+- Ensure all Vibe usage between two observations ran on this machine
+  (no web/mobile/other machines).
+- Collect 4+ observations with varied mixes (some cache-heavy turns,
+  some fresh contexts) so the system separates input, cached and output
+  prices. Identical mixes are rejected as degenerate.
+- `solve` prints the prices to paste into the `[[models]] entry
+  (`input_price`, `cached_input_price`, `output_price`), with residuals
+  and RMS as a sanity check.
+
+The tracker bills with the convention "cached tokens are a discounted part
+of input": `cost = (in - cached) * input_price + cached * cached_input_price
++ out * output_price`.
+
 ## Monthly reset semantics
 
 There is no deletion or explicit reset: `monthly` buckets usage by local
