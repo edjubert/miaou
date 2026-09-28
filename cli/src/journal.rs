@@ -229,7 +229,7 @@ mod tests {
             }),
         );
 
-        let dir = std::env::temp_dir().join(format!("vibe-god-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("vibe-god-cli-test-{}", std::process::id()));
         let journal = dir.join("journal");
         std::fs::create_dir_all(&journal).unwrap();
         std::fs::write(journal.join("0000000000000005.jsonl"), format!("{completion}\n{echo}\n")).unwrap();

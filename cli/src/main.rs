@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use vibe_god::aggregate::{Row, SessionRow};
-use vibe_god::dates::{local_time, local_ymd, parse_local_date_end, parse_local_date_start};
-use vibe_god::prices::VibeConfig;
-use vibe_god::{collect_all, default_vibe_home, Totals};
+use vibe_god_cli::aggregate::{Row, SessionRow};
+use vibe_god_cli::dates::{local_time, local_ymd, parse_local_date_end, parse_local_date_start};
+use vibe_god_cli::prices::VibeConfig;
+use vibe_god_cli::{collect_all, default_vibe_home, Totals};
 
 #[derive(Parser)]
 #[command(
-    name = "vibe-god",
+    name = "vibe-god-cli",
     about = "Track Mistral Vibe CLI token usage and estimated cost from local session journals",
     version
 )]
@@ -63,7 +63,7 @@ enum Command {
         /// Write a template config file to the config path and exit.
         #[arg(long)]
         init: bool,
-        /// Config file overriding the default (~/.config/vibe-god/config.toml).
+        /// Config file overriding the default (~/.config/vibe-god-cli/config.toml).
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -80,7 +80,7 @@ enum Command {
 }
 
 fn main() {
-    // Die silently on SIGPIPE (e.g. `vibe-god events | head`), like cat/grep.
+    // Die silently on SIGPIPE (e.g. `vibe-god-cli events | head`), like cat/grep.
     #[cfg(unix)]
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
@@ -125,20 +125,20 @@ fn main() {
             }
             grand.cost_usd = price_of(&grand);
             if json {
-                let daily = priced(vibe_god::aggregate_daily(&sessions), &price_of);
+                let daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
                 println!(
                     "{}",
                     serde_json::json!({
                         "sessions": sessions_count,
                         "totals": grand,
                         "model": price.as_ref().map(|p| p.name.clone()),
-                        "plan": vibe_god::plan::read_cached(&vibe_home),
+                        "plan": vibe_god_cli::plan::read_cached(&vibe_home),
                         "daily": daily,
                     })
                 );
             } else {
                 let model = price.as_ref().map(|p| p.name.clone()).unwrap_or_default();
-                let plan = vibe_god::plan::read_cached(&vibe_home);
+                let plan = vibe_god_cli::plan::read_cached(&vibe_home);
                 println!(
                     "Vibe usage — {} sessions (model: {}, plan: {})",
                     sessions_count,
@@ -147,7 +147,7 @@ fn main() {
                 );
                 print_totals(&grand);
                 println!("\nPer day:");
-                let daily = vibe_god::aggregate_daily(&sessions);
+                let daily = vibe_god_cli::aggregate_daily(&sessions);
                 let w = key_width(3, &daily);
                 for row in &daily {
                     print_row(row, w, &price_of);
@@ -177,7 +177,7 @@ fn main() {
         }
         Command::Daily { days } => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut daily = priced(vibe_god::aggregate_daily(&sessions), &price_of);
+            let mut daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
             if let Some(n) = days {
                 let len = daily.len();
                 daily = daily.into_iter().skip(len.saturating_sub(n)).collect();
@@ -194,7 +194,7 @@ fn main() {
         }
         Command::Monthly { months } => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut monthly = priced(vibe_god::aggregate_monthly(&sessions), &price_of);
+            let mut monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
             if let Some(n) = months {
                 let len = monthly.len();
                 monthly = monthly.into_iter().skip(len.saturating_sub(n)).collect();
@@ -212,12 +212,12 @@ fn main() {
         Command::Budget { init, config } => {
             let config_path = config
                 .clone()
-                .unwrap_or_else(vibe_god::budget::default_config_path);
+                .unwrap_or_else(vibe_god_cli::budget::default_config_path);
             if init {
                 if config_path.exists() {
                     eprintln!("config already exists: {}", config_path.display());
                 } else {
-                    let plan = vibe_god::plan::read_cached(&vibe_home);
+                    let plan = vibe_god_cli::plan::read_cached(&vibe_home);
                     let template = budget_template(plan.as_ref());
                     if let Some(parent) = config_path.parent() {
                         std::fs::create_dir_all(parent).ok();
@@ -231,8 +231,8 @@ fn main() {
             }
 
             // Budget source: config file wins, then plan defaults.
-            let from_file = vibe_god::budget::Budget::load(&config_path);
-            let plan = vibe_god::plan::read_cached(&vibe_home);
+            let from_file = vibe_god_cli::budget::Budget::load(&config_path);
+            let plan = vibe_god_cli::plan::read_cached(&vibe_home);
             let configured = from_file.monthly_usd.is_some()
                 || from_file.overage_usd.is_some()
                 || from_file.monthly_tokens.is_some();
@@ -240,7 +240,7 @@ fn main() {
                 from_file
             } else {
                 plan.as_ref()
-                    .and_then(vibe_god::budget::Budget::defaults_for_plan)
+                    .and_then(vibe_god_cli::budget::Budget::defaults_for_plan)
                     .unwrap_or(from_file)
             };
 
@@ -249,20 +249,20 @@ fn main() {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as u64)
                 .unwrap_or(0);
-            let current_month = vibe_god::dates::local_ym(now_ms);
+            let current_month = vibe_god_cli::dates::local_ym(now_ms);
             let (sessions, price_of, _) = render(false);
-            let mut mtd = vibe_god::Totals::default();
+            let mut mtd = vibe_god_cli::Totals::default();
             for s in &sessions {
-                let events: Vec<&vibe_god::UsageEvent> = s
+                let events: Vec<&vibe_god_cli::UsageEvent> = s
                     .events
                     .iter()
-                    .filter(|e| vibe_god::dates::local_ym(e.timestamp_ms) == current_month)
+                    .filter(|e| vibe_god_cli::dates::local_ym(e.timestamp_ms) == current_month)
                     .collect();
-                mtd.add(&vibe_god::Totals::from_events(events.into_iter()));
+                mtd.add(&vibe_god_cli::Totals::from_events(events.into_iter()));
             }
             let used_usd = price_of(&mtd);
 
-            let status = vibe_god::budget::BudgetStatus::evaluate(
+            let status = vibe_god_cli::budget::BudgetStatus::evaluate(
                 &current_month,
                 used_usd,
                 mtd.total_tokens,
@@ -288,7 +288,7 @@ fn main() {
                 );
             } else if budget.monthly_usd.is_none() && budget.monthly_tokens.is_none() {
                 println!(
-                    "no budget configured — create one with `vibe-god budget --init` ({})",
+                    "no budget configured — create one with `vibe-god-cli budget --init` ({})",
                     config_path.display()
                 );
             } else {
@@ -338,7 +338,7 @@ fn main() {
             }
         }
         Command::Plan => {
-            match vibe_god::plan::read_cached(&vibe_home) {
+            match vibe_god_cli::plan::read_cached(&vibe_home) {
                 Some(plan) => {
                     if cli.json {
                         println!("{}", serde_json::to_string_pretty(&plan).unwrap());
@@ -363,7 +363,7 @@ fn main() {
         }
         Command::Projects => {
             let (sessions, price_of, json) = render(cli.json);
-            let rows = priced(vibe_god::aggregate_by_project(&sessions), &price_of);
+            let rows = priced(vibe_god_cli::aggregate_by_project(&sessions), &price_of);
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());
             } else {
@@ -376,7 +376,7 @@ fn main() {
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut rows: Vec<SessionRow> = vibe_god::aggregate_by_session(&sessions);
+            let mut rows: Vec<SessionRow> = vibe_god_cli::aggregate_by_session(&sessions);
             for r in &mut rows {
                 r.totals.cost_usd = price_of(&r.totals);
             }
@@ -411,10 +411,10 @@ fn main() {
         }
         Command::Events => {
             let (sessions, _, json) = render(cli.json);
-            let mut events: Vec<&vibe_god::UsageEvent> = sessions.iter().flat_map(|s| s.events.iter()).collect();
+            let mut events: Vec<&vibe_god_cli::UsageEvent> = sessions.iter().flat_map(|s| s.events.iter()).collect();
             events.sort_by_key(|e| e.timestamp_ms);
             if json {
-                let owned: Vec<vibe_god::UsageEvent> = events.into_iter().cloned().collect();
+                let owned: Vec<vibe_god_cli::UsageEvent> = events.into_iter().cloned().collect();
                 println!("{}", serde_json::to_string_pretty(&owned).unwrap());
             } else {
                 for e in events {
@@ -458,14 +458,14 @@ fn main() {
     }
 }
 
-fn budget_template(plan: Option<&vibe_god::plan::PlanInfo>) -> String {
-    let defaults = plan.and_then(vibe_god::budget::Budget::defaults_for_plan);
+fn budget_template(plan: Option<&vibe_god_cli::plan::PlanInfo>) -> String {
+    let defaults = plan.and_then(vibe_god_cli::budget::Budget::defaults_for_plan);
     let line = |comment: &str, key: &str, value: Option<String>| match value {
         Some(v) => format!("{key} = {v}"),
         None => format!("# {comment}\n# {key} = 0.0"),
     };
     format!(
-        r#"# vibe-god budget configuration.
+        r#"# vibe-god-cli budget configuration.
 # Values here override the hardcoded plan defaults.
 # Cost estimation also needs model prices in Vibe's config.toml
 # ([[models]] input_price / output_price / cached_input_price).

@@ -1,7 +1,7 @@
 //! Monthly budget: thresholds deduced from the plan type (hardcoded
 //! defaults), overridable from a config file, with optional PAYG overage.
 //!
-//! Config file (TOML), default `~/.config/vibe-god/config.toml`:
+//! Config file (TOML), default `~/.config/vibe-god-cli/config.toml`:
 //!
 //! ```toml
 //! [budget]
@@ -142,14 +142,14 @@ impl BudgetStatus {
     }
 }
 
-/// Default config path: `$XDG_CONFIG_HOME/vibe-god/config.toml`,
-/// else `~/.config/vibe-god/config.toml`.
+/// Default config path: `$XDG_CONFIG_HOME/vibe-god-cli/config.toml`,
+/// else `~/.config/vibe-god-cli/config.toml`.
 pub fn default_config_path() -> std::path::PathBuf {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()) {
-        return std::path::Path::new(&xdg).join("vibe-god").join("config.toml");
+        return std::path::Path::new(&xdg).join("vibe-god-cli").join("config.toml");
     }
     let home = std::env::var_os("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config").join("vibe-god").join("config.toml")
+    std::path::Path::new(&home).join(".config").join("vibe-god-cli").join("config.toml")
 }
 
 #[cfg(test)]
@@ -264,7 +264,7 @@ monthly_tokens = 50_000_000
     fn default_config_path_respects_xdg() {
         // Not isolating env in unit tests: just assert the shape.
         let p = default_config_path();
-        assert!(p.to_string_lossy().contains("vibe-god"));
+        assert!(p.to_string_lossy().contains("vibe-god-cli"));
         assert!(p.to_string_lossy().ends_with("config.toml"));
     }
 }

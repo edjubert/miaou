@@ -1,5 +1,5 @@
 [package]
-name = "vibe-god"
+name = "vibe-god-cli"
 version = "0.1.0"
 edition = "2021"
 description = "Track Mistral Vibe CLI token usage and estimated cost from local session journals"

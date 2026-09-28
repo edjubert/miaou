@@ -2,9 +2,9 @@
 //! journals, aggregate, and estimate cost against a configured price table.
 
 use std::path::Path;
-use vibe_god::aggregate::{aggregate_by_project, aggregate_by_session};
-use vibe_god::prices::VibeConfig;
-use vibe_god::{collect_all, Totals};
+use vibe_god_cli::aggregate::{aggregate_by_project, aggregate_by_session};
+use vibe_god_cli::prices::VibeConfig;
+use vibe_god_cli::{collect_all, Totals};
 
 fn record(sequence: u64, r#type: &str, body: serde_json::Value) -> String {
     serde_json::json!({"type": r#type, "sequence": sequence, "payload": body}).to_string()
@@ -99,7 +99,7 @@ fn end_to_end_collects_and_aggregates() {
     let sessions = collect_all(home.path());
     assert_eq!(sessions.len(), 2);
 
-    let all: Vec<&vibe_god::SessionUsage> = sessions.iter().collect();
+    let all: Vec<&vibe_god_cli::SessionUsage> = sessions.iter().collect();
     let mut grand = Totals::default();
     for s in &all {
         grand.add(&s.totals());

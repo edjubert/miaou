@@ -1,4 +1,4 @@
-# vibe-god
+# vibe-god-cli
 
 Track Mistral Vibe CLI usage from local session journals — tokens, requests and
 estimated cost — in the spirit of [Claude God](https://github.com/Lcharvol/Claude-God),
@@ -6,7 +6,7 @@ but reading only local files (no credentials, no undocumented APIs).
 
 ```
 cargo install --path .
-vibe-god summary
+vibe-god-cli summary
 ```
 
 ## What it reads
@@ -30,16 +30,16 @@ $VIBE_HOME/logs/session/unified/<session-id>/
 ## Commands
 
 ```
-vibe-god summary              # totals + per-day overview
-vibe-god today                # today's totals
-vibe-god daily [--days N]     # per-day breakdown
-vibe-god monthly [--months N] # per-month breakdown (each month starts at zero)
-vibe-god projects             # per-project breakdown (session cwd basename)
-vibe-god plan                 # plan type from Vibe's whoami cache
-vibe-god budget [--init]      # month-to-date usage vs plan budget
-vibe-god sessions             # per-session breakdown
-vibe-god events               # raw events (one line per model call)
-vibe-god watch [--interval S] # re-scan and print a line on change
+vibe-god-cli summary              # totals + per-day overview
+vibe-god-cli today                # today's totals
+vibe-god-cli daily [--days N]     # per-day breakdown
+vibe-god-cli monthly [--months N] # per-month breakdown (each month starts at zero)
+vibe-god-cli projects             # per-project breakdown (session cwd basename)
+vibe-god-cli plan                 # plan type from Vibe's whoami cache
+vibe-god-cli budget [--init]      # month-to-date usage vs plan budget
+vibe-god-cli sessions             # per-session breakdown
+vibe-god-cli events               # raw events (one line per model call)
+vibe-god-cli watch [--interval S] # re-scan and print a line on change
 ```
 
 Global flags: `--json`, `--since 2026-09-01`, `--until 2026-09-30`,
@@ -63,7 +63,7 @@ token anyway.
 
 ## Plan information
 
-`vibe-god plan` reads `~/.vibe/whoami_cache.json`, the local cache Vibe
+`vibe-god-cli plan` reads `~/.vibe/whoami_cache.json`, the local cache Vibe
 maintains for its own `/whoami` command (TTL ~6h, refreshed by Vibe). No
 network call, no credentials. The plan type vocabulary (`api` / `chat` /
 `mistral_code`) matches Vibe's `AccountPlanKind`. Run `/whoami` in Vibe once
@@ -71,11 +71,11 @@ if the cache does not exist yet. `summary` also shows the plan.
 
 ## Budget
 
-`vibe-god budget` compares month-to-date usage against a monthly envelope.
+`vibe-god-cli budget` compares month-to-date usage against a monthly envelope.
 
 Threshold resolution order:
 
-1. `~/.config/vibe-god/config.toml` (create with `vibe-god budget --init`,
+1. `~/.config/vibe-god-cli/config.toml` (create with `vibe-god-cli budget --init`,
    or point at another file with `--config PATH`) — always wins;
 2. hardcoded plan defaults deduced from the whoami cache (Pro/INDIVIDUAL:
    $255/month of Vibe usage — an observed value, not an official limit).
