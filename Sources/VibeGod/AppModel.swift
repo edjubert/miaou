@@ -2,6 +2,61 @@ import Foundation
 import Combine
 import AppKit
 
+/// What the menu bar label shows.
+enum BarMode: String, CaseIterable, Identifiable {
+    case cost
+    case percent
+    case both
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .cost: return "Coût"
+        case .percent: return "Pourcentage"
+        case .both: return "Les deux"
+        }
+    }
+}
+
+/// Menu bar label computation, pure and testable.
+enum BarTitle {
+    static func text(_ mode: BarMode, dashboard: DashboardReport?) -> String {
+        guard let d = dashboard else { return "…" }
+        let status = d.budgetStatus
+        let effective = status.budget.effectiveUsd
+        let used = status.usedUsd
+
+        let pct: String? = used.flatMap { u in
+            effective.flatMap { e in
+                e > 0 ? String(format: "%.0f%%", u / e * 100) : nil
+            }
+        }
+        let cost: String? = used.map { String(format: "%@%.2f", d.currency, $0) }
+        let tokens = formatTokens(Double(status.usedTokens))
+
+        let base: String
+        switch mode {
+        case .percent:
+            base = pct ?? tokens
+        case .cost:
+            base = cost ?? tokens
+        case .both:
+            switch (cost, pct) {
+            case (let c?, let p?):
+                base = "\(c) (\(p))"
+            case (let c?, nil):
+                base = c
+            case (nil, let p?):
+                base = p
+            case (nil, nil):
+                base = tokens
+            }
+        }
+        return d.liveSessions.isEmpty ? base : base + " •"
+    }
+}
+
 /// Polls vibe-god-cli and publishes the values shown in the menu bar.
 final class AppModel: ObservableObject {
     @Published private(set) var dashboard: DashboardReport?
@@ -34,22 +89,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Short label in the menu bar: envelope percentage when cost is
-    /// available, month tokens otherwise. Green dot suffix while a session
-    /// is live.
-    var barTitle: String {
-        let base: String
-        if let dashboard {
-            let status = dashboard.budgetStatus
-            if let used = status.usedUsd, let effective = status.budget.effectiveUsd, effective > 0 {
-                base = String(format: "%.0f%%", used / effective * 100)
-            } else {
-                base = formatTokens(Double(status.usedTokens))
-            }
-        } else {
-            base = "…"
-        }
-        return dashboard?.liveSessions.isEmpty == false ? base + " •" : base
+    /// Short label in the menu bar for the selected display mode.
+    func barTitle(mode: BarMode) -> String {
+        BarTitle.text(mode, dashboard: dashboard)
     }
 
     private static func describe(_ error: Error) -> String {

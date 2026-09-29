@@ -89,7 +89,7 @@ struct DashboardReport: Codable, Equatable {
     let monthly: [PeriodRow]
     let projects: [PeriodRow]
     let sessions: [SessionRow]
-    let active: [ActiveSessionReport]
+    var active: [ActiveSessionReport]
 
     var liveSessions: [ActiveSessionReport] {
         active.filter(\.isLive)

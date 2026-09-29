@@ -80,6 +80,52 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(formatTokens(2_500_000_000), "2.5B")
     }
 
+    private func dashboardFixture(usedUsd: Double?, currency: String = "€") -> DashboardReport {
+        DashboardReport(
+            generatedAtMs: 1,
+            today: "2026-09-29",
+            currentMonth: "2026-09",
+            currency: currency,
+            plan: nil,
+            totals: TotalsReport(requests: 1, inputTokens: 1, outputTokens: 1,
+                                 cachedInputTokens: 0, totalTokens: 2, costUsd: nil),
+            todayTotals: TotalsReport(requests: 1, inputTokens: 1, outputTokens: 1,
+                                     cachedInputTokens: 0, totalTokens: 2, costUsd: nil),
+            monthToDate: TotalsReport(requests: 1, inputTokens: 1, outputTokens: 1,
+                                      cachedInputTokens: 0, totalTokens: 2, costUsd: nil),
+            budgetStatus: BudgetStatusReport(
+                month: "2026-09",
+                usedUsd: usedUsd,
+                usedTokens: 18_000_020,
+                usedRequests: 10,
+                budget: BudgetReport(monthlyUsd: 255.0, overageUsd: nil,
+                                     overageAllowed: true, monthlyTokens: nil)),
+            daily: [], monthly: [], projects: [], sessions: [],
+            active: [])
+    }
+
+    func testBarTitleModes() {
+        // No dashboard yet: loading dots.
+        XCTAssertEqual(BarTitle.text(.percent, dashboard: nil), "…")
+
+        let d = dashboardFixture(usedUsd: 68.75)
+        XCTAssertEqual(BarTitle.text(.percent, dashboard: d), "27%")
+        XCTAssertEqual(BarTitle.text(.cost, dashboard: d), "€68.75")
+        XCTAssertEqual(BarTitle.text(.both, dashboard: d), "€68.75 (27%)")
+
+        // Without cost estimation, every mode falls back to month tokens.
+        let noCost = dashboardFixture(usedUsd: nil)
+        XCTAssertEqual(BarTitle.text(.percent, dashboard: noCost), "18.0M")
+        XCTAssertEqual(BarTitle.text(.cost, dashboard: noCost), "18.0M")
+        XCTAssertEqual(BarTitle.text(.both, dashboard: noCost), "18.0M")
+    }
+
+    func testBarTitleLiveSuffix() {
+        var d = dashboardFixture(usedUsd: 68.75)
+        d.active = [ActiveSessionReport(id: "s", ageMs: 1000)]
+        XCTAssertEqual(BarTitle.text(.percent, dashboard: d), "27% •")
+    }
+
     /// End-to-end contract check against the real binary, when it is in PATH.
     func testLiveCLIDashboardDecodes() throws {
         do {
