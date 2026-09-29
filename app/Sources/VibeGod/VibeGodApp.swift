@@ -87,7 +87,7 @@ struct MenuContent: View {
                 let pct = used / effective * 100
                 ProgressView(value: min(pct, 100), total: 100)
                     .tint(overTint(dashboard))
-                Text(String(format: "$%.2f used of $%.2f (%.1f%%)", used, effective, pct))
+                Text(String(format: "%@%.2f used of %@%.2f (%.1f%%)", dashboard.currency, used, dashboard.currency, effective, pct))
                     .font(.callout)
             } else {
                 Text("\(status.usedRequests) requests, \(formatTokens(Double(status.usedTokens))) tokens this month")
@@ -97,8 +97,8 @@ struct MenuContent: View {
                let envelope = status.budget.monthlyUsd,
                over > envelope {
                 Text(status.budget.overageAllowed
-                     ? String(format: "In PAYG overage: $%.2f beyond the envelope", over - envelope)
-                     : String(format: "Over the envelope by $%.2f", over - envelope))
+                     ? String(format: "In PAYG overage: %@%.2f beyond the envelope", dashboard.currency, over - envelope)
+                     : String(format: "Over the envelope by %@%.2f", dashboard.currency, over - envelope))
                     .font(.caption)
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
             }
@@ -112,7 +112,7 @@ struct MenuContent: View {
             Text("\(t.requests) requests, \(formatTokens(Double(t.totalTokens))) tokens")
                 .font(.callout)
             if let cost = t.costUsd {
-                Text(String(format: "$%.4f", cost)).font(.caption).foregroundStyle(.secondary)
+                Text(String(format: "%@%.4f", dashboard.currency, cost)).font(.caption).foregroundStyle(.secondary)
             }
         }
     }

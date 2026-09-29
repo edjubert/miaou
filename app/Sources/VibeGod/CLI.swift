@@ -78,6 +78,8 @@ struct DashboardReport: Codable, Equatable {
     let generatedAtMs: Int
     let today: String
     let currentMonth: String
+    /// Cost display symbol, from the CLI's [display] currency setting.
+    let currency: String
     let plan: PlanReport?
     let totals: TotalsReport
     let todayTotals: TotalsReport
