@@ -164,18 +164,28 @@ struct MenuContent: View {
     private func dailyChart(_ dashboard: DashboardReport) -> some View {
         let days = dashboard.daily.suffix(14)
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Daily usage (tokens, last 14 days)")
+            Text("Tokens consommés par jour (14 derniers jours)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Chart(days, id: \.key) { row in
                 BarMark(
-                    x: .value("Day", String(row.key.suffix(5))),
+                    x: .value("Jour", String(row.key.suffix(5))),
                     y: .value("Tokens", row.totalTokens)
                 )
                 .foregroundStyle(Color.accentColor.opacity(0.85))
+                .annotation(position: .top) {
+                    Text(formatTokens(Double(row.totalTokens)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .chartXAxis(.hidden)
-            .frame(height: 70)
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisValueLabel()
+                        .font(.caption2)
+                }
+            }
+            .frame(height: 110)
         }
     }
 
