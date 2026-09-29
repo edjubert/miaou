@@ -4,7 +4,7 @@
 use std::path::Path;
 use vibe_god_cli::aggregate::{aggregate_by_project, aggregate_by_session};
 use vibe_god_cli::prices::VibeConfig;
-use vibe_god_cli::{collect_all, Totals};
+use vibe_god_cli::{collect_all_with_archive, SessionUsage, Totals};
 
 fn record(sequence: u64, r#type: &str, body: serde_json::Value) -> String {
     serde_json::json!({"type": r#type, "sequence": sequence, "payload": body}).to_string()
@@ -60,6 +60,11 @@ fn write_session(
     std::fs::write(dir.join("journal").join("0000000000000001.jsonl"), journal).unwrap();
 }
 
+fn collect(home: &std::path::Path) -> Vec<SessionUsage> {
+    let archive = tempfile::tempdir().unwrap();
+    collect_all_with_archive(home, &archive.path().join("events-archive.jsonl"))
+}
+
 fn synthetic_home() -> tempfile::TempDir {
     let tmp = tempfile::tempdir().unwrap();
     let unified = tmp.path().join("logs").join("session").join("unified");
@@ -96,7 +101,7 @@ fn synthetic_home() -> tempfile::TempDir {
 #[test]
 fn end_to_end_collects_and_aggregates() {
     let home = synthetic_home();
-    let sessions = collect_all(home.path());
+    let sessions = collect(home.path());
     assert_eq!(sessions.len(), 2);
 
     let all: Vec<&vibe_god_cli::SessionUsage> = sessions.iter().collect();
@@ -132,7 +137,7 @@ fn end_to_end_collects_and_aggregates() {
 #[test]
 fn cost_estimation_uses_configured_prices() {
     let home = synthetic_home();
-    let sessions = collect_all(home.path());
+    let sessions = collect(home.path());
 
     let mut grand = Totals::default();
     for s in &sessions {
@@ -168,5 +173,5 @@ cached_input_price = 0.2
 #[test]
 fn empty_home_yields_nothing() {
     let tmp = tempfile::tempdir().unwrap();
-    assert!(collect_all(tmp.path()).is_empty());
+    assert!(collect(tmp.path()).is_empty());
 }

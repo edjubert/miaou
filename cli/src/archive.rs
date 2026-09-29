@@ -62,6 +62,9 @@ impl ArchivedEvent {
 }
 
 pub fn archive_path() -> PathBuf {
+    if let Some(overridden) = std::env::var_os("VIBE_GOD_ARCHIVE_PATH") {
+        return PathBuf::from(overridden);
+    }
     crate::budget::default_config_path()
         .parent()
         .map(|p| p.join("events-archive.jsonl"))
@@ -132,6 +135,15 @@ fn project_of(meta: &SessionMeta) -> Option<String> {
 /// Build the full session list: archive events (complete history) with
 /// live session metadata where the session still exists.
 pub fn merged_sessions(vibe_home: &std::path::Path) -> Vec<SessionUsage> {
+    merged_sessions_with(vibe_home, &archive_path())
+}
+
+/// Same, with an explicit archive location (tests must not touch the user's
+/// archive).
+pub fn merged_sessions_with(
+    vibe_home: &std::path::Path,
+    archive: &std::path::Path,
+) -> Vec<SessionUsage> {
     let live = crate::scan::discover_sessions(vibe_home)
         .into_iter()
         .map(|(meta, dir)| {
@@ -140,8 +152,8 @@ pub fn merged_sessions(vibe_home: &std::path::Path) -> Vec<SessionUsage> {
         })
         .collect::<Vec<_>>();
 
-    append_new(&archive_path(), &live);
-    let archived = load(&archive_path());
+    append_new(archive, &live);
+    let archived = load(archive);
 
     let mut live_meta: HashMap<String, SessionMeta> =
         live.iter().map(|s| (s.meta.session_id.clone(), s.meta.clone())).collect();

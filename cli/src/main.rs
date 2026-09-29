@@ -233,7 +233,8 @@ fn main() {
             );
 
             let daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
-            let monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            let mut monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of);
             let projects = priced(vibe_god_cli::aggregate_by_project(&sessions), &price_of);
             let mut session_rows = vibe_god_cli::aggregate_by_session(&sessions);
             for r in &mut session_rows {
@@ -281,6 +282,12 @@ fn main() {
         Command::Monthly { months } => {
             let (sessions, price_of, json) = render(cli.json);
             let mut monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            apply_current_month_floor(
+                &mut monthly,
+                &sessions,
+                &vibe_god_cli::dates::local_ym(now_ms()),
+                &price_of,
+            );
             if let Some(n) = months {
                 let len = monthly.len();
                 monthly = monthly.into_iter().skip(len.saturating_sub(n)).collect();
@@ -650,6 +657,22 @@ fn day_totals(sessions: &[vibe_god_cli::SessionUsage], ymd: &str) -> Totals {
 /// Totals of the events in `sessions` that fall in local month `ym`.
 fn month_to_date(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
     month_to_date_floored(sessions, ym)
+}
+
+/// Overwrite the current-month row with the floored month totals, so the
+/// monthly tables agree with the budget and the menu bar.
+fn apply_current_month_floor(
+    monthly: &mut [Row],
+    sessions: &[vibe_god_cli::SessionUsage],
+    ym: &str,
+    price_of: &impl Fn(&Totals) -> Option<f64>,
+) {
+    if let Some(row) = monthly.iter_mut().find(|r| r.key == ym) {
+        let mtd = month_to_date_floored(sessions, ym);
+        let cost = price_of(&mtd);
+        row.totals = mtd;
+        row.totals.cost_usd = cost;
+    }
 }
 
 fn month_to_date_floored(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {

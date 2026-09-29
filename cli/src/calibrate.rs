@@ -106,7 +106,7 @@ pub fn floored_month_totals(
         .filter(|o| utc_ym(o.at_ms) == ym && o.at_ms <= now_ms)
     {
         let after = crate::Totals::from_events(
-            month_events().filter(|e| e.timestamp_ms > o.at_ms).map(|e| &*e),
+            month_events().filter(|e| e.timestamp_ms > o.at_ms),
         );
         let mut floored = crate::Totals {
             requests: after.requests,
@@ -324,6 +324,27 @@ mod tests {
         let c = obs(3, 20_000, 16_000, 400, 1.0);
         let d = obs(4, 30_000, 24_000, 600, 1.5);
         assert!(solve(&[a, b, c, d]).is_none());
+    }
+
+    #[test]
+    fn floored_month_totals_restores_lost_history() {
+        use crate::UsageEvent;
+        fn ev(ts: u64, input: u64) -> UsageEvent {
+            UsageEvent { session_id: "s".into(), parent_session_id: None, sequence: ts,
+                timestamp_ms: ts, input_tokens: input, output_tokens: 1,
+                cached_input_tokens: 0, total_tokens: input + 1, finish_reason: "stop".into() }
+        }
+        // Archive view: only 30 tokens survived compaction.
+        let sessions = vec![SessionUsage {
+            meta: crate::scan::SessionMeta { session_id: "s".into(), ..Default::default() },
+            events: vec![ev(1_000, 10), ev(2_000, 20)],
+        }];
+        // Snapshot taken at t=1500 recorded 100 input tokens (before the loss).
+        let obs = vec![obs(1_500, 100, 90, 5, 1.5)];
+        let totals = floored_month_totals(&sessions, "1970-01", 9_999, &obs);
+        // Floor: snapshot 100 + events after t=1500 (20) = 120 > archive 30.
+        assert_eq!(totals.input_tokens, 120);
+        assert_eq!(totals.output_tokens, 6);
     }
 
     #[test]

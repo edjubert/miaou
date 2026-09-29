@@ -54,3 +54,8 @@ pub fn default_vibe_home() -> PathBuf {
 pub fn collect_all(vibe_home: &Path) -> Vec<SessionUsage> {
     archive::merged_sessions(vibe_home)
 }
+
+/// Like `collect_all`, with an explicit events-archive location (for tests).
+pub fn collect_all_with_archive(vibe_home: &Path, archive: &Path) -> Vec<SessionUsage> {
+    archive::merged_sessions_with(vibe_home, archive)
+}
