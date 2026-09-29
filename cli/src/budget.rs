@@ -17,7 +17,7 @@
 //!
 //! The hardcoded plan defaults are observations of what accounts report
 //! (Pro/INDIVIDUAL: ~$255/month of Vibe usage), not official published
-//! limits — the config file always wins.
+//! limits, and the config file always wins.
 
 use crate::plan::PlanInfo;
 use std::path::Path;
@@ -150,6 +150,26 @@ pub fn default_config_path() -> std::path::PathBuf {
     }
     let home = std::env::var_os("HOME").unwrap_or_default();
     std::path::Path::new(&home).join(".config").join("vibe-god-cli").join("config.toml")
+}
+
+/// Currency symbol for cost display, from `[display] currency` in the
+/// tracker config ("EUR" -> "€", "USD" -> "$", default "$"). The symbol is
+/// cosmetic: prices and envelope must share whatever currency the
+/// calibration observations were recorded in.
+pub fn currency_symbol(config_path: &Path) -> String {
+    let raw = std::fs::read_to_string(config_path).unwrap_or_default();
+    let Ok(value) = raw.parse::<toml::Value>() else {
+        return "$".into();
+    };
+    match value
+        .get("display")
+        .and_then(|d| d.get("currency"))
+        .and_then(|c| c.as_str())
+    {
+        Some("EUR") | Some("€") => "€".into(),
+        Some("USD") | Some("$") | None => "$".into(),
+        Some(other) => other.to_string(),
+    }
 }
 
 #[cfg(test)]

@@ -67,7 +67,7 @@ enum Command {
         #[arg(long)]
         days: Option<usize>,
     },
-    /// Per-month breakdown (each month starts at zero — the "reset" view).
+    /// Per-month breakdown (each month starts at zero: the "reset" view).
     Monthly {
         /// Number of recent months to show (default: all).
         #[arg(long)]
@@ -118,6 +118,8 @@ fn main() {
         .clone()
         .unwrap_or_else(default_vibe_home);
     let config = VibeConfig::load(&vibe_home);
+    let currency =
+        vibe_god_cli::budget::currency_symbol(&vibe_god_cli::budget::default_config_path());
     let price = config.resolve(cli.model.as_deref()).cloned();
 
     let since_ms = cli.since.as_deref().and_then(parse_local_date_start);
@@ -166,17 +168,17 @@ fn main() {
                 let model = price.as_ref().map(|p| p.name.clone()).unwrap_or_default();
                 let plan = vibe_god_cli::plan::read_cached(&vibe_home);
                 println!(
-                    "Vibe usage — {} sessions (model: {}, plan: {})",
+                    "Vibe usage: {} sessions (model: {}, plan: {})",
                     sessions_count,
                     if model.is_empty() { "n/a" } else { &model },
                     plan.as_ref().map(|p| p.describe()).unwrap_or_else(|| "unknown".into())
                 );
-                print_totals(&grand);
+                print_totals(&grand, &currency);
                 println!("\nPer day:");
                 let daily = vibe_god_cli::aggregate_daily(&sessions);
                 let w = key_width(3, &daily);
                 for row in &daily {
-                    print_row(row, w, &price_of);
+                    print_row(row, w, &price_of, &currency);
                 }
             }
         }
@@ -197,8 +199,8 @@ fn main() {
             if cli.json {
                 println!("{}", serde_json::json!({"date": today, "totals": grand}));
             } else {
-                println!("Vibe usage — {today}");
-                print_totals(&grand);
+                println!("Vibe usage: {today}");
+                print_totals(&grand, &currency);
             }
         }
         Command::Dashboard => {
@@ -271,7 +273,7 @@ fn main() {
                 let w = key_width(3, &daily);
                 println!("{:<w$} sessions  requests     input   cached    output     total      cost", "day");
                 for row in &daily {
-                    print_row(row, w, &price_of);
+                    print_row(row, w, &price_of, &currency);
                 }
             }
         }
@@ -288,7 +290,7 @@ fn main() {
                 let w = key_width(5, &monthly);
                 println!("{:<w$} sessions  requests     input   cached    output     total      cost", "month");
                 for row in &monthly {
-                    print_row(row, w, &price_of);
+                    print_row(row, w, &price_of, &currency);
                 }
             }
         }
@@ -349,11 +351,11 @@ fn main() {
                 );
             } else if budget.monthly_usd.is_none() && budget.monthly_tokens.is_none() {
                 println!(
-                    "no budget configured — create one with `vibe-god-cli budget --init` ({})",
+                    "no budget configured: create one with `vibe-god-cli budget --init` ({})",
                     config_path.display()
                 );
             } else {
-                println!("Month {} — plan: {}", status.month, plan.as_ref().map(|p| p.describe()).unwrap_or_else(|| "unknown".into()));
+                println!("Month {} - plan: {}", status.month, plan.as_ref().map(|p| p.describe()).unwrap_or_else(|| "unknown".into()));
                 println!(
                     "usage: {} requests, {} tokens",
                     status.used_requests, status.used_tokens
@@ -362,21 +364,21 @@ fn main() {
                     match (status.used_usd, budget.effective_usd()) {
                         (Some(used), Some(eff)) => {
                             println!(
-                                "cost:   ${used:.2} / ${eff:.2} ({:.1}%)",
+                                "cost:   {currency}{used:.2} / {currency}{eff:.2} ({:.1}%)",
                                 status.pct_usd().unwrap_or(0.0) * 100.0
                             );
                             if let Some(over) = status.in_overage_usd() {
-                                println!("  in overage (PAYG): ${over:.2} beyond the envelope");
+                                println!("  in overage (PAYG): {currency}{over:.2} beyond the envelope");
                             }
                             if let Some(over) = status.over_limit_usd() {
-                                println!("  OVER by ${over:.2}");
+                                println!("  OVER by {currency}{over:.2}");
                             } else if let Some(remaining) = status.remaining_usd() {
-                                println!("  remaining: ${remaining:.2}");
+                                println!("  remaining: {currency}{remaining:.2}");
                             }
                         }
                         _ => {
                             println!(
-                                "cost:   n/a — add input_price/output_price to the model entry in {}",
+                                "cost:   n/a: add input_price/output_price to the model entry in {}",
                                 vibe_home.join("config.toml").display()
                             );
                         }
@@ -389,7 +391,7 @@ fn main() {
                         "tokens: {} / {token_ceiling} ({:.1}%){}",
                         status.used_tokens,
                         status.pct_tokens().unwrap_or(0.0) * 100.0,
-                        status.over_limit_tokens().map(|o| format!(" — OVER by {o}")).unwrap_or_default()
+                        status.over_limit_tokens().map(|o| format!(" (OVER by {o})")).unwrap_or_default()
                     );
                 }
                 println!(
@@ -510,7 +512,7 @@ fn main() {
                 let w = key_width(7, &rows);
                 println!("{:<w$} sessions  requests     input   cached    output     total      cost", "project");
                 for row in &rows {
-                    print_row(row, w, &price_of);
+                    print_row(row, w, &price_of, &currency);
                 }
             }
         }
@@ -544,7 +546,7 @@ fn main() {
                         r.totals.cached_input_tokens,
                         r.totals.output_tokens,
                         r.totals.total_tokens,
-                        cost_str(r.totals.cost_usd),
+                        cost_str(r.totals.cost_usd, &currency),
                     );
                 }
             }
@@ -588,7 +590,7 @@ fn main() {
                         grand.cached_input_tokens,
                         grand.output_tokens,
                         grand.total_tokens,
-                        cost_str(grand.cost_usd),
+                        cost_str(grand.cost_usd, &currency),
                     );
                     last = Some(grand);
                 }
@@ -689,7 +691,7 @@ fn priced(mut rows: Vec<Row>, price_of: &impl Fn(&Totals) -> Option<f64>) -> Vec
     rows
 }
 
-fn print_totals(t: &Totals) {
+fn print_totals(t: &Totals, currency: &str) {
     println!(
         "requests={:<6} input={:<10} cached={:<10} output={:<9} total={:<10} cost={}",
         t.requests,
@@ -697,11 +699,11 @@ fn print_totals(t: &Totals) {
         t.cached_input_tokens,
         t.output_tokens,
         t.total_tokens,
-        cost_str(t.cost_usd),
+        cost_str(t.cost_usd, currency),
     );
 }
 
-fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<f64>) {
+fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<f64>, currency: &str) {
     let cost = price_of(&row.totals);
     println!(
         "{:<key_width$} {:<8} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
@@ -712,7 +714,7 @@ fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<
         row.totals.cached_input_tokens,
         row.totals.output_tokens,
         row.totals.total_tokens,
-        cost_str(cost),
+        cost_str(cost, currency),
     );
 }
 
@@ -725,6 +727,6 @@ fn key_width(header_len: usize, rows: &[Row]) -> usize {
         .max(header_len)
 }
 
-fn cost_str(cost: Option<f64>) -> String {
-    cost.map(|c| format!("${c:.4}")).unwrap_or_else(|| "-".to_string())
+fn cost_str(cost: Option<f64>, currency: &str) -> String {
+    cost.map(|c| format!("{currency}{c:.4}")).unwrap_or_else(|| "-".to_string())
 }

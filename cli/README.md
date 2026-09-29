@@ -101,10 +101,13 @@ Threshold resolution order:
 
 ```toml
 [budget]
-monthly_usd = 255.0    # plan envelope
+monthly_usd = 255.0    # plan envelope, in the calibration currency
 overage_usd = 50.0      # extra PAYG allowance, only granted when:
 overage_allowed = true # usage beyond the envelope is permitted
 # monthly_tokens = 50_000_000  # optional token ceiling
+
+[display]
+currency = "EUR"       # symbol shown on costs: EUR -> €, USD -> $
 ```
 
 The effective ceiling is `monthly_usd + overage_usd` when `overage_allowed`
@@ -113,6 +116,12 @@ amount, whether usage sits in the overage allowance (PAYG) or beyond the
 effective ceiling. Cost tracking requires model prices in Vibe's
 `config.toml` (`[[models]] input_price`/`output_price`); without prices the
 token ceiling applies instead.
+
+**Currency**: the `monthly_usd` field name is historical; the value is in
+whatever currency the prices and the calibration observations share. Keep
+one currency across the whole chain: prices, envelope and Console
+observations. The `[display] currency` setting only changes the symbol
+shown.
 
 ## Calibrating per-token prices
 
