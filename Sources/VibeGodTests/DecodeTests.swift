@@ -10,6 +10,7 @@ final class DecodeTests: XCTestCase {
 
     private let sample: [String: Any] = [
         "generated_at_ms": 1790610000000,
+        "currency": "€",
         "today": "2026-09-28",
         "current_month": "2026-09",
         "plan": ["plan_type": "chat", "plan_name": "INDIVIDUAL", "organization_kind": "S"] as [String: Any],
@@ -44,6 +45,7 @@ final class DecodeTests: XCTestCase {
         let data = try JSONSerialization.data(withJSONObject: sample)
         let report = try decoder.decode(DashboardReport.self, from: data)
         XCTAssertEqual(report.today, "2026-09-28")
+        XCTAssertEqual(report.currency, "€")
         XCTAssertEqual(report.plan?.planName, "INDIVIDUAL")
         XCTAssertNil(report.budgetStatus.usedUsd)
         XCTAssertEqual(report.budgetStatus.usedTokens, 945)
