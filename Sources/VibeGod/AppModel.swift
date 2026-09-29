@@ -59,6 +59,8 @@ enum BarTitle {
 
 /// Polls vibe-god-cli and publishes the values shown in the menu bar.
 final class AppModel: ObservableObject {
+    static let shared = AppModel()
+
     @Published private(set) var dashboard: DashboardReport?
     @Published private(set) var lastError: String?
     @Published private(set) var lastRefresh: Date?
@@ -67,7 +69,7 @@ final class AppModel: ObservableObject {
 
     var pollInterval: TimeInterval = 60
 
-    init() {
+    private init() {
         refresh()
         timer = Timer.publish(every: pollInterval, on: .main, in: .common)
             .autoconnect()
