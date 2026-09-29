@@ -120,10 +120,10 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(BarTitle.text(.both, dashboard: noCost), "18.0M")
     }
 
-    func testBarTitleLiveSuffix() {
+    func testBarTitleIgnoresLiveSessions() {
         var d = dashboardFixture(usedUsd: 68.75)
         d.active = [ActiveSessionReport(id: "s", ageMs: 1000)]
-        XCTAssertEqual(BarTitle.text(.percent, dashboard: d), "27% •")
+        XCTAssertEqual(BarTitle.text(.percent, dashboard: d), "27%")
     }
 
     /// End-to-end contract check against the real binary, when it is in PATH.

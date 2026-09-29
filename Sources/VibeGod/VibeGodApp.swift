@@ -12,9 +12,16 @@ struct VibeGodApp: App {
             MenuContent()
                 .environmentObject(appDelegate.model)
         } label: {
-            CatGlyph()
-                .frame(width: 15, height: 15)
-            Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+            HStack(spacing: 4) {
+                CatGlyph()
+                    .frame(width: 15, height: 15)
+                Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+                if appDelegate.model.hasLiveSessions {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 5, height: 5)
+                }
+            }
         }
         .menuBarExtraStyle(.window)
     }

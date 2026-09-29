@@ -53,7 +53,7 @@ enum BarTitle {
                 base = tokens
             }
         }
-        return d.liveSessions.isEmpty ? base : base + " •"
+        return base
     }
 }
 
@@ -92,6 +92,11 @@ final class AppModel: ObservableObject {
     /// Short label in the menu bar for the selected display mode.
     func barTitle(mode: BarMode) -> String {
         BarTitle.text(mode, dashboard: dashboard)
+    }
+
+    /// Whether a Vibe session is currently running (recent lock).
+    var hasLiveSessions: Bool {
+        dashboard?.liveSessions.isEmpty == false
     }
 
     private static func describe(_ error: Error) -> String {
