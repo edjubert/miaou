@@ -15,12 +15,8 @@ struct VibeGodApp: App {
             HStack(spacing: 4) {
                 CatGlyph()
                     .frame(width: 15, height: 15)
+                    .foregroundStyle(appDelegate.model.hasLiveSessions ? Color.green : Color.orange)
                 Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
-                if appDelegate.model.hasLiveSessions {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 5, height: 5)
-                }
             }
         }
         .menuBarExtraStyle(.window)
