@@ -110,8 +110,8 @@ final class DecodeTests: XCTestCase {
 
         let d = dashboardFixture(usedUsd: 68.75)
         XCTAssertEqual(BarTitle.text(.percent, dashboard: d), "27%")
-        XCTAssertEqual(BarTitle.text(.cost, dashboard: d), "€68.75")
-        XCTAssertEqual(BarTitle.text(.both, dashboard: d), "€68.75 (27%)")
+        XCTAssertEqual(BarTitle.text(.cost, dashboard: d), "68.75 €")
+        XCTAssertEqual(BarTitle.text(.both, dashboard: d), "68.75 € (27%)")
 
         // Without cost estimation, every mode falls back to month tokens.
         let noCost = dashboardFixture(usedUsd: nil)

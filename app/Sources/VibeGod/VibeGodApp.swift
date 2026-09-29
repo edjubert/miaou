@@ -117,7 +117,7 @@ struct MenuContent: View {
                 let pct = used / effective * 100
                 ProgressView(value: min(pct, 100), total: 100)
                     .tint(overTint(dashboard))
-                Text(String(format: "%@%.2f used of %@%.2f (%.1f%%)", dashboard.currency, used, dashboard.currency, effective, pct))
+                Text(String(format: "%.2f %@ used of %.2f %@ (%.1f%%)", used, dashboard.currency, effective, dashboard.currency, pct))
                     .font(.callout)
             } else {
                 Text("\(status.usedRequests) requests, \(formatTokens(Double(status.usedTokens))) tokens this month")
@@ -127,8 +127,8 @@ struct MenuContent: View {
                let envelope = status.budget.monthlyUsd,
                over > envelope {
                 Text(status.budget.overageAllowed
-                     ? String(format: "In PAYG overage: %@%.2f beyond the envelope", dashboard.currency, over - envelope)
-                     : String(format: "Over the envelope by %@%.2f", dashboard.currency, over - envelope))
+                     ? String(format: "In PAYG overage: %.2f %@ beyond the envelope", over - envelope, dashboard.currency)
+                     : String(format: "Over the envelope by %.2f %@", over - envelope, dashboard.currency))
                     .font(.caption)
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
             }
@@ -142,7 +142,7 @@ struct MenuContent: View {
             Text("\(t.requests) requests, \(formatTokens(Double(t.totalTokens))) tokens")
                 .font(.callout)
             if let cost = t.costUsd {
-                Text(String(format: "%@%.4f", dashboard.currency, cost)).font(.caption).foregroundStyle(.secondary)
+                Text(String(format: "%.4f %@", cost, dashboard.currency)).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -203,13 +203,11 @@ struct MenuContent: View {
 
     private func analyticsSection(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Picker("Analytics", selection: $analyticsTab) {
-                Text("Jours").tag("daily")
-                Text("Mois").tag("monthly")
-                Text("Sessions").tag("sessions")
+            HStack(spacing: 6) {
+                tabButton("Jours", tab: "daily")
+                tabButton("Mois", tab: "monthly")
+                tabButton("Sessions", tab: "sessions")
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             switch analyticsTab {
             case "monthly":
                 monthlyTable(dashboard)
@@ -219,6 +217,20 @@ struct MenuContent: View {
                 dailyChart(dashboard)
             }
         }
+    }
+
+    private func tabButton(_ label: String, tab: String) -> some View {
+        Button {
+            analyticsTab = tab
+        } label: {
+            Text(label)
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(analyticsTab == tab ? Color.accentColor.opacity(0.25) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
     }
 
     private func monthlyTable(_ dashboard: DashboardReport) -> some View {
@@ -231,7 +243,7 @@ struct MenuContent: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     if let cost = row.costUsd {
-                        Text(String(format: "%@%.2f", dashboard.currency, cost))
+                        Text(String(format: "%.2f %@", cost, dashboard.currency))
                             .font(.caption2)
                     }
                 }
