@@ -32,7 +32,7 @@ enum BarTitle {
                 e > 0 ? String(format: "%.0f%%", u / e * 100) : nil
             }
         }
-        let cost: String? = used.map { String(format: "%@%.2f", d.currency, $0) }
+        let cost: String? = used.map { String(format: "%.2f %@", $0, d.currency) }
         let tokens = formatTokens(Double(status.usedTokens))
 
         let base: String
