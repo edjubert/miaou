@@ -365,16 +365,16 @@ fn main() {
                     match (status.used_usd, budget.effective_usd()) {
                         (Some(used), Some(eff)) => {
                             println!(
-                                "cost:   {currency}{used:.2} / {currency}{eff:.2} ({:.1}%)",
+                                "cost:   {used:.2} {currency} / {eff:.2} {currency} ({:.1}%)",
                                 status.pct_usd().unwrap_or(0.0) * 100.0
                             );
                             if let Some(over) = status.in_overage_usd() {
-                                println!("  in overage (PAYG): {currency}{over:.2} beyond the envelope");
+                                println!("  in overage (PAYG): {over:.2} {currency} beyond the envelope");
                             }
                             if let Some(over) = status.over_limit_usd() {
-                                println!("  OVER by {currency}{over:.2}");
+                                println!("  OVER by {over:.2} {currency}");
                             } else if let Some(remaining) = status.remaining_usd() {
-                                println!("  remaining: {currency}{remaining:.2}");
+                                println!("  remaining: {remaining:.2} {currency}");
                             }
                         }
                         _ => {
@@ -402,10 +402,7 @@ fn main() {
             }
         }
         Command::Calibrate { action } => {
-            let ledger = vibe_god_cli::budget::default_config_path()
-                .parent()
-                .map(|p| p.join("calibration.toml"))
-                .unwrap_or_else(|| PathBuf::from("calibration.toml"));
+            let ledger = vibe_god_cli::calibrate::ledger_path();
             match action {
                 CalibrateAction::Add { at, cost } => {
                     let parsed = chrono::DateTime::parse_from_rfc3339(&at)
@@ -652,16 +649,14 @@ fn day_totals(sessions: &[vibe_god_cli::SessionUsage], ymd: &str) -> Totals {
 
 /// Totals of the events in `sessions` that fall in local month `ym`.
 fn month_to_date(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
-    let mut totals = Totals::default();
-    for s in sessions {
-        let events: Vec<&vibe_god_cli::UsageEvent> = s
-            .events
-            .iter()
-            .filter(|e| vibe_god_cli::dates::local_ym(e.timestamp_ms) == ym)
-            .collect();
-        totals.add(&Totals::from_events(events.into_iter()));
-    }
-    totals
+    month_to_date_floored(sessions, ym)
+}
+
+fn month_to_date_floored(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
+    let ledger = vibe_god_cli::calibrate::load_ledger(
+        &vibe_god_cli::calibrate::ledger_path(),
+    );
+    vibe_god_cli::calibrate::floored_month_totals(sessions, ym, now_ms(), &ledger)
 }
 
 /// Budget from the config file (when it declares one), else plan defaults.
@@ -729,5 +724,5 @@ fn key_width(header_len: usize, rows: &[Row]) -> usize {
 }
 
 fn cost_str(cost: Option<f64>, currency: &str) -> String {
-    cost.map(|c| format!("{currency}{c:.4}")).unwrap_or_else(|| "-".to_string())
+    cost.map(|c| format!("{c:.4} {currency}")).unwrap_or_else(|| "-".to_string())
 }

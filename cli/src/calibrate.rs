@@ -72,6 +72,58 @@ pub fn month_tokens_at(sessions: &[SessionUsage], at_ms: u64) -> Observation {
     }
 }
 
+/// Ledger location: `<config dir>/calibration.toml`.
+pub fn ledger_path() -> std::path::PathBuf {
+    crate::budget::default_config_path()
+        .parent()
+        .map(|p| p.join("calibration.toml"))
+        .unwrap_or_else(|| std::path::PathBuf::from("calibration.toml"))
+}
+
+/// Month-to-date totals with compaction repair. Vibe compaction deletes
+/// journal history that the archive never saw; each ledger observation
+/// taken inside the month provides a token floor at its timestamp. The
+/// estimate is the max of the archive scan and, per observation,
+/// snapshot tokens + events recorded after the observation time.
+/// Request counts cannot be reconstructed from snapshots: the best
+/// available count is kept.
+pub fn floored_month_totals(
+    sessions: &[SessionUsage],
+    ym: &str,
+    now_ms: u64,
+    observations: &[Observation],
+) -> crate::Totals {
+    use crate::dates::utc_ym;
+    let month_events = || {
+        sessions
+            .iter()
+            .flat_map(|s| s.events.iter())
+            .filter(|e| utc_ym(e.timestamp_ms) == ym)
+    };
+    let mut best = crate::Totals::from_events(month_events());
+    for o in observations
+        .iter()
+        .filter(|o| utc_ym(o.at_ms) == ym && o.at_ms <= now_ms)
+    {
+        let after = crate::Totals::from_events(
+            month_events().filter(|e| e.timestamp_ms > o.at_ms).map(|e| &*e),
+        );
+        let mut floored = crate::Totals {
+            requests: after.requests,
+            input_tokens: o.input_tokens,
+            output_tokens: o.output_tokens,
+            cached_input_tokens: o.cached_input_tokens,
+            total_tokens: o.input_tokens + o.output_tokens,
+            cost_usd: None,
+        };
+        floored.add(&after);
+        if floored.total_tokens > best.total_tokens {
+            best = floored;
+        }
+    }
+    best
+}
+
 /// Ledger stored as `[[observations]]` in TOML.
 pub fn load_ledger(path: &Path) -> Vec<Observation> {
     let raw = std::fs::read_to_string(path).unwrap_or_default();

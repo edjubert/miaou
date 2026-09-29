@@ -8,6 +8,7 @@
 //!   - `core_input` records carry `payload.input.determinism.time_unix_ms`,
 //!     used as time anchors to interpolate timestamps for usage records.
 
+pub mod archive;
 pub mod aggregate;
 pub mod budget;
 pub mod calibrate;
@@ -47,13 +48,9 @@ pub fn default_vibe_home() -> PathBuf {
         })
 }
 
-/// Scan all sessions under `<vibe_home>/logs/session/unified/` and extract usage.
+/// Build the usage dataset: live journals are ingested into the append-only
+/// archive (`archive::merged_sessions`), so history survives Vibe's journal
+/// compaction and session pruning.
 pub fn collect_all(vibe_home: &Path) -> Vec<SessionUsage> {
-    discover_sessions(vibe_home)
-        .into_iter()
-        .map(|(meta, dir)| {
-            let events = parse_session(&dir, &meta);
-            SessionUsage { meta, events }
-        })
-        .collect()
+    archive::merged_sessions(vibe_home)
 }
