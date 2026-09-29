@@ -49,6 +49,14 @@ is a consumer of its JSON output (and may ship/embed the binary).
 The data layer being shared, the Linux variant should reuse `vibe-god-cli`
 as-is.
 
+## Settings
+
+The menu window has a "Barre de menu" section with a segmented picker:
+**Coût** (month-to-date cost), **Pourcentage** (share of the effective
+envelope) or **Les deux** (`€68.75 (27%)`). The choice persists in
+`UserDefaults` (key `barMode`). Without cost estimation, all modes fall
+back to month tokens. A `•` suffix marks live sessions.
+
 ## Status
 
 Milestone 2: menu bar app consuming the single `vibe-god-cli dashboard`

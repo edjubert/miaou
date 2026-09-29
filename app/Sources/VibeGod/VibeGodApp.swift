@@ -5,6 +5,7 @@ import Charts
 @main
 struct VibeGodApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
 
     var body: some Scene {
         MenuBarExtra {
@@ -13,7 +14,7 @@ struct VibeGodApp: App {
         } label: {
             Image(systemName: "bolt.horizontal.circle")
                 .symbolRenderingMode(.hierarchical)
-            Text(appDelegate.model.barTitle)
+            Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
         }
         .menuBarExtraStyle(.window)
     }
@@ -31,6 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
+    @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
+
+    private var barMode: BarMode {
+        BarMode(rawValue: barModeRaw) ?? .percent
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -38,7 +44,7 @@ struct MenuContent: View {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text("Is vibe-god-cli installed and in PATH?")
+                Text("Is vibe-god-cli installed and up to date?")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if let dashboard = model.dashboard {
@@ -56,6 +62,7 @@ struct MenuContent: View {
                     projectsSection(dashboard)
                 }
                 Divider()
+                displaySection
                 commandsSection
             } else {
                 ProgressView()
@@ -76,6 +83,19 @@ struct MenuContent: View {
         .padding(12)
         .frame(minWidth: 300)
         .onAppear { model.refresh() }
+    }
+
+    private var displaySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Barre de menu").font(.headline)
+            Picker("Affichage", selection: $barModeRaw) {
+                ForEach(BarMode.allCases) { mode in
+                    Text(mode.label).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
     }
 
     private func budgetSection(_ dashboard: DashboardReport) -> some View {
