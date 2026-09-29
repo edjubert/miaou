@@ -5,20 +5,30 @@ import Charts
 @main
 struct VibeGodApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
-    @StateObject private var model = AppModel()
-    @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
 
     var body: some Scene {
         MenuBarExtra {
             MenuContent()
-                .environmentObject(model)
+                .environmentObject(AppModel.shared)
         } label: {
-            HStack(spacing: 4) {
-                Image(nsImage: model.hasLiveSessions ? CatIcon.live : CatIcon.idle)
-                Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
-            }
+            BarLabel()
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// The menu bar label lives in its own View: observation at the App/Scene
+/// level does not reliably refresh MenuBarExtra labels, a dedicated
+/// observed view does.
+struct BarLabel: View {
+    @ObservedObject private var model = AppModel.shared
+    @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(nsImage: model.hasLiveSessions ? CatIcon.live : CatIcon.idle)
+            Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+        }
     }
 }
 
@@ -26,12 +36,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu bar agent: no Dock icon, no main window.
         NSApplication.shared.setActivationPolicy(.accessory)
+        AppModel.shared.refresh()
     }
 }
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
+    @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
 
     private var barMode: BarMode {
         BarMode(rawValue: barModeRaw) ?? .percent
@@ -55,14 +67,13 @@ struct MenuContent: View {
                     liveSection(dashboard)
                 }
                 Divider()
-                dailyChart(dashboard)
+                analyticsSection(dashboard)
                 if !dashboard.projects.isEmpty {
                     Divider()
                     projectsSection(dashboard)
                 }
                 Divider()
                 displaySection
-                commandsSection
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -190,12 +201,61 @@ struct MenuContent: View {
         }
     }
 
-    private var commandsSection: some View {
+    private func analyticsSection(_ dashboard: DashboardReport) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("Analytics", selection: $analyticsTab) {
+                Text("Jours").tag("daily")
+                Text("Mois").tag("monthly")
+                Text("Sessions").tag("sessions")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            switch analyticsTab {
+            case "monthly":
+                monthlyTable(dashboard)
+            case "sessions":
+                sessionsTable(dashboard)
+            default:
+                dailyChart(dashboard)
+            }
+        }
+    }
+
+    private func monthlyTable(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("vibe-god-cli").font(.caption).foregroundStyle(.secondary)
-            Button("Daily breakdown") { run("vibe-god-cli daily") }
-            Button("Monthly breakdown") { run("vibe-god-cli monthly") }
-            Button("Sessions") { run("vibe-god-cli sessions") }
+            ForEach(dashboard.monthly, id: \.key) { row in
+                HStack {
+                    Text(row.key).font(.caption)
+                    Spacer()
+                    Text("\(row.requests) req, \(formatTokens(Double(row.totalTokens))) tok")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if let cost = row.costUsd {
+                        Text(String(format: "%@%.2f", dashboard.currency, cost))
+                            .font(.caption2)
+                    }
+                }
+            }
+        }
+    }
+
+    private func sessionsTable(_ dashboard: DashboardReport) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(dashboard.sessions.prefix(8)) { s in
+                HStack {
+                    Text(s.subagent ? "\(s.shortId)*" : s.shortId)
+                        .font(.caption)
+                        .monospaced()
+                    Text(s.project)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer()
+                    Text("\(s.requests) req, \(formatTokens(Double(s.totalTokens))) tok")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -207,10 +267,4 @@ struct MenuContent: View {
         return .accentColor
     }
 
-    private func run(_ command: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", command]
-        try? process.run()
-    }
 }
