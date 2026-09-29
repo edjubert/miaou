@@ -244,6 +244,7 @@ fn main() {
                 "{}",
                 serde_json::json!({
                     "generated_at_ms": now_ms,
+                    "currency": currency,
                     "today": today,
                     "current_month": current_month,
                     "plan": plan,
