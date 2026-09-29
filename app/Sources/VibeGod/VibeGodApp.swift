@@ -5,18 +5,17 @@ import Charts
 @main
 struct VibeGodApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    @StateObject private var model = AppModel()
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
 
     var body: some Scene {
         MenuBarExtra {
             MenuContent()
-                .environmentObject(appDelegate.model)
+                .environmentObject(model)
         } label: {
             HStack(spacing: 4) {
-                CatGlyph()
-                    .frame(width: 15, height: 15)
-                    .foregroundStyle(appDelegate.model.hasLiveSessions ? Color.green : Color.orange)
-                Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+                Image(nsImage: model.hasLiveSessions ? CatIcon.live : CatIcon.idle)
+                Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
             }
         }
         .menuBarExtraStyle(.window)
@@ -24,12 +23,9 @@ struct VibeGodApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let model = AppModel()
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu bar agent: no Dock icon, no main window.
         NSApplication.shared.setActivationPolicy(.accessory)
-        model.refresh()
     }
 }
 
