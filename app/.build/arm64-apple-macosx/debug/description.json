@@ -36,6 +36,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CatGlyph.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
         },
         {
@@ -53,6 +57,7 @@
       "objects" : [
         "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/AppModel.swift.o",
         "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o",
+        "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CatGlyph.swift.o",
         "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
       ],
       "otherArguments" : [
@@ -116,6 +121,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CatGlyph.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/VibeGodApp.swift.o"
         },
         {
@@ -127,6 +136,7 @@
       "sources" : [
         "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift",
         "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift",
+        "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CatGlyph.swift",
         "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
       ],
       "tempsPath" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build",
@@ -335,6 +345,7 @@
       "-c",
       "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift",
       "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift",
+      "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CatGlyph.swift",
       "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift",
       "-I",
       "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/Modules",
@@ -573,6 +584,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CatGlyph.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift"
         }
       ],
@@ -592,6 +607,10 @@
         {
           "kind" : "file",
           "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CatGlyph.swift.o"
         },
         {
           "kind" : "file",
@@ -628,6 +647,10 @@
         {
           "kind" : "file",
           "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CLI.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/debug/VibeGod.build/CatGlyph.swift.o"
         },
         {
           "kind" : "file",

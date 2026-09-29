@@ -12,8 +12,8 @@ struct VibeGodApp: App {
             MenuContent()
                 .environmentObject(appDelegate.model)
         } label: {
-            Image(systemName: "bolt.horizontal.circle")
-                .symbolRenderingMode(.hierarchical)
+            CatGlyph()
+                .frame(width: 15, height: 15)
             Text(appDelegate.model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
         }
         .menuBarExtraStyle(.window)
