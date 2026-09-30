@@ -669,22 +669,26 @@ fn apply_current_month_floor(
 ) {
     if let Some(row) = monthly.iter_mut().find(|r| r.key == ym) {
         let mtd = month_to_date_floored(sessions, ym);
-        let cost = price_of(&mtd);
         row.totals = mtd;
-        row.totals.cost_usd = cost;
+        // Same cost basis as the budget and the menu bar: console-anchored.
+        row.totals.cost_usd = anchored_used_usd(sessions, ym, price_of);
     }
 }
 
-/// Authoritative month cost: the latest Console observation. Falls back
-/// to the local token estimate when no observation exists for the month.
+/// Authoritative month cost: the latest Console observation plus the
+/// local tokens consumed since it, valued at the effective rate measured
+/// at the anchor. Falls back to the pure local estimate when no
+/// observation exists for the month.
 fn anchored_used_usd(
     sessions: &[vibe_god_cli::SessionUsage],
     ym: &str,
     price_of: &impl Fn(&Totals) -> Option<f64>,
 ) -> Option<f64> {
     let ledger = vibe_god_cli::calibrate::load_ledger(&vibe_god_cli::calibrate::ledger_path());
-    if let Some(anchor) = vibe_god_cli::calibrate::latest_anchor_cost(&ledger, ym, now_ms()) {
-        return Some(anchor.cost);
+    if let Some(cost) = vibe_god_cli::calibrate::anchored_cost_with_delta(
+        &ledger, sessions, ym, now_ms(),
+    ) {
+        return Some(cost);
     }
     let mtd = month_to_date_floored(sessions, ym);
     price_of(&mtd)
@@ -738,7 +742,9 @@ fn print_totals(t: &Totals, currency: &str) {
 }
 
 fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<f64>, currency: &str) {
-    let cost = price_of(&row.totals);
+    // Rows may carry an already-computed cost (console-anchored for the
+    // current month): use it, recompute only when absent.
+    let cost = row.totals.cost_usd.or_else(|| price_of(&row.totals));
     println!(
         "{:<key_width$} {:<8} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}",
         row.key,

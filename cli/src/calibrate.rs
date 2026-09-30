@@ -84,6 +84,40 @@ pub fn latest_anchor_cost(observations: &[Observation], ym: &str, now_ms: u64) -
         .cloned()
 }
 
+/// Effective console cost per locally observed token, measured at the
+/// latest anchor: anchor.cost / anchor local tokens. This ratio absorbs
+/// whatever invisible usage the account carries, and is the best available
+/// predictor of the console cost between observations.
+pub fn effective_rate(observations: &[Observation], ym: &str, now_ms: u64) -> Option<f64> {
+    let anchor = latest_anchor_cost(observations, ym, now_ms)?;
+    let tokens = (anchor.input_tokens + anchor.output_tokens) as f64;
+    if tokens < 1.0 {
+        return None;
+    }
+    Some(anchor.cost * 1e6 / tokens)
+}
+
+/// Console-anchored month cost with a live delta: the latest observation
+/// cost plus local tokens consumed since that observation, valued at the
+/// effective rate. Moves between observations, re-anchors on each one.
+pub fn anchored_cost_with_delta(
+    observations: &[Observation],
+    sessions: &[SessionUsage],
+    ym: &str,
+    now_ms: u64,
+) -> Option<f64> {
+    use crate::dates::utc_ym;
+    let anchor = latest_anchor_cost(observations, ym, now_ms)?;
+    let rate = effective_rate(observations, ym, now_ms)?;
+    let since: u64 = sessions
+        .iter()
+        .flat_map(|s| s.events.iter())
+        .filter(|e| utc_ym(e.timestamp_ms) == ym && e.timestamp_ms > anchor.at_ms)
+        .map(|e| e.input_tokens + e.output_tokens)
+        .sum();
+    Some(anchor.cost + since as f64 * rate / 1e6)
+}
+
 /// Ledger location: `<config dir>/calibration.toml`.
 pub fn ledger_path() -> std::path::PathBuf {
     crate::budget::default_config_path()
@@ -357,6 +391,34 @@ mod tests {
         // Floor: snapshot 100 + events after t=1500 (20) = 120 > archive 30.
         assert_eq!(totals.input_tokens, 120);
         assert_eq!(totals.output_tokens, 6);
+    }
+
+    #[test]
+    fn anchored_cost_moves_with_local_delta() {
+        use crate::UsageEvent;
+        // Anchor: 55 for 11M local tokens -> effective rate 5 EUR/M.
+        let anchor = obs(1_500, 10_000_000, 9_000_000, 1_000_000, 55.0);
+        let mut events = vec![
+            // Before the anchor: not counted in the delta.
+            UsageEvent { session_id: "s".into(), parent_session_id: None, sequence: 1,
+                timestamp_ms: 1_000, input_tokens: 5_000_000, output_tokens: 100_000,
+                cached_input_tokens: 0, total_tokens: 5_100_000, finish_reason: "stop".into() },
+        ];
+        for (i, ts) in [2_000u64, 3_000].iter().enumerate() {
+            events.push(UsageEvent { session_id: "s".into(), parent_session_id: None,
+                sequence: 10 + i as u64, timestamp_ms: *ts,
+                input_tokens: 800_000, output_tokens: 200_000,
+                cached_input_tokens: 0, total_tokens: 1_000_000, finish_reason: "stop".into() });
+        }
+        let sessions = vec![SessionUsage {
+            meta: crate::scan::SessionMeta { session_id: "s".into(), ..Default::default() },
+            events,
+        }];
+        // 2M tokens after the anchor at 5 EUR/M -> +10.
+        let cost = anchored_cost_with_delta(&[anchor], &sessions, "1970-01", 9_999).unwrap();
+        assert!((cost - 65.0).abs() < 1e-9, "{cost}");
+        // No anchor: None.
+        assert!(anchored_cost_with_delta(&[], &sessions, "1970-01", 9_999).is_none());
     }
 
     #[test]
