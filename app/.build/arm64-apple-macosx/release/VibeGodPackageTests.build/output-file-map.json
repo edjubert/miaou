@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/VibeGodPackageTests.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/VibeGodPackageTests.o",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.derived/runner.swift": {
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGodPackageTests.build/runner.dia"
+  }
+}
