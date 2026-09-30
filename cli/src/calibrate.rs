@@ -84,17 +84,27 @@ pub fn latest_anchor_cost(observations: &[Observation], ym: &str, now_ms: u64) -
         .cloned()
 }
 
-/// Effective console cost per locally observed token, measured at the
-/// latest anchor: anchor.cost / anchor local tokens. This ratio absorbs
-/// whatever invisible usage the account carries, and is the best available
-/// predictor of the console cost between observations.
-pub fn effective_rate(observations: &[Observation], ym: &str, now_ms: u64) -> Option<f64> {
-    let anchor = latest_anchor_cost(observations, ym, now_ms)?;
-    let tokens = (anchor.input_tokens + anchor.output_tokens) as f64;
-    if tokens < 1.0 {
-        return None;
+/// Incremental console cost per locally observed token: measured on the
+/// most recent consecutive pair of observations (cost delta / local
+/// token delta). The blended month rate is inflated by invisible usage
+/// from other surfaces; the incremental rate is what the current usage
+/// actually costs per local token, and the best predictor between
+/// observations. Falls back to the most recent pair from any month so
+/// a fresh month inherits yesterday's rate until it gets its own pairs.
+pub fn incremental_rate(observations: &[Observation]) -> Option<f64> {
+    let mut sorted: Vec<&Observation> = observations.iter().collect();
+    sorted.sort_by_key(|o| o.at_ms);
+    let mut best: Option<f64> = None;
+    for pair in sorted.windows(2) {
+        let (prev, last) = (pair[0], pair[1]);
+        let token_delta =
+            (last.input_tokens + last.output_tokens).saturating_sub(prev.input_tokens + prev.output_tokens);
+        let cost_delta = last.cost - prev.cost;
+        if token_delta > 0 && cost_delta >= 0.0 {
+            best = Some(cost_delta * 1e6 / token_delta as f64);
+        }
     }
-    Some(anchor.cost * 1e6 / tokens)
+    best
 }
 
 /// Console-anchored month cost with a live delta: the latest observation
@@ -108,7 +118,8 @@ pub fn anchored_cost_with_delta(
 ) -> Option<f64> {
     use crate::dates::utc_ym;
     let anchor = latest_anchor_cost(observations, ym, now_ms)?;
-    let rate = effective_rate(observations, ym, now_ms)?;
+    // No incremental rate yet: no delta, the anchor alone is the position.
+    let rate = incremental_rate(observations).unwrap_or(0.0);
     let since: u64 = sessions
         .iter()
         .flat_map(|s| s.events.iter())
@@ -396,8 +407,12 @@ mod tests {
     #[test]
     fn anchored_cost_moves_with_local_delta() {
         use crate::UsageEvent;
-        // Anchor: 55 for 11M local tokens -> effective rate 5 EUR/M.
-        let anchor = obs(1_500, 10_000_000, 9_000_000, 1_000_000, 55.0);
+        // Two observations: 50 at 11M total tokens, then 55 at 11.5M:
+        // incremental rate = 5 / 0.5M = 10 EUR/M (NOT the blended rate on
+        // the full month totals, which is what the old estimator got wrong).
+        let previous = obs(1_000, 10_000_000, 9_000_000, 1_000_000, 50.0);
+        let anchor = obs(1_500, 10_000_000, 9_000_000, 1_500_000, 55.0);
+        assert!((incremental_rate(&[previous.clone(), anchor.clone()]).unwrap() - 10.0).abs() < 1e-9);
         let mut events = vec![
             // Before the anchor: not counted in the delta.
             UsageEvent { session_id: "s".into(), parent_session_id: None, sequence: 1,
@@ -414,9 +429,12 @@ mod tests {
             meta: crate::scan::SessionMeta { session_id: "s".into(), ..Default::default() },
             events,
         }];
-        // 2M tokens after the anchor at 5 EUR/M -> +10.
-        let cost = anchored_cost_with_delta(&[anchor], &sessions, "1970-01", 9_999).unwrap();
-        assert!((cost - 65.0).abs() < 1e-9, "{cost}");
+        // 2M tokens after the anchor at 10 EUR/M -> +20.
+        let cost = anchored_cost_with_delta(&[previous.clone(), anchor.clone()], &sessions, "1970-01", 9_999).unwrap();
+        assert!((cost - 75.0).abs() < 1e-9, "{cost}");
+        // Single anchor, no pair: no rate, the anchor is the position.
+        let frozen = anchored_cost_with_delta(&[anchor], &sessions, "1970-01", 9_999).unwrap();
+        assert!((frozen - 55.0).abs() < 1e-9, "{frozen}");
         // No anchor: None.
         assert!(anchored_cost_with_delta(&[], &sessions, "1970-01", 9_999).is_none());
     }
