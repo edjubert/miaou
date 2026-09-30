@@ -218,7 +218,7 @@ fn main() {
             let mut today_totals = day_totals(&sessions, &today);
             today_totals.cost_usd = price_of(&today_totals);
             let mtd = month_to_date(&sessions, &current_month);
-            let used_usd = price_of(&mtd);
+            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
@@ -327,7 +327,7 @@ fn main() {
             let current_month = vibe_god_cli::dates::local_ym(now_ms());
             let (sessions, price_of, _) = render(false);
             let mtd = month_to_date(&sessions, &current_month);
-            let used_usd = price_of(&mtd);
+            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
@@ -673,6 +673,21 @@ fn apply_current_month_floor(
         row.totals = mtd;
         row.totals.cost_usd = cost;
     }
+}
+
+/// Authoritative month cost: the latest Console observation. Falls back
+/// to the local token estimate when no observation exists for the month.
+fn anchored_used_usd(
+    sessions: &[vibe_god_cli::SessionUsage],
+    ym: &str,
+    price_of: &impl Fn(&Totals) -> Option<f64>,
+) -> Option<f64> {
+    let ledger = vibe_god_cli::calibrate::load_ledger(&vibe_god_cli::calibrate::ledger_path());
+    if let Some(anchor) = vibe_god_cli::calibrate::latest_anchor_cost(&ledger, ym, now_ms()) {
+        return Some(anchor.cost);
+    }
+    let mtd = month_to_date_floored(sessions, ym);
+    price_of(&mtd)
 }
 
 fn month_to_date_floored(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {

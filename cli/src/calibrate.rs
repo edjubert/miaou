@@ -72,6 +72,18 @@ pub fn month_tokens_at(sessions: &[SessionUsage], at_ms: u64) -> Observation {
     }
 }
 
+/// Latest console observation inside the current month: the authoritative
+/// envelope position. Local tokens cannot reproduce it (invisible usage on
+/// other surfaces, plan accounting), so the budget anchors on it.
+pub fn latest_anchor_cost(observations: &[Observation], ym: &str, now_ms: u64) -> Option<Observation> {
+    use crate::dates::utc_ym;
+    observations
+        .iter()
+        .filter(|o| utc_ym(o.at_ms) == ym && o.at_ms <= now_ms)
+        .max_by_key(|o| o.at_ms)
+        .cloned()
+}
+
 /// Ledger location: `<config dir>/calibration.toml`.
 pub fn ledger_path() -> std::path::PathBuf {
     crate::budget::default_config_path()
