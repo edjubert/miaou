@@ -67,8 +67,12 @@ Refreshes every 60 s and on menu open. The binary is resolved from
 `~/.cargo/bin` explicitly: GUI processes inherit a minimal PATH.
 
 ```bash
-swift build && swift run
+make install-app     # build + bundle + install to ~/Applications/VibeGod.app
 ```
+
+Dev: `swift build && swift run`. The bundle carries LSUIElement (no Dock
+icon). "Lancer au démarrage" in the settings uses SMAppService and
+requires the installed .app (not `swift run`).
 
 Requires `vibe-god-cli` in PATH (private repo: `cargo install --git
 ssh://git@github.com/edjubert/vibe-god-cli.git`). Without model prices

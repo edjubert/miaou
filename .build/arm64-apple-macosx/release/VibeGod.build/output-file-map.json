@@ -1,0 +1,31 @@
+{
+  "": {
+    "dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGod.d",
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGod.o",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/primary.swiftdeps"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/AppModel.swift": {
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/AppModel.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/AppModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/AppModel.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/AppModel.dia"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CLI.swift": {
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CLI.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CLI~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CLI.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CLI.dia"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/CatGlyph.swift": {
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CatGlyph.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CatGlyph~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CatGlyph.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/CatGlyph.dia"
+  },
+  "/Users/frx43946/workspace/edjubert/VibeGod/Sources/VibeGod/VibeGodApp.swift": {
+    "object": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGodApp.swift.o",
+    "swiftmodule": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGodApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGodApp.swiftdeps",
+    "diagnostics": "/Users/frx43946/workspace/edjubert/VibeGod/.build/arm64-apple-macosx/release/VibeGod.build/VibeGodApp.dia"
+  }
+}

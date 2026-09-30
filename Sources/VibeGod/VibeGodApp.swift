@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Charts
+import ServiceManagement
 
 @main
 struct VibeGodApp: App {
@@ -44,6 +45,7 @@ struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
+    @State private var loginError: String?
 
     private var barMode: BarMode {
         BarMode(rawValue: barModeRaw) ?? .percent
@@ -97,14 +99,35 @@ struct MenuContent: View {
 
     private var displaySection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Barre de menu").font(.headline)
-            Picker("Affichage", selection: $barModeRaw) {
+            Text("Réglages").font(.headline)
+            Picker("Barre de menu", selection: $barModeRaw) {
                 ForEach(BarMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            Toggle("Lancer au démarrage", isOn: Binding(
+                get: { SMAppService.mainApp.status == .enabled },
+                set: { enabled in
+                    do {
+                        if enabled {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                        loginError = nil
+                    } catch {
+                        loginError = error.localizedDescription
+                    }
+                }
+            ))
+            .font(.caption)
+            if let loginError {
+                Text(loginError)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+            }
         }
     }
 
