@@ -145,18 +145,19 @@ same instant. The fit runs on **deltas between consecutive observations**
 total includes usage that never touched this machine (web, mobile, remote
 agents, pruned sessions) and would bias an absolute fit. Protocol:
 
-- Take the `--at` timestamp from the Console period end (shown in UTC),
-  not the wall clock: it is the exact data freshness boundary.
-- Keep the display currency identical across observations; the solved
-  prices come out in that currency.
-- Ensure all Vibe usage between two observations ran on this machine
-  (no web/mobile/other machines).
-- Collect 4+ observations with varied mixes (some cache-heavy turns,
-  some fresh contexts) so the system separates input, cached and output
-  prices. Identical mixes are rejected as degenerate.
-- `solve` prints the prices to paste into the `[[models]] entry
-  (`input_price`, `cached_input_price`, `output_price`), with residuals
-  and RMS as a sanity check.
+- The Console displays UTC+2; `--at` takes UTC (convert the displayed
+  boundary). There is no ingestion latency: the period end is the read
+  time.
+- Console costs do NOT track local tokens linearly: usage invisible to
+  the local journals (IDE plugin, other surfaces) varies per window, so
+  per-window rates swing from ~0.12 EUR/M (pure local) to ~1.65 EUR/M
+  (heavy invisible usage). A per-token price fit is therefore not
+  identifiable from console pairs.
+- Working design: the budget anchors on the latest observation cost and
+  values the tokens consumed since at the incremental rate of the most
+  recent observation pair. Each `calibrate add` re-anchors and refines
+  the rate.
+- Keep the display currency identical across observations.
 
 The tracker bills with the convention "cached tokens are a discounted part
 of input": `cost = (in - cached) * input_price + cached * cached_input_price
