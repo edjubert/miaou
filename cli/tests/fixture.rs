@@ -4,7 +4,7 @@
 use std::path::Path;
 use vibe_god_cli::aggregate::{aggregate_by_project, aggregate_by_session};
 use vibe_god_cli::prices::VibeConfig;
-use vibe_god_cli::{collect_all_with_archive, SessionUsage, Totals};
+use vibe_god_cli::{collect_all_with_archive, scope_to_month, SessionUsage, Totals};
 
 fn record(sequence: u64, r#type: &str, body: serde_json::Value) -> String {
     serde_json::json!({"type": r#type, "sequence": sequence, "payload": body}).to_string()
@@ -96,6 +96,19 @@ fn synthetic_home() -> tempfile::TempDir {
     std::fs::create_dir_all(unified.join("decoy").join("journal")).unwrap();
 
     tmp
+}
+
+#[test]
+fn scope_to_month_filters_and_drops_empty() {
+    let home = synthetic_home();
+    let sessions = collect(home.path());
+    assert_eq!(sessions.len(), 2);
+    // The fixture events live at 2026-09-28/29 timestamps: a different
+    // month scopes everything out.
+    let october = scope_to_month(&sessions, "2026-10");
+    assert!(october.is_empty());
+    let september = scope_to_month(&sessions, "2026-09");
+    assert_eq!(september.len(), 2);
 }
 
 #[test]

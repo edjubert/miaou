@@ -204,10 +204,14 @@ fn main() {
             }
         }
         Command::Dashboard => {
-            let (sessions, price_of, _) = render(false);
+            let (all_sessions, price_of, _) = render(false);
             let now_ms = now_ms();
             let today = local_ymd(now_ms);
             let current_month = vibe_god_cli::dates::local_ym(now_ms);
+            // The menu bar app tracks the plan period: every view resets
+            // with the plan month. Full history stays available via the
+            // summary/daily/monthly/sessions commands.
+            let sessions = vibe_god_cli::scope_to_month(&all_sessions, &current_month);
 
             let mut grand = Totals::default();
             for s in &sessions {

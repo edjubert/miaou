@@ -59,3 +59,25 @@ pub fn collect_all(vibe_home: &Path) -> Vec<SessionUsage> {
 pub fn collect_all_with_archive(vibe_home: &Path, archive: &Path) -> Vec<SessionUsage> {
     archive::merged_sessions_with(vibe_home, archive)
 }
+
+/// Restrict sessions to the events of a local calendar month (plan period),
+/// dropping sessions that have nothing left. The dashboard is scoped to
+/// the current month so every view resets with the plan.
+pub fn scope_to_month(sessions: &[SessionUsage], ym: &str) -> Vec<SessionUsage> {
+    sessions
+        .iter()
+        .filter_map(|s| {
+            let events: Vec<UsageEvent> = s
+                .events
+                .iter()
+                .filter(|e| dates::local_ym(e.timestamp_ms) == ym)
+                .cloned()
+                .collect();
+            if events.is_empty() {
+                None
+            } else {
+                Some(SessionUsage { meta: s.meta.clone(), events })
+            }
+        })
+        .collect()
+}
