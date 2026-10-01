@@ -109,7 +109,10 @@ pub fn incremental_rate(observations: &[Observation]) -> Option<f64> {
 
 /// Console-anchored month cost with a live delta: the latest observation
 /// cost plus local tokens consumed since that observation, valued at the
-/// effective rate. Moves between observations, re-anchors on each one.
+/// incremental rate. Moves between observations, re-anchors on each one.
+/// Without an observation in the current month, the month tokens are
+/// valued directly at the inherited incremental rate (yesterday's pair):
+/// a fresh month starts at zero and the rate carries over.
 pub fn anchored_cost_with_delta(
     observations: &[Observation],
     sessions: &[SessionUsage],
@@ -117,16 +120,25 @@ pub fn anchored_cost_with_delta(
     now_ms: u64,
 ) -> Option<f64> {
     use crate::dates::utc_ym;
-    let anchor = latest_anchor_cost(observations, ym, now_ms)?;
-    // No incremental rate yet: no delta, the anchor alone is the position.
-    let rate = incremental_rate(observations).unwrap_or(0.0);
-    let since: u64 = sessions
-        .iter()
-        .flat_map(|s| s.events.iter())
-        .filter(|e| utc_ym(e.timestamp_ms) == ym && e.timestamp_ms > anchor.at_ms)
-        .map(|e| e.input_tokens + e.output_tokens)
-        .sum();
-    Some(anchor.cost + since as f64 * rate / 1e6)
+    let rate = incremental_rate(observations)?;
+    let month_tokens = |after: Option<u64>| -> u64 {
+        sessions
+            .iter()
+            .flat_map(|s| s.events.iter())
+            .filter(|e| {
+                utc_ym(e.timestamp_ms) == ym
+                    && after.is_none_or(|a| e.timestamp_ms > a)
+            })
+            .map(|e| e.input_tokens + e.output_tokens)
+            .sum()
+    };
+    match latest_anchor_cost(observations, ym, now_ms) {
+        Some(anchor) => {
+            Some(anchor.cost + month_tokens(Some(anchor.at_ms)) as f64 * rate / 1e6)
+        }
+        // No anchor this month yet: zero + tokens at the inherited rate.
+        None => Some(month_tokens(None) as f64 * rate / 1e6),
+    }
 }
 
 /// Ledger location: `<config dir>/calibration.toml`.
@@ -407,36 +419,48 @@ mod tests {
     #[test]
     fn anchored_cost_moves_with_local_delta() {
         use crate::UsageEvent;
-        // Two observations: 50 at 11M total tokens, then 55 at 11.5M:
-        // incremental rate = 5 / 0.5M = 10 EUR/M (NOT the blended rate on
-        // the full month totals, which is what the old estimator got wrong).
-        let previous = obs(1_000, 10_000_000, 9_000_000, 1_000_000, 50.0);
-        let anchor = obs(1_500, 10_000_000, 9_000_000, 1_500_000, 55.0);
-        assert!((incremental_rate(&[previous.clone(), anchor.clone()]).unwrap() - 10.0).abs() < 1e-9);
-        let mut events = vec![
-            // Before the anchor: not counted in the delta.
-            UsageEvent { session_id: "s".into(), parent_session_id: None, sequence: 1,
-                timestamp_ms: 1_000, input_tokens: 5_000_000, output_tokens: 100_000,
-                cached_input_tokens: 0, total_tokens: 5_100_000, finish_reason: "stop".into() },
-        ];
-        for (i, ts) in [2_000u64, 3_000].iter().enumerate() {
-            events.push(UsageEvent { session_id: "s".into(), parent_session_id: None,
-                sequence: 10 + i as u64, timestamp_ms: *ts,
-                input_tokens: 800_000, output_tokens: 200_000,
-                cached_input_tokens: 0, total_tokens: 1_000_000, finish_reason: "stop".into() });
+        fn ev(seq: u64, ts: u64, input: u64, output: u64) -> UsageEvent {
+            UsageEvent { session_id: "s".into(), parent_session_id: None, sequence: seq,
+                timestamp_ms: ts, input_tokens: input, output_tokens: output,
+                cached_input_tokens: 0, total_tokens: input + output, finish_reason: "stop".into() }
         }
+        // January pair: 50 at 11M total tokens, then 55 at 11.5M:
+        // incremental rate = 5 / 0.5M = 10 EUR/M (not the blended rate).
+        let january = [
+            obs(1_000, 10_000_000, 9_000_000, 1_000_000, 50.0),
+            obs(1_500, 10_000_000, 9_000_000, 1_500_000, 55.0),
+        ];
+        assert!((incremental_rate(&january).unwrap() - 10.0).abs() < 1e-9);
+
+        let february_1st = 2_678_400_000u64;
+        let events = vec![
+            // January, before the anchor: not in the delta.
+            ev(1, 1_000, 5_000_000, 100_000),
+            // January, after the anchor: 2M.
+            ev(10, 2_000, 800_000, 200_000),
+            ev(11, 3_000, 800_000, 200_000),
+            // February: 4M.
+            ev(12, february_1st + 1_000, 1_500_000, 500_000),
+            ev(13, february_1st + 2_000, 1_500_000, 500_000),
+        ];
         let sessions = vec![SessionUsage {
             meta: crate::scan::SessionMeta { session_id: "s".into(), ..Default::default() },
             events,
         }];
-        // 2M tokens after the anchor at 10 EUR/M -> +20.
-        let cost = anchored_cost_with_delta(&[previous.clone(), anchor.clone()], &sessions, "1970-01", 9_999).unwrap();
+
+        // Anchored month: 55 + 2M after the anchor at 10 EUR/M = 75.
+        let cost = anchored_cost_with_delta(&january, &sessions, "1970-01", 9_999_999).unwrap();
         assert!((cost - 75.0).abs() < 1e-9, "{cost}");
-        // Single anchor, no pair: no rate, the anchor is the position.
-        let frozen = anchored_cost_with_delta(&[anchor], &sessions, "1970-01", 9_999).unwrap();
-        assert!((frozen - 55.0).abs() < 1e-9, "{frozen}");
-        // No anchor: None.
-        assert!(anchored_cost_with_delta(&[], &sessions, "1970-01", 9_999).is_none());
+
+        // Fresh month (no observation in it): 4M tokens at the inherited
+        // rate 10 EUR/M = 40.
+        let fresh = anchored_cost_with_delta(&january, &sessions, "1970-02", 9_999_999).unwrap();
+        assert!((fresh - 40.0).abs() < 1e-9, "{fresh}");
+
+        // Single observation, no pair: no rate at all.
+        assert!(anchored_cost_with_delta(&january[..1], &sessions, "1970-02", 9_999_999).is_none());
+        // No observations: None (caller falls back to config prices).
+        assert!(anchored_cost_with_delta(&[], &sessions, "1970-02", 9_999_999).is_none());
     }
 
     #[test]
