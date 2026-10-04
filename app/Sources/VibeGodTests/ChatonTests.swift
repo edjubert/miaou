@@ -55,15 +55,42 @@ final class ChatonTests: XCTestCase {
         XCTAssertFalse(Chaton.frames[rest].isEmpty)
     }
 
+    func testSilhouetteFillsEnclosedHolesOnly() {
+        var ring: [(col: Int, row: Int)] = []
+        for i in 4...10 {
+            ring.append((col: i, row: 4))
+            ring.append((col: i, row: 10))
+            ring.append((col: 4, row: i))
+            ring.append((col: 10, row: i))
+        }
+        // A closed ring: the center becomes part of the silhouette.
+        let closed = Set(Chaton.silhouette(ring).map(key))
+        XCTAssertTrue(closed.contains(key((7, 7))))
+        // An open ring (gap on the border): the flood fill reaches the
+        // center, nothing is enclosed.
+        var openRing = ring
+        openRing.removeAll { $0.col == 7 && $0.row == 4 }
+        let openSet = Set(Chaton.silhouette(openRing).map(key))
+        XCTAssertFalse(openSet.contains(key((7, 7))))
+        // Every animation silhouette covers its own frame's dots.
+        for (i, pose) in Chaton.frames.enumerated() {
+            let dots = Set(pose.map(key))
+            let silKeys = Set(Chaton.silhouettes[i].map(key))
+            XCTAssertTrue(silKeys.isSuperset(of: dots), "frame \(i)")
+        }
+        // Silhouettes are precomputed for every frame, in order.
+        XCTAssertEqual(Chaton.silhouettes.count, Chaton.frames.count)
+    }
+
     func testChatonColorModes() {
         // Always color.
-        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .color), MistralLogo.brand)
-        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .color), MistralLogo.brand)
+        XCTAssertEqual(MistralIcon.palette(live: true, mode: .color), MistralLogo.brand)
+        XCTAssertEqual(MistralIcon.palette(live: false, mode: .color), MistralLogo.brand)
         // Always grayscale.
-        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .grayscale), MistralLogo.grayscale)
-        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .grayscale), MistralLogo.grayscale)
+        XCTAssertEqual(MistralIcon.palette(live: true, mode: .grayscale), MistralLogo.grayscale)
+        XCTAssertEqual(MistralIcon.palette(live: false, mode: .grayscale), MistralLogo.grayscale)
         // By session.
-        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .session), MistralLogo.brand)
-        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .session), MistralLogo.grayscale)
+        XCTAssertEqual(MistralIcon.palette(live: true, mode: .session), MistralLogo.brand)
+        XCTAssertEqual(MistralIcon.palette(live: false, mode: .session), MistralLogo.grayscale)
     }
 }

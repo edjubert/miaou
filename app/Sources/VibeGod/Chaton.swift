@@ -1,4 +1,6 @@
 import AppKit
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 /// Le petit chat: the cat of the Mistral Vibe CLI banner (see
 /// vibe/cli/textual_ui/widgets/banner/petit_chat.py), re-rendered as
@@ -118,6 +120,55 @@ enum Chaton {
         return result
     }()
 
+    /// One Int per (col, row) cell, the packing used by `frames`.
+    static func key(_ c: (col: Int, row: Int)) -> Int { c.col * 32 + c.row }
+
+    /// Silhouette of a pose: its own cells plus the empty cells they
+    /// enclose, i.e. every cell a flood fill from the grid border cannot
+    /// reach. The menu bar fills this silhouette black so the cat body
+    /// reads solid behind the dots; the banner keeps the bare dot grid.
+    static func silhouette(_ glyph: [(col: Int, row: Int)]) -> [(col: Int, row: Int)] {
+        let occupied = Set(glyph.map(key))
+        var reached = Set<Int>()
+        var queue: [Int] = []
+        func visitIfEmpty(_ col: Int, _ row: Int) {
+            guard col >= 0, col < gridW, row >= 0, row < gridH else { return }
+            let k = key((col, row))
+            guard !occupied.contains(k), !reached.contains(k) else { return }
+            reached.insert(k)
+            queue.append(k)
+        }
+        for col in 0..<gridW {
+            visitIfEmpty(col, 0)
+            visitIfEmpty(col, gridH - 1)
+        }
+        for row in 0..<gridH {
+            visitIfEmpty(0, row)
+            visitIfEmpty(gridW - 1, row)
+        }
+        while let k = queue.popLast() {
+            let col = k / 32
+            let row = k % 32
+            visitIfEmpty(col + 1, row)
+            visitIfEmpty(col - 1, row)
+            visitIfEmpty(col, row + 1)
+            visitIfEmpty(col, row - 1)
+        }
+        var result = glyph
+        for col in 0..<gridW {
+            for row in 0..<gridH {
+                let k = key((col, row))
+                if !occupied.contains(k), !reached.contains(k) {
+                    result.append((col, row))
+                }
+            }
+        }
+        return result
+    }
+
+    /// Per-frame silhouettes, in `frames` order.
+    static let silhouettes: [[(col: Int, row: Int)]] = frames.map(silhouette)
+
     /// Reference bounding box of the pose, used to center every frame:
     /// computing it per frame would make the cat jump around.
     private static let minCol = cells.map(\.col).min()!
@@ -150,10 +201,84 @@ enum Chaton {
 
     static func drawBar(frame: Int, in context: CGContext, pixels: CGSize, palette: [NSColor]) {
         let index = min(max(frame, 0), frames.count - 1)
+        let cell = CGFloat(pixels.height) / barWindow.height
+        // The bar variant alone paints a backdrop behind the cat: the
+        // silhouette filled dark, then blurred so it fades out a little
+        // past the contour. The banner keeps the bare dot grid.
+        blurBehind(silhouettes[index], in: context, pixels: pixels, cell: cell)
         draw(cells: frames[index], in: context,
              window: barWindow,
-             cell: CGFloat(pixels.height) / barWindow.height,
+             cell: cell,
              palette: palette)
+    }
+
+    /// Shared renderer for the backdrop blur; expensive to create.
+    private static let ciContext = CIContext()
+
+    /// Halo of the bar icon: the silhouette blurred into a soft dark
+    /// ring that surrounds the cat, punched out inside the contour so
+    /// the cat itself stays on the bare bar background. The banner
+    /// draws no halo at all.
+    private static func blurBehind(_ glyph: [(col: Int, row: Int)],
+                                   in context: CGContext,
+                                   pixels: CGSize,
+                                   cell: CGFloat) {
+        let canvas = CGRect(origin: .zero, size: pixels)
+        // The halo carrier: the silhouette blurred into a soft blob.
+        fill(silhouette: glyph, in: context, window: barWindow, cell: cell,
+             color: NSColor.black.withAlphaComponent(0.65))
+        guard let dark = context.makeImage() else { return }
+        context.clear(canvas)
+        // The punch mask: the same silhouette in white. CIBlendWithMask
+        // keys on the mask's luminance, and the fill above is black.
+        fill(silhouette: glyph, in: context, window: barWindow, cell: cell,
+             color: NSColor.white)
+        guard let white = context.makeImage() else { return }
+        context.clear(canvas)
+        guard let halo = gaussianBlur(CIImage(cgImage: dark), radius: cell * 0.8),
+              let mask = gaussianBlur(CIImage(cgImage: white), radius: cell * 0.35)
+        else { return }
+        // Halo outside the (feathered) mask, transparent inside it.
+        let blend = CIFilter.blendWithMask()
+        blend.inputImage = CIImage.empty()
+        blend.backgroundImage = halo
+        blend.maskImage = mask
+        guard let output = blend.outputImage,
+              let ring = ciContext.createCGImage(output, from: canvas) else { return }
+        context.draw(ring, in: canvas)
+    }
+
+    private static func gaussianBlur(_ image: CIImage, radius: CGFloat) -> CIImage? {
+        let filter = CIFilter.gaussianBlur()
+        filter.inputImage = image
+        filter.radius = Float(radius)
+        return filter.outputImage
+    }
+
+    /// Full-cell rectangles of `glyph` painted `color`, mirroring the
+    /// geometry of `draw`. Rects overlap a hair so antialiasing leaves
+    /// no seams between adjacent cells.
+    private static func fill(silhouette glyph: [(col: Int, row: Int)],
+                             in context: CGContext,
+                             window: CGRect,
+                             cell: CGFloat,
+                             color: NSColor) {
+        let marginX = (square - CGFloat(maxCol - minCol + 1)) / 2
+        let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2
+        let height = window.height * cell
+        let overlap = cell * 0.1
+        context.setFillColor(color.cgColor)
+        for c in glyph {
+            let x = (marginX + CGFloat(c.col - minCol) - window.minX) * cell
+            let top = (marginY + CGFloat(c.row - minRow) - window.minY) * cell
+            let rect = CGRect(
+                x: x - overlap,
+                y: height - top - cell - overlap,
+                width: cell + 2 * overlap,
+                height: cell + 2 * overlap
+            )
+            context.fill(rect)
+        }
     }
 
     private static func draw(cells glyph: [(col: Int, row: Int)],

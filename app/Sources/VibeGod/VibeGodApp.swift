@@ -25,15 +25,25 @@ struct BarLabel: View {
     @ObservedObject private var model = AppModel.shared
     @StateObject private var animator = ChatonAnimator()
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
-    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
+    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
+    @AppStorage("showIcon") private var showIcon: Bool = true
 
     private var style: BarIconStyle {
-        BarIconStyle(rawValue: barIconRaw) ?? .session
+        BarIconStyle(rawValue: barIconRaw) ?? .logo
     }
 
     private var colorMode: ChatonColorMode {
         ChatonColorMode(rawValue: chatonColorRaw) ?? .session
+    }
+
+    private var mode: BarMode {
+        BarMode(rawValue: barModeRaw) ?? .percent
+    }
+
+    /// A bar without text always keeps its icon.
+    private var showsIcon: Bool {
+        showIcon || mode == .none
     }
 
     /// The chaton loops while a session is live, and rests on its
@@ -44,13 +54,17 @@ struct BarLabel: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(nsImage: MistralIcon.image(
-                style: style,
-                live: model.hasLiveSessions,
-                frame: animator.frame,
-                colorMode: colorMode
-            ))
-            Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+            if showsIcon {
+                Image(nsImage: MistralIcon.image(
+                    style: style,
+                    live: model.hasLiveSessions,
+                    frame: animator.frame,
+                    colorMode: colorMode
+                ))
+            }
+            if mode != .none {
+                Text(model.barTitle(mode: mode))
+            }
         }
         .onAppear { animator.setActive(animate) }
         .onChange(of: animate) { active in
@@ -97,8 +111,9 @@ struct ChatonBanner: View {
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
-    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
+    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
+    @AppStorage("showIcon") private var showIcon: Bool = true
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @State private var loginError: String?
 
@@ -162,27 +177,23 @@ struct MenuContent: View {
     private var displaySection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Réglages").font(.headline)
-            Picker("Barre de menu", selection: $barModeRaw) {
+            Picker("Barre de menu", selection: Binding(
+                get: { barModeRaw },
+                set: { raw in
+                    barModeRaw = raw
+                    // A bar without text needs its icon: turn it on.
+                    if BarMode(rawValue: raw) == .none { showIcon = true }
+                }
+            )) {
                 ForEach(BarMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Picker("Icône", selection: $barIconRaw) {
-                ForEach(BarIconStyle.allCases) { style in
-                    Text(style.label).tag(style.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Picker("Chaton", selection: $chatonColorRaw) {
-                ForEach(ChatonColorMode.allCases) { mode in
-                    Text(mode.label).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            Toggle("Icone", isOn: $showIcon)
+                .font(.caption)
+                .disabled(barMode == .none)
             Toggle("Lancer au démarrage", isOn: Binding(
                 get: { SMAppService.mainApp.status == .enabled },
                 set: { enabled in
@@ -204,13 +215,28 @@ struct MenuContent: View {
                     .font(.caption2)
                     .foregroundStyle(.red)
             }
+            Text("Icone").font(.headline)
+            Picker("Icone", selection: $barIconRaw) {
+                ForEach(BarIconStyle.allCases) { style in
+                    Text(style.label).tag(style.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Picker("Couleur", selection: $chatonColorRaw) {
+                ForEach(ChatonColorMode.allCases) { mode in
+                    Text(mode.label).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
     }
 
     private func budgetSection(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             let status = dashboard.budgetStatus
-            Text("Month \(status.month)")
+            Text(monthTitle(status.month))
                 .font(.headline)
             if let used = status.usedUsd, let effective = status.budget.effectiveUsd, effective > 0 {
                 let pct = used / effective * 100
