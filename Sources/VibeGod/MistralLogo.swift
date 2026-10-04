@@ -92,8 +92,8 @@ enum MistralIcon {
 
     private static var cache: [String: NSImage] = [:]
 
-    static func image(style: BarIconStyle, live: Bool) -> NSImage {
-        let key = "\(style.rawValue)-\(live)"
+    static func image(style: BarIconStyle, live: Bool, frame: Int = 0) -> NSImage {
+        let key = "\(style.rawValue)-\(live)-\(frame)"
         if let cached = cache[key] { return cached }
         let palette: [NSColor]
         let draw: (CGContext, CGFloat) -> Void
@@ -109,7 +109,7 @@ enum MistralIcon {
             draw = { MistralLogo.draw(in: $0, size: $1, palette: palette) }
         case .chaton:
             palette = live ? MistralLogo.brand : MistralLogo.grayscale
-            draw = { Chaton.draw(in: $0, size: $1, palette: palette) }
+            draw = { Chaton.draw(frame: frame, in: $0, size: $1, palette: palette) }
         }
         let image = rasterize(draw: draw)
         cache[key] = image

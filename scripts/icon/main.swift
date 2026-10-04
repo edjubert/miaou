@@ -36,11 +36,9 @@ func drawIcon(size: CGFloat) -> NSImage {
         )
         context.restoreGState()
 
-        // Petit chat in brand colors, centered. The glyph keeps its wide
-        // 22x12 aspect, vertically centered inside the square.
-        let glyph = size * 0.88
-        context.translateBy(x: (size - glyph) / 2, y: (size - glyph) / 2)
-        Chaton.draw(in: context, size: glyph, palette: MistralLogo.brand)
+        // Petit chat in brand colors. Chaton.draw centers the pose in the
+        // square and keeps enough margin for the animation tail sweep.
+        Chaton.draw(in: context, size: size, palette: MistralLogo.brand)
     }
     image.unlockFocus()
     return image
