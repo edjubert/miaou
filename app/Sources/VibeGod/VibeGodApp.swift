@@ -62,6 +62,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+/// The petit chat as a full-width banner at the top of the menu window,
+/// looping like the Vibe CLI banner it comes from.
+struct ChatonBanner: View {
+    @StateObject private var animator = ChatonAnimator()
+
+    var body: some View {
+        Image(nsImage: MistralIcon.bannerImage(frame: animator.frame))
+            .resizable()
+            .aspectRatio(25.0 / 14.0, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .onAppear { animator.setActive(true) }
+            .onDisappear { animator.setActive(false) }
+    }
+}
+
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
@@ -75,6 +90,7 @@ struct MenuContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            ChatonBanner()
             if let error = model.lastError {
                 Text(error)
                     .font(.caption)
