@@ -3,3 +3,5 @@ build/
 DerivedData/
 *.xcodeproj/xcuserdata/
 Package.resolved
+.build/
+VibeGod.app/
