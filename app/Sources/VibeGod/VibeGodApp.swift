@@ -31,9 +31,11 @@ struct BarLabel: View {
         BarIconStyle(rawValue: barIconRaw) ?? .session
     }
 
-    /// The chaton only moves while a session is live.
+    /// While the animation is being tuned, the chaton moves whatever the
+    /// session state is. Palette still follows live: color when a
+    /// session runs, grayscale otherwise.
     private var animate: Bool {
-        style == .chaton && model.hasLiveSessions
+        style == .chaton
     }
 
     var body: some View {

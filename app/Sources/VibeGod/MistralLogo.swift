@@ -56,9 +56,10 @@ enum MistralLogo {
         NSColor(red: 0.882, green: 0.020, blue: 0.000, alpha: 1),
     ]
 
-    /// Same light-to-dark gradient, desaturated.
+    /// Same light-to-dark gradient, desaturated. The ramp stays close
+    /// to white so the dark rows remain readable on a dark menu bar.
     static let grayscale: [NSColor] = (0..<5).map {
-        NSColor(white: 0.80 - CGFloat($0) * 0.16, alpha: 1)
+        NSColor(white: 0.95 - CGFloat($0) * 0.10, alpha: 1)
     }
 
     /// Block rectangles in the 24x24 viewBox: (x, y, width, height, row).
@@ -85,44 +86,53 @@ enum MistralLogo {
     }
 }
 
-/// Menu bar labels render a limited view set (Text, Image), so the logo
-/// is rasterized into NSImages. Images are cached per style and state.
+/// Menu bar labels render a limited view set (Text, Image), so the glyphs
+/// are rasterized into NSImages. Images are cached per style, state and
+/// frame.
 enum MistralIcon {
     static let barSize: CGFloat = 16
+
+    /// The chaton is wide (25x14 cells): its bar image is not square.
+    static let chatonBarPoints = NSSize(width: barSize * 25 / 14, height: barSize)
+    private static let chatonBarPixels = CGSize(width: 125, height: 70)
+    private static let logoPixels: Int = 64
 
     private static var cache: [String: NSImage] = [:]
 
     static func image(style: BarIconStyle, live: Bool, frame: Int = 0) -> NSImage {
         let key = "\(style.rawValue)-\(live)-\(frame)"
         if let cached = cache[key] { return cached }
-        let palette: [NSColor]
-        let draw: (CGContext, CGFloat) -> Void
+        let image: NSImage
         switch style {
-        case .color:
-            palette = MistralLogo.brand
-            draw = { MistralLogo.draw(in: $0, size: $1, palette: palette) }
-        case .grayscale:
-            palette = MistralLogo.grayscale
-            draw = { MistralLogo.draw(in: $0, size: $1, palette: palette) }
-        case .session:
-            palette = live ? MistralLogo.brand : MistralLogo.grayscale
-            draw = { MistralLogo.draw(in: $0, size: $1, palette: palette) }
+        case .color, .grayscale, .session:
+            let palette: [NSColor]
+            switch style {
+            case .color: palette = MistralLogo.brand
+            case .grayscale: palette = MistralLogo.grayscale
+            default: palette = live ? MistralLogo.brand : MistralLogo.grayscale
+            }
+            let pixels = logoPixels
+            image = rasterize(pixels: CGSize(width: pixels, height: pixels), points: NSSize(width: barSize, height: barSize)) { context in
+                MistralLogo.draw(in: context, size: CGFloat(pixels), palette: palette)
+            }
         case .chaton:
-            palette = live ? MistralLogo.brand : MistralLogo.grayscale
-            draw = { Chaton.draw(frame: frame, in: $0, size: $1, palette: palette) }
+            let palette = live ? MistralLogo.brand : MistralLogo.grayscale
+            let pixels = chatonBarPixels
+            image = rasterize(pixels: pixels, points: chatonBarPoints) { context in
+                Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
+            }
         }
-        let image = rasterize(draw: draw)
         cache[key] = image
         return image
     }
 
-    /// Renders the glyph into a `pixels`-pixel bitmap backing a `barSize`
+    /// Renders the glyph into a `pixels`-pixel bitmap backing a `points`
     /// point image, so it stays crisp on 2x/3x menu bars.
-    private static func rasterize(draw: (CGContext, CGFloat) -> Void, pixels: Int = 64) -> NSImage {
+    private static func rasterize(pixels: CGSize, points: NSSize, draw: (CGContext) -> Void) -> NSImage {
         guard let context = CGContext(
             data: nil,
-            width: pixels,
-            height: pixels,
+            width: Int(pixels.width),
+            height: Int(pixels.height),
             bitsPerComponent: 8,
             bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
@@ -130,13 +140,13 @@ enum MistralIcon {
         ) else {
             fatalError("could not create bitmap context")
         }
-        draw(context, CGFloat(pixels))
+        draw(context)
         guard let cgImage = context.makeImage() else {
             fatalError("could not render bar icon")
         }
         let image = NSImage(
             cgImage: cgImage,
-            size: NSSize(width: barSize, height: barSize)
+            size: points
         )
         image.isTemplate = false
         return image
