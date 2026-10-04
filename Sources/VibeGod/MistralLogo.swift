@@ -43,6 +43,24 @@ func drawBlocks(_ blocks: [GlyphBlock], in context: CGContext, size: CGFloat, pa
     }
 }
 
+/// Color mode for the chaton, applied to the bar icon and the banner.
+enum ChatonColorMode: String, CaseIterable, Identifiable {
+    /// Brand colors while a session is live, grayscale otherwise.
+    case session
+    case color
+    case grayscale
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .session: return "Par session"
+        case .color: return "Couleur"
+        case .grayscale: return "Gris"
+        }
+    }
+}
+
 /// Mistral logo: 12 blocks in 5 rows on the official 24x24 viewBox,
 /// one color per row. Palettes run top to bottom. Source geometry:
 /// https://assets.mistral.ai/icon.svg
@@ -104,8 +122,11 @@ enum MistralIcon {
 
     private static var cache: [String: NSImage] = [:]
 
-    static func image(style: BarIconStyle, live: Bool, frame: Int = 0) -> NSImage {
-        let key = "\(style.rawValue)-\(live)-\(frame)"
+    static func image(style: BarIconStyle,
+                      live: Bool,
+                      frame: Int = 0,
+                      colorMode: ChatonColorMode = .session) -> NSImage {
+        let key = "\(style.rawValue)-\(live)-\(frame)-\(colorMode.rawValue)"
         if let cached = cache[key] { return cached }
         let image: NSImage
         switch style {
@@ -121,7 +142,7 @@ enum MistralIcon {
                 MistralLogo.draw(in: context, size: CGFloat(pixels), palette: palette)
             }
         case .chaton:
-            let palette = live ? MistralLogo.brand : MistralLogo.grayscale
+            let palette = chatonPalette(live: live, mode: colorMode)
             let pixels = chatonBarPixels
             image = rasterize(pixels: pixels, points: chatonBarPoints) { context in
                 Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
@@ -131,13 +152,23 @@ enum MistralIcon {
         return image
     }
 
-    /// The animated banner of the menu window header, in brand colors.
-    static func bannerImage(frame: Int) -> NSImage {
-        let key = "banner-\(frame)"
+    /// Palette of the chaton for the selected color mode.
+    static func chatonPalette(live: Bool, mode: ChatonColorMode) -> [NSColor] {
+        switch mode {
+        case .color: return MistralLogo.brand
+        case .grayscale: return MistralLogo.grayscale
+        case .session: return live ? MistralLogo.brand : MistralLogo.grayscale
+        }
+    }
+
+    /// The animated banner of the menu window header.
+    static func bannerImage(frame: Int, colorMode: ChatonColorMode = .session) -> NSImage {
+        let key = "banner-\(frame)-\(colorMode.rawValue)"
         if let cached = cache[key] { return cached }
         let pixels = bannerPixels
+        let palette = chatonPalette(live: true, mode: colorMode)
         let image = rasterize(pixels: pixels, points: bannerPoints) { context in
-            Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: MistralLogo.brand)
+            Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
         }
         cache[key] = image
         return image
