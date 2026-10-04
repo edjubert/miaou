@@ -141,6 +141,15 @@ pub fn anchored_cost_with_delta(
     }
 }
 
+/// Cost of one local day, valued at the incremental rate measured by the
+/// ledger: the same rate that drives the live delta of the anchored month
+/// cost, so day and month figures agree. Falls back to the caller when no
+/// rate is available.
+pub fn anchored_day_cost(observations: &[Observation], day_tokens: u64) -> Option<f64> {
+    let rate = incremental_rate(observations)?;
+    Some(day_tokens as f64 * rate / 1e6)
+}
+
 /// Ledger location: `<config dir>/calibration.toml`.
 pub fn ledger_path() -> std::path::PathBuf {
     crate::budget::default_config_path()
@@ -461,6 +470,20 @@ mod tests {
         assert!(anchored_cost_with_delta(&january[..1], &sessions, "1970-02", 9_999_999).is_none());
         // No observations: None (caller falls back to config prices).
         assert!(anchored_cost_with_delta(&[], &sessions, "1970-02", 9_999_999).is_none());
+    }
+
+    #[test]
+    fn anchored_day_cost_uses_the_incremental_rate() {
+        // Same January pair as anchored_cost_moves_with_local_delta:
+        // incremental rate = 10 EUR/M.
+        let january = [
+            obs(1_000, 10_000_000, 9_000_000, 1_000_000, 50.0),
+            obs(1_500, 10_000_000, 9_000_000, 1_500_000, 55.0),
+        ];
+        // A day of 3M tokens costs 30 at that rate.
+        assert!((anchored_day_cost(&january, 3_000_000).unwrap() - 30.0).abs() < 1e-9);
+        // No pair, no rate.
+        assert!(anchored_day_cost(&january[..1], 3_000_000).is_none());
     }
 
     #[test]

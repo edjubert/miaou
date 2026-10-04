@@ -220,7 +220,14 @@ fn main() {
             grand.cost_usd = price_of(&grand);
 
             let mut today_totals = day_totals(&sessions, &today);
-            today_totals.cost_usd = price_of(&today_totals);
+            // Same cost basis as the month: the console-anchored incremental
+            // rate, not the raw per-token model prices.
+            let ledger = vibe_god_cli::calibrate::load_ledger(&vibe_god_cli::calibrate::ledger_path());
+            today_totals.cost_usd = vibe_god_cli::calibrate::anchored_day_cost(
+                &ledger,
+                today_totals.input_tokens + today_totals.output_tokens,
+            )
+            .or_else(|| price_of(&today_totals));
             let mtd = month_to_date(&sessions, &current_month);
             let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
 
