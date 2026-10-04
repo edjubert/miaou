@@ -26,16 +26,20 @@ struct BarLabel: View {
     @StateObject private var animator = ChatonAnimator()
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
+    @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
 
     private var style: BarIconStyle {
         BarIconStyle(rawValue: barIconRaw) ?? .session
     }
 
-    /// While the animation is being tuned, the chaton moves whatever the
-    /// session state is. Palette still follows live: color when a
-    /// session runs, grayscale otherwise.
+    private var colorMode: ChatonColorMode {
+        ChatonColorMode(rawValue: chatonColorRaw) ?? .session
+    }
+
+    /// The chaton loops while a session is live, and rests on its
+    /// sleeping pose otherwise.
     private var animate: Bool {
-        style == .chaton
+        style == .chaton && model.hasLiveSessions
     }
 
     var body: some View {
@@ -43,7 +47,8 @@ struct BarLabel: View {
             Image(nsImage: MistralIcon.image(
                 style: style,
                 live: model.hasLiveSessions,
-                frame: animator.frame
+                frame: animator.frame,
+                colorMode: colorMode
             ))
             Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
         }
@@ -63,9 +68,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// The petit chat as a full-width banner at the top of the menu window,
-/// looping like the Vibe CLI banner it comes from.
+/// looping like the Vibe CLI banner it comes from, resting a while on
+/// its sleeping pose each time the cycle reaches it.
 struct ChatonBanner: View {
-    @StateObject private var animator = ChatonAnimator()
+    @StateObject private var animator = ChatonAnimator(restsInLoop: true)
+    @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
+
+    private var colorMode: ChatonColorMode {
+        ChatonColorMode(rawValue: chatonColorRaw) ?? .session
+    }
 
     // Fixed height: a resizable image with aspectRatio fit has no
     // intrinsic size, so a height-starved VStack squeezes it to zero
@@ -73,7 +84,7 @@ struct ChatonBanner: View {
     static let height: CGFloat = 154
 
     var body: some View {
-        Image(nsImage: MistralIcon.bannerImage(frame: animator.frame))
+        Image(nsImage: MistralIcon.bannerImage(frame: animator.frame, colorMode: colorMode))
             .resizable()
             .aspectRatio(25.0 / 14.0, contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -87,6 +98,7 @@ struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
+    @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @State private var loginError: String?
 
@@ -160,6 +172,13 @@ struct MenuContent: View {
             Picker("Icône", selection: $barIconRaw) {
                 ForEach(BarIconStyle.allCases) { style in
                     Text(style.label).tag(style.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Picker("Chaton", selection: $chatonColorRaw) {
+                ForEach(ChatonColorMode.allCases) { mode in
+                    Text(mode.label).tag(mode.rawValue)
                 }
             }
             .pickerStyle(.segmented)

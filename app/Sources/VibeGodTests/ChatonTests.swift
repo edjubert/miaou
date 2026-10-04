@@ -54,4 +54,16 @@ final class ChatonTests: XCTestCase {
         XCTAssertLessThan(rest, Chaton.frames.count - 1)
         XCTAssertFalse(Chaton.frames[rest].isEmpty)
     }
+
+    func testChatonColorModes() {
+        // Always color.
+        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .color), MistralLogo.brand)
+        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .color), MistralLogo.brand)
+        // Always grayscale.
+        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .grayscale), MistralLogo.grayscale)
+        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .grayscale), MistralLogo.grayscale)
+        // By session.
+        XCTAssertEqual(MistralIcon.chatonPalette(live: true, mode: .session), MistralLogo.brand)
+        XCTAssertEqual(MistralIcon.chatonPalette(live: false, mode: .session), MistralLogo.grayscale)
+    }
 }
