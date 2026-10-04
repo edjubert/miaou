@@ -24,10 +24,14 @@ struct VibeGodApp: App {
 struct BarLabel: View {
     @ObservedObject private var model = AppModel.shared
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
+    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(nsImage: model.hasLiveSessions ? CatIcon.live : CatIcon.idle)
+            Image(nsImage: MistralIcon.image(
+                style: BarIconStyle(rawValue: barIconRaw) ?? .session,
+                live: model.hasLiveSessions
+            ))
             Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
         }
     }
@@ -44,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
+    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @State private var loginError: String?
 
@@ -103,6 +108,13 @@ struct MenuContent: View {
             Picker("Barre de menu", selection: $barModeRaw) {
                 ForEach(BarMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Picker("Icône", selection: $barIconRaw) {
+                ForEach(BarIconStyle.allCases) { style in
+                    Text(style.label).tag(style.rawValue)
                 }
             }
             .pickerStyle(.segmented)

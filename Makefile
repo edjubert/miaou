@@ -3,16 +3,22 @@ APP_BUNDLE = $(APP_NAME).app
 CONTENTS = $(APP_BUNDLE)/Contents
 APP_DIR = $(HOME)/Applications
 
-.PHONY: build app install-app clean
+.PHONY: build app install-app icon clean
 
 build:
 	swift build -c release
 
+icon:
+	mkdir -p .build
+	swiftc scripts/icon/main.swift Sources/VibeGod/MistralLogo.swift Sources/VibeGod/Chaton.swift -o .build/icongen
+	.build/icongen Resources/AppIcon.icns
+
 app: build
 	rm -rf $(APP_BUNDLE)
-	mkdir -p $(CONTENTS)/MacOS
+	mkdir -p $(CONTENTS)/MacOS $(CONTENTS)/Resources
 	cp .build/release/$(APP_NAME) $(CONTENTS)/MacOS/$(APP_NAME)
 	cp Info.plist $(CONTENTS)/Info.plist
+	cp Resources/AppIcon.icns $(CONTENTS)/Resources/AppIcon.icns
 	codesign --force --sign - $(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE) (ad-hoc signed, LSUIElement: no Dock icon)"
 
