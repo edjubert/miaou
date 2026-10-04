@@ -43,7 +43,7 @@ struct BarLabel: View {
             Image(nsImage: MistralIcon.image(
                 style: style,
                 live: model.hasLiveSessions,
-                frame: animate ? animator.frame : 0
+                frame: animator.frame
             ))
             Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
         }

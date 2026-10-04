@@ -1,19 +1,27 @@
 import SwiftUI
 
 /// Drives the petit chat animation in the menu bar label. Advances one
-/// frame every 0.16 s like the Vibe CLI banner, rests 5 to 20 s on the
-/// rest pose (state 26), and sometimes (25%) pauses mid-cycle on the
-/// frames where the original does, with the head settled and eyes open.
+/// frame every 0.16 s like the Vibe CLI banner, in one continuous loop
+/// over the cycle states: no pauses. When inactive, the chaton freezes
+/// on the rest pose.
 final class ChatonAnimator: ObservableObject {
     static let frameInterval: TimeInterval = 0.16
-    static let restFrames: Set<Int> = [5, 11, 21, 24]
-    static let pauseDelay: ClosedRange<Double> = 5...20
 
-    @Published private(set) var frame = 0
+    /// The pose the chaton freezes on when it does not move.
+    static let restFrame = 14
+
+    @Published private(set) var frame = ChatonAnimator.restFrame
 
     private var timer: Timer?
 
-    /// Runs while active, freezes on the reference pose when not.
+    /// Next state in the cycle. The animation is periodic on states
+    /// 1...26: after the last state, the first transition brings back
+    /// the second one. State 0 is only the departure pose.
+    static func nextFrame(after frame: Int) -> Int {
+        frame == Chaton.frames.count - 1 ? 1 : frame + 1
+    }
+
+    /// Runs while active, freezes on the rest pose when not.
     func setActive(_ active: Bool) {
         if active {
             if timer == nil {
@@ -27,37 +35,11 @@ final class ChatonAnimator: ObservableObject {
         } else {
             timer?.invalidate()
             timer = nil
-            frame = 0
+            frame = Self.restFrame
         }
     }
 
     private func tick() {
-        if frame == Chaton.frames.count - 1 {
-            // Rest pose: the cycle loops back into its second state.
-            frame = 1
-            pause()
-        } else {
-            frame += 1
-            if Self.restFrames.contains(frame),
-               Double.random(in: 0...1) < 0.25 {
-                pause()
-            }
-        }
-    }
-
-    private func pause() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(
-            withTimeInterval: Double.random(in: Self.pauseDelay),
-            repeats: false
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.timer = Timer.scheduledTimer(
-                withTimeInterval: Self.frameInterval,
-                repeats: true
-            ) { [weak self] _ in
-                self?.tick()
-            }
-        }
+        frame = Self.nextFrame(after: frame)
     }
 }
