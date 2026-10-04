@@ -7,6 +7,8 @@ enum BarMode: String, CaseIterable, Identifiable {
     case cost
     case percent
     case both
+    /// Icon only: no text next to it, the icon is forced on.
+    case none
 
     var id: String { rawValue }
 
@@ -15,6 +17,7 @@ enum BarMode: String, CaseIterable, Identifiable {
         case .cost: return "Coût"
         case .percent: return "Pourcentage"
         case .both: return "Les deux"
+        case .none: return "Aucun"
         }
     }
 }
@@ -37,6 +40,8 @@ enum BarTitle {
 
         let base: String
         switch mode {
+        case .none:
+            base = ""
         case .percent:
             base = pct ?? tokens
         case .cost:
@@ -119,4 +124,17 @@ func formatTokens(_ value: Double) -> String {
         return String(format: "%.1f%@", value / divisor, suffix)
     }
     return String(format: "%.0f", value)
+}
+
+/// "2026-10" formatted as "Octobre 2026"; unknown keys pass through.
+func monthTitle(_ ym: String) -> String {
+    let parser = DateFormatter()
+    parser.locale = Locale(identifier: "en_US_POSIX")
+    parser.dateFormat = "yyyy-MM"
+    guard let date = parser.date(from: ym) else { return ym }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "fr_FR")
+    formatter.dateFormat = "MMMM yyyy"
+    let raw = formatter.string(from: date)
+    return raw.prefix(1).uppercased() + raw.dropFirst()
 }

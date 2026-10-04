@@ -1,21 +1,17 @@
 import AppKit
 
-/// Icon style for the menu bar label.
+/// Icon glyph for the menu bar label.
 enum BarIconStyle: String, CaseIterable, Identifiable {
-    /// Brand colors while a session is live, grayscale otherwise.
-    case session
-    case color
-    case grayscale
-    /// The Chaton glyph, brand colors live, grayscale otherwise.
+    /// The Mistral logo.
+    case logo
+    /// The Chaton glyph.
     case chaton
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .session: return "Session"
-        case .color: return "Couleur"
-        case .grayscale: return "Gris"
+        case .logo: return "Logo"
         case .chaton: return "Chaton"
         }
     }
@@ -43,7 +39,7 @@ func drawBlocks(_ blocks: [GlyphBlock], in context: CGContext, size: CGFloat, pa
     }
 }
 
-/// Color mode for the chaton, applied to the bar icon and the banner.
+/// Color mode shared by both glyphs and the banner.
 enum ChatonColorMode: String, CaseIterable, Identifiable {
     /// Brand colors while a session is live, grayscale otherwise.
     case session
@@ -54,7 +50,7 @@ enum ChatonColorMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .session: return "Par session"
+        case .session: return "Session"
         case .color: return "Couleur"
         case .grayscale: return "Gris"
         }
@@ -130,19 +126,14 @@ enum MistralIcon {
         if let cached = cache[key] { return cached }
         let image: NSImage
         switch style {
-        case .color, .grayscale, .session:
-            let palette: [NSColor]
-            switch style {
-            case .color: palette = MistralLogo.brand
-            case .grayscale: palette = MistralLogo.grayscale
-            default: palette = live ? MistralLogo.brand : MistralLogo.grayscale
-            }
+        case .logo:
+            let palette = palette(live: live, mode: colorMode)
             let pixels = logoPixels
             image = rasterize(pixels: CGSize(width: pixels, height: pixels), points: NSSize(width: barSize, height: barSize)) { context in
                 MistralLogo.draw(in: context, size: CGFloat(pixels), palette: palette)
             }
         case .chaton:
-            let palette = chatonPalette(live: live, mode: colorMode)
+            let palette = palette(live: live, mode: colorMode)
             let pixels = chatonBarPixels
             image = rasterize(pixels: pixels, points: chatonBarPoints) { context in
                 Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
@@ -152,8 +143,8 @@ enum MistralIcon {
         return image
     }
 
-    /// Palette of the chaton for the selected color mode.
-    static func chatonPalette(live: Bool, mode: ChatonColorMode) -> [NSColor] {
+    /// Glyph palette for the selected color mode.
+    static func palette(live: Bool, mode: ChatonColorMode) -> [NSColor] {
         switch mode {
         case .color: return MistralLogo.brand
         case .grayscale: return MistralLogo.grayscale
@@ -166,7 +157,7 @@ enum MistralIcon {
         let key = "banner-\(frame)-\(colorMode.rawValue)"
         if let cached = cache[key] { return cached }
         let pixels = bannerPixels
-        let palette = chatonPalette(live: true, mode: colorMode)
+        let palette = palette(live: true, mode: colorMode)
         let image = rasterize(pixels: pixels, points: bannerPoints) { context in
             Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
         }
