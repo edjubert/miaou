@@ -101,8 +101,11 @@ enum Chaton {
         (remove: [(4, 1), (3, 2), (3, 3), (5, 3), (5, 7), (3, 8), (4, 9), (5, 9)], add: [(6, 1), (7, 1), (8, 2), (4, 3), (6, 3), (7, 3), (4, 8), (5, 8)]),
     ]
 
-    /// All 27 states of the animation, state 0 being the reference pose
-    /// and state 26 the rest pose the original pauses on.
+    /// All 27 states of the animation, state 0 being the reference pose.
+    /// The cycle is periodic on states 1...26: after state 26, the first
+    /// transition leads back to state 1. State 0 is only the departure
+    /// pose and never comes back. The original rests on state 26;
+    /// VibeGod freezes on ChatonAnimator.restFrame.
     static let frames: [[(col: Int, row: Int)]] = {
         func key(_ c: (col: Int, row: Int)) -> Int { c.col * 32 + c.row }
         var current = Set(cells.map(key))
