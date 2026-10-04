@@ -97,6 +97,11 @@ enum MistralIcon {
     private static let chatonBarPixels = CGSize(width: 125, height: 70)
     private static let logoPixels: Int = 64
 
+    /// Full-width banner of the menu window header: the chaton at the
+    /// window width, with 2x backing to stay crisp.
+    private static let bannerPoints = NSSize(width: 275, height: 154)
+    private static let bannerPixels = CGSize(width: 550, height: 308)
+
     private static var cache: [String: NSImage] = [:]
 
     static func image(style: BarIconStyle, live: Bool, frame: Int = 0) -> NSImage {
@@ -121,6 +126,18 @@ enum MistralIcon {
             image = rasterize(pixels: pixels, points: chatonBarPoints) { context in
                 Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
             }
+        }
+        cache[key] = image
+        return image
+    }
+
+    /// The animated banner of the menu window header, in brand colors.
+    static func bannerImage(frame: Int) -> NSImage {
+        let key = "banner-\(frame)"
+        if let cached = cache[key] { return cached }
+        let pixels = bannerPixels
+        let image = rasterize(pixels: pixels, points: bannerPoints) { context in
+            Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: MistralLogo.brand)
         }
         cache[key] = image
         return image
