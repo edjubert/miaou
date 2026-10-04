@@ -67,11 +67,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct ChatonBanner: View {
     @StateObject private var animator = ChatonAnimator()
 
+    // Fixed height: a resizable image with aspectRatio fit has no
+    // intrinsic size, so a height-starved VStack squeezes it to zero
+    // and the banner vanishes.
+    static let height: CGFloat = 154
+
     var body: some View {
         Image(nsImage: MistralIcon.bannerImage(frame: animator.frame))
             .resizable()
             .aspectRatio(25.0 / 14.0, contentMode: .fit)
             .frame(maxWidth: .infinity)
+            .frame(height: Self.height)
             .onAppear { animator.setActive(true) }
             .onDisappear { animator.setActive(false) }
     }
