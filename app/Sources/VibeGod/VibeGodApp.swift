@@ -23,16 +23,31 @@ struct VibeGodApp: App {
 /// observed view does.
 struct BarLabel: View {
     @ObservedObject private var model = AppModel.shared
+    @StateObject private var animator = ChatonAnimator()
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.session.rawValue
+
+    private var style: BarIconStyle {
+        BarIconStyle(rawValue: barIconRaw) ?? .session
+    }
+
+    /// The chaton only moves while a session is live.
+    private var animate: Bool {
+        style == .chaton && model.hasLiveSessions
+    }
 
     var body: some View {
         HStack(spacing: 4) {
             Image(nsImage: MistralIcon.image(
-                style: BarIconStyle(rawValue: barIconRaw) ?? .session,
-                live: model.hasLiveSessions
+                style: style,
+                live: model.hasLiveSessions,
+                frame: animate ? animator.frame : 0
             ))
             Text(model.barTitle(mode: BarMode(rawValue: barModeRaw) ?? .percent))
+        }
+        .onAppear { animator.setActive(animate) }
+        .onChange(of: animate) { active in
+            animator.setActive(active)
         }
     }
 }
