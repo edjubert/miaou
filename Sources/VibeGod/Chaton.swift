@@ -122,28 +122,51 @@ enum Chaton {
     private static let minRow = cells.map(\.row).min()!
     private static let maxRow = cells.map(\.row).max()!
 
+    /// The glyph lives in a square grid of 25x25 cells: the pose spans
+    /// cols 3-21, plus three cells of margin on the left for the tail
+    /// sweep of the animation.
+    private static let square: CGFloat = 25
+
     static func draw(in context: CGContext, size: CGFloat, palette: [NSColor]) {
-        draw(cells: cells, in: context, size: size, palette: palette)
+        draw(cells: cells, in: context,
+             window: CGRect(x: 0, y: 0, width: square, height: square),
+             cell: size / square, palette: palette)
     }
 
     static func draw(frame: Int, in context: CGContext, size: CGFloat, palette: [NSColor]) {
         let index = min(max(frame, 0), frames.count - 1)
-        draw(cells: frames[index], in: context, size: size, palette: palette)
+        draw(cells: frames[index], in: context,
+             window: CGRect(x: 0, y: 0, width: square, height: square),
+             cell: size / square, palette: palette)
     }
 
-    private static func draw(cells glyph: [(col: Int, row: Int)], in context: CGContext, size: CGFloat, palette: [NSColor]) {
-        // Pitch 24/25 instead of 24/22: the tail sweep of the animation
-        // reaches col 0, which lands exactly on the viewBox edge.
-        let cell = size / 25
+    /// Menu bar window: the cat band of the square, 25 x 14 cells. The
+    /// chaton is wide, so a square image leaves it small: this window
+    /// crops the vertical margins and lets it fill the bar height.
+    static let barWindow = CGRect(x: 0, y: 5.5, width: 25, height: 14)
+
+    static func drawBar(frame: Int, in context: CGContext, pixels: CGSize, palette: [NSColor]) {
+        let index = min(max(frame, 0), frames.count - 1)
+        draw(cells: frames[index], in: context,
+             window: barWindow,
+             cell: CGFloat(pixels.height) / barWindow.height,
+             palette: palette)
+    }
+
+    private static func draw(cells glyph: [(col: Int, row: Int)],
+                             in context: CGContext,
+                             window: CGRect,
+                             cell: CGFloat,
+                             palette: [NSColor]) {
         let dot = cell * 0.7
         let inset = (cell - dot) / 2
-        let offsetX = (size - CGFloat(maxCol - minCol + 1) * cell) / 2
-        let offsetY = (size - CGFloat(maxRow - minRow + 1) * cell) / 2
+        let marginX = (square - CGFloat(maxCol - minCol + 1)) / 2
+        let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2
+        let height = window.height * cell
         for c in glyph {
-            let x = offsetX + CGFloat(c.col - minCol) * cell + inset
-            // Row 0 is the top: convert to the context's bottom-left origin.
-            let y = size - offsetY - CGFloat(c.row - minRow) * cell - inset - dot
-            let rect = CGRect(x: x, y: y, width: dot, height: dot)
+            let x = (marginX + CGFloat(c.col - minCol) - window.minX) * cell + inset
+            let top = (marginY + CGFloat(c.row - minRow) - window.minY) * cell + inset
+            let rect = CGRect(x: x, y: height - top - dot, width: dot, height: dot)
             context.setFillColor(palette[min(4, c.row * 5 / 12)].cgColor)
             context.fill(rect)
         }
