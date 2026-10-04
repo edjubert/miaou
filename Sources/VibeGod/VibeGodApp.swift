@@ -110,6 +110,12 @@ struct MenuContent: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                Divider()
+                    .frame(height: 12)
+                Button("Quitter") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q")
             }
         }
         .padding(12)
