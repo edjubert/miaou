@@ -103,10 +103,13 @@ enum VibeGodError: Error {
 
 /// Runs the vibe-god-cli binary and decodes its JSON output.
 enum VibeGodCLI {
-    /// Candidate locations, tried in order. GUI apps inherit a minimal PATH
-    /// (no ~/.cargo/bin), so an explicit lookup is required.
+    /// Candidate locations, tried in order. The preferred one is the copy
+    /// embedded in the .app bundle by `make app`, which makes the installed
+    /// app self-contained. GUI apps inherit a minimal PATH (no ~/.cargo/bin),
+    /// so explicit lookups are required for the fallbacks.
     private static var candidates: [String] {
         [
+            Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/vibe-god-cli").path,
             NSHomeDirectory() + "/.cargo/bin/vibe-god-cli",
             "/opt/homebrew/bin/vibe-god-cli",
             "/usr/local/bin/vibe-god-cli",

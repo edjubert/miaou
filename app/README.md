@@ -28,7 +28,35 @@ VibeGod (SwiftUI menu bar app, this repo)
 ```
 
 The CLI is the single source of truth for parsing and aggregation; this app
-is a consumer of its JSON output (and may ship/embed the binary).
+is a consumer of its JSON output and bundles a copy of the binary inside
+`VibeGod.app`.
+
+## Install
+
+`make install-app` builds and installs the app, but it does not build
+`vibe-god-cli` (private repo, SSH access required). The CLI binary is
+embedded into the bundle at build time, so it must be on the machine
+once, in `PATH` or `~/.cargo/bin`. After that the installed app is
+self-contained and no longer depends on the CLI install.
+
+From scratch:
+
+```bash
+# Prerequisites: Xcode Command Line Tools (swift), Rust (cargo)
+# 1. Build and install the CLI (single source of truth for parsing)
+cargo install --git ssh://git@github.com/edjubert/vibe-god-cli.git
+# 2. Build and install the app (embeds the CLI into VibeGod.app)
+git clone git@github.com:edjubert/VibeGod.git
+cd VibeGod && make install-app
+```
+
+`make install-app` builds, bundles and installs to
+`~/Applications/VibeGod.app`. Launch it from there, then enable
+"Lancer au démarrage" in its settings (uses SMAppService and requires
+the installed .app, not `swift run`).
+
+Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
+`/opt/homebrew/bin`, not the embedded copy).
 
 ## Planned features
 
@@ -63,22 +91,12 @@ Milestone 2: menu bar app consuming the single `vibe-god-cli dashboard`
 JSON endpoint. Bar shows the envelope percentage (tokens fallback) plus a
 live-session dot; the window shows budget progress, today's usage, a
 14-day token sparkline (Swift Charts), top-5 projects and quick commands.
-Refreshes every 60 s and on menu open. The binary is resolved from
-`~/.cargo/bin` explicitly: GUI processes inherit a minimal PATH.
+Refreshes every 60 s and on menu open. The CLI binary is looked up in
+the app bundle first (embedded by `make app`), then `~/.cargo/bin` and
+Homebrew paths: GUI processes inherit a minimal PATH.
 
-```bash
-make install-app     # build + bundle + install to ~/Applications/VibeGod.app
-```
-
-Dev: `swift build && swift run`. The bundle carries LSUIElement (no Dock
-icon). "Lancer au démarrage" in the settings uses SMAppService and
-requires the installed .app (not `swift run`).
-
-Requires `vibe-god-cli` in PATH (private repo: `cargo install --git
-ssh://git@github.com/edjubert/vibe-god-cli.git`). Without model prices
-configured, the bar shows month tokens instead of a cost percentage.
-
-Structure: `Sources/VibeGod` (app + CLI bridge), `Sources/VibeGodTests`
-(decode tests against vibe-god-cli JSON). No `.xcodeproj`: the package can
-be adopted into an Xcode app bundle later for login-at-startup and
+The bundle carries LSUIElement (no Dock icon). Structure:
+`Sources/VibeGod` (app + CLI bridge), `Sources/VibeGodTests`
+(decode tests against vibe-god-cli JSON). No `.xcodeproj`: the package
+can be adopted into an Xcode app bundle later for login-at-startup and
 notarization.

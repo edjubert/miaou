@@ -2,6 +2,8 @@ APP_NAME = VibeGod
 APP_BUNDLE = $(APP_NAME).app
 CONTENTS = $(APP_BUNDLE)/Contents
 APP_DIR = $(HOME)/Applications
+CLI_NAME = vibe-god-cli
+CLI_BIN ?= $(shell command -v $(CLI_NAME) 2>/dev/null || echo $(HOME)/.cargo/bin/$(CLI_NAME))
 
 .PHONY: build app install-app icon clean
 
@@ -14,9 +16,11 @@ icon:
 	.build/icongen Resources/AppIcon.icns
 
 app: build
+	@test -x "$(CLI_BIN)" || { echo "error: $(CLI_NAME) not found (looked in PATH and ~/.cargo/bin)."; echo "Install it first: cargo install --git ssh://git@github.com/edjubert/vibe-god-cli.git"; exit 1; }
 	rm -rf $(APP_BUNDLE)
 	mkdir -p $(CONTENTS)/MacOS $(CONTENTS)/Resources
 	cp .build/release/$(APP_NAME) $(CONTENTS)/MacOS/$(APP_NAME)
+	cp "$(CLI_BIN)" $(CONTENTS)/MacOS/$(CLI_NAME)
 	cp Info.plist $(CONTENTS)/Info.plist
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/AppIcon.icns
 	codesign --force --sign - $(APP_BUNDLE)
