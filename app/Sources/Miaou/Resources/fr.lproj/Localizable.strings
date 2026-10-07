@@ -1,0 +1,57 @@
+/* Menu window */
+"settings.headline" = "Réglages";
+"bar.picker" = "Barre de menu";
+"icon.toggle" = "Icone";
+"icon.headline" = "Icone";
+"login.toggle" = "Lancer au démarrage";
+"refresh.button" = "Rafraîchir";
+"quit.button" = "Quitter";
+"installed.question" = "miaou est-il installé et à jour ?";
+"settings.language" = "Langue";
+"language.system" = "Système";
+"language.french" = "Français";
+"language.english" = "English";
+
+/* Bar mode picker */
+"barMode.cost" = "Coût";
+"barMode.percent" = "Pourcentage";
+"barMode.both" = "Les deux";
+"barMode.none" = "Aucun";
+
+/* Icon settings */
+"iconStyle.logo" = "Logo";
+"iconStyle.chaton" = "Chaton";
+"colorMode.session" = "Session";
+"colorMode.color" = "Couleur";
+"colorMode.grayscale" = "Gris";
+"colorMode.picker" = "Couleur";
+
+/* Budget section */
+"budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";
+"budget.requests_tokens_month" = "%d requêtes, %@ tokens ce mois";
+"budget.payg" = "En dépassement PAYG : %.2f %@ au-delà de l'enveloppe";
+"budget.over" = "Au-delà de l'enveloppe de %.2f %@";
+"forecast.pace" = "Au rythme de %.2f %@/jour,";
+"forecast.holds" = "le quota devrait tenir jusqu'à la fin du mois";
+"forecast.hit" = "quota atteint dans ~%d jours (%@)";
+
+/* Today section */
+"today.headline" = "Aujourd'hui";
+"today.requests_tokens" = "%d requêtes, %@ tokens";
+
+/* Live section */
+"live.active" = "Session active";
+
+/* Analytics */
+"chart.daily.title" = "Tokens consommés par jour (14 derniers jours)";
+"chart.axis.day" = "Jour";
+"chart.axis.tokens" = "Tokens";
+"tab.daily" = "Jours";
+"tab.monthly" = "Mois";
+"tab.sessions" = "Sessions";
+"projects.headline" = "Projets (part des tokens du mois)";
+"row.req_tok" = "%d req, %@ tok";
+
+/* Errors */
+"error.exited" = "miaou a terminé avec le code %d";
+"error.bad_json" = "miaou a renvoyé un JSON inattendu";

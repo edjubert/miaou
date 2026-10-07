@@ -21,9 +21,13 @@ app: build
 	rm -rf $(APP_BUNDLE)
 	mkdir -p $(CONTENTS)/MacOS $(CONTENTS)/Resources
 	cp .build/release/$(APP_NAME) $(CONTENTS)/MacOS/$(APP_NAME)
+	cp -R .build/release/$(APP_NAME)_$(APP_NAME).bundle $(CONTENTS)/MacOS/
 	cp "$(CLI_BIN)" $(CONTENTS)/MacOS/$(CLI_EMBED)
 	cp Info.plist $(CONTENTS)/Info.plist
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/AppIcon.icns
+	# Sign the nested resource bundle first: codesign does not auto-sign
+	# sub-bundles living in Contents/MacOS.
+	codesign --force --sign - $(CONTENTS)/MacOS/$(APP_NAME)_$(APP_NAME).bundle
 	codesign --force --sign - $(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE) (ad-hoc signed, LSUIElement: no Dock icon)"
 

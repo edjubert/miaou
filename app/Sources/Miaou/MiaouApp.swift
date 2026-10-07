@@ -108,6 +108,28 @@ struct ChatonBanner: View {
     }
 }
 
+// Localized labels for the enums living in MistralLogo.swift: that file
+// is also compiled standalone by `make icon`, so it must not reference
+// Bundle.module (see L10n.swift).
+extension BarIconStyle {
+    var label: String {
+        switch self {
+        case .logo: return L10n.t("iconStyle.logo")
+        case .chaton: return L10n.t("iconStyle.chaton")
+        }
+    }
+}
+
+extension ChatonColorMode {
+    var label: String {
+        switch self {
+        case .session: return L10n.t("colorMode.session")
+        case .color: return L10n.t("colorMode.color")
+        case .grayscale: return L10n.t("colorMode.grayscale")
+        }
+    }
+}
+
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
@@ -115,6 +137,7 @@ struct MenuContent: View {
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
     @AppStorage("showIcon") private var showIcon: Bool = true
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
+    @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
 
     private var barMode: BarMode {
@@ -128,7 +151,7 @@ struct MenuContent: View {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text("Is miaou installed and up to date?")
+                Text(L10n.t("installed.question"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if let dashboard = model.dashboard {
@@ -153,7 +176,7 @@ struct MenuContent: View {
             }
             Divider()
             HStack {
-                Button("Refresh") { model.refresh() }
+                Button(L10n.t("refresh.button")) { model.refresh() }
                     .keyboardShortcut("r")
                 Spacer()
                 if let refreshed = model.lastRefresh {
@@ -163,7 +186,7 @@ struct MenuContent: View {
                 }
                 Divider()
                     .frame(height: 12)
-                Button("Quitter") {
+                Button(L10n.t("quit.button")) {
                     NSApplication.shared.terminate(nil)
                 }
                 .keyboardShortcut("q")
@@ -176,8 +199,8 @@ struct MenuContent: View {
 
     private var displaySection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Réglages").font(.headline)
-            Picker("Barre de menu", selection: Binding(
+            Text(L10n.t("settings.headline")).font(.headline)
+            Picker(L10n.t("bar.picker"), selection: Binding(
                 get: { barModeRaw },
                 set: { raw in
                     barModeRaw = raw
@@ -191,10 +214,10 @@ struct MenuContent: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Toggle("Icone", isOn: $showIcon)
+            Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
                 .font(.caption)
                 .disabled(barMode == .none)
-            Toggle("Lancer au démarrage", isOn: Binding(
+            Toggle(L10n.t("login.toggle"), isOn: Binding(
                 get: { SMAppService.mainApp.status == .enabled },
                 set: { enabled in
                     do {
@@ -210,20 +233,28 @@ struct MenuContent: View {
                 }
             ))
             .font(.caption)
+            Picker(L10n.t("settings.language"), selection: $languageRaw) {
+                Text(L10n.t("language.system")).tag("system")
+                Text(L10n.t("language.french")).tag("fr")
+                Text(L10n.t("language.english")).tag("en")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .font(.caption)
             if let loginError {
                 Text(loginError)
                     .font(.caption2)
                     .foregroundStyle(.red)
             }
-            Text("Icone").font(.headline)
-            Picker("Icone", selection: $barIconRaw) {
+            Text(L10n.t("icon.headline")).font(.headline)
+            Picker(L10n.t("icon.headline"), selection: $barIconRaw) {
                 ForEach(BarIconStyle.allCases) { style in
                     Text(style.label).tag(style.rawValue)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Picker("Couleur", selection: $chatonColorRaw) {
+            Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
                 ForEach(ChatonColorMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
                 }
@@ -242,7 +273,7 @@ struct MenuContent: View {
                 let pct = used / effective * 100
                 ProgressView(value: min(pct, 100), total: 100)
                     .tint(overTint(dashboard))
-                Text(String(format: "%.2f %@ used of %.2f %@ (%.1f%%)", used, dashboard.currency, effective, dashboard.currency, pct))
+                Text(L10n.t("budget.used_of", used, dashboard.currency, effective, dashboard.currency, pct))
                     .font(.callout)
                 if let forecast = quotaForecast(dashboard) {
                     // Two single-line Texts, not one multiline Text: the
@@ -255,15 +286,15 @@ struct MenuContent: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Text("\(status.usedRequests) requests, \(formatTokens(Double(status.usedTokens))) tokens this month")
+                Text(L10n.t("budget.requests_tokens_month", status.usedRequests, formatTokens(Double(status.usedTokens))))
                     .font(.callout)
             }
             if let over = dashboard.budgetStatus.usedUsd,
                let envelope = status.budget.monthlyUsd,
                over > envelope {
                 Text(status.budget.overageAllowed
-                     ? String(format: "In PAYG overage: %.2f %@ beyond the envelope", over - envelope, dashboard.currency)
-                     : String(format: "Over the envelope by %.2f %@", over - envelope, dashboard.currency))
+                     ? L10n.t("budget.payg", over - envelope, dashboard.currency)
+                     : L10n.t("budget.over", over - envelope, dashboard.currency))
                     .font(.caption)
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
             }
@@ -290,23 +321,23 @@ struct MenuContent: View {
               let lastDay = calendar.range(of: .day, in: .month, for: today)?.last else { return nil }
         let avgDaily = used / Double(max(dayOfMonth, 1))
         let days = Int(ceil((effective - used) / avgDaily))
-        let pace = String(format: "Au rythme de %.2f %@/jour,", avgDaily, dashboard.currency)
+        let pace = L10n.t("forecast.pace", avgDaily, dashboard.currency)
 
         if dayOfMonth + days > lastDay {
-            return (pace: pace, outcome: "le quota devrait tenir jusqu'à la fin du mois")
+            return (pace: pace, outcome: L10n.t("forecast.holds"))
         }
         guard let hit = calendar.date(byAdding: .day, value: days, to: today) else { return nil }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_FR")
-        formatter.dateFormat = "d MMM"
-        return (pace: pace, outcome: String(format: "quota atteint dans ~%d jours (%@)", days, formatter.string(from: hit)))
+        formatter.locale = L10n.locale
+        formatter.setLocalizedDateFormatFromTemplate("d MMM")
+        return (pace: pace, outcome: L10n.t("forecast.hit", days, formatter.string(from: hit)))
     }
 
     private func todaySection(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Today").font(.headline)
+            Text(L10n.t("today.headline")).font(.headline)
             let t = dashboard.todayTotals
-            Text("\(t.requests) requests, \(formatTokens(Double(t.totalTokens))) tokens")
+            Text(L10n.t("today.requests_tokens", t.requests, formatTokens(Double(t.totalTokens))))
                 .font(.callout)
             if let cost = t.costUsd {
                 Text(String(format: "%.4f %@", cost, dashboard.currency)).font(.caption).foregroundStyle(.secondary)
@@ -319,7 +350,7 @@ struct MenuContent: View {
             Circle()
                 .fill(.green)
                 .frame(width: 8, height: 8)
-            Text("Active session")
+            Text(L10n.t("live.active"))
                 .font(.callout)
             Spacer()
             Text(dashboard.liveSessions[0].id.prefix(8))
@@ -331,13 +362,13 @@ struct MenuContent: View {
     private func dailyChart(_ dashboard: DashboardReport) -> some View {
         let days = dashboard.daily.suffix(14)
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Tokens consommés par jour (14 derniers jours)")
+            Text(L10n.t("chart.daily.title"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Chart(days, id: \.key) { row in
                 BarMark(
-                    x: .value("Jour", String(row.key.suffix(5))),
-                    y: .value("Tokens", row.totalTokens)
+                    x: .value(L10n.t("chart.axis.day"), String(row.key.suffix(5))),
+                    y: .value(L10n.t("chart.axis.tokens"), row.totalTokens)
                 )
                 .foregroundStyle(Color.accentColor.opacity(0.85))
                 .annotation(position: .top) {
@@ -360,7 +391,7 @@ struct MenuContent: View {
         let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
         let top = dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }.prefix(5)
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Projects (share of month tokens)").font(.headline)
+            Text(L10n.t("projects.headline")).font(.headline)
             ForEach(Array(top), id: \.key) { row in
                 VStack(alignment: .leading, spacing: 1) {
                     HStack {
@@ -381,9 +412,9 @@ struct MenuContent: View {
     private func analyticsSection(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                tabButton("Jours", tab: "daily")
-                tabButton("Mois", tab: "monthly")
-                tabButton("Sessions", tab: "sessions")
+                tabButton(L10n.t("tab.daily"), tab: "daily")
+                tabButton(L10n.t("tab.monthly"), tab: "monthly")
+                tabButton(L10n.t("tab.sessions"), tab: "sessions")
             }
             switch analyticsTab {
             case "monthly":
@@ -416,7 +447,7 @@ struct MenuContent: View {
                 HStack {
                     Text(row.key).font(.caption)
                     Spacer()
-                    Text("\(row.requests) req, \(formatTokens(Double(row.totalTokens))) tok")
+                    Text(L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     if let cost = row.costUsd {
@@ -440,7 +471,7 @@ struct MenuContent: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer()
-                    Text("\(s.requests) req, \(formatTokens(Double(s.totalTokens))) tok")
+                    Text(L10n.t("row.req_tok", s.requests, formatTokens(Double(s.totalTokens))))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

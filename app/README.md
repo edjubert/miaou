@@ -88,6 +88,11 @@ envelope) or **Les deux** (`€68.75 (27%)`). The choice persists in
 `UserDefaults` (key `barMode`). Without cost estimation, all modes fall
 back to month tokens. A `•` suffix marks live sessions.
 
+The UI ships in English and French. It follows the system language by
+default; the segmented language picker in the settings forces
+Français or English (key `language`), which also localizes month and
+day names.
+
 ## Status
 
 Milestone 2: menu bar app consuming the single `miaou dashboard`

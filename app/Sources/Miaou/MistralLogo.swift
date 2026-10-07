@@ -1,6 +1,8 @@
 import AppKit
 
 /// Icon glyph for the menu bar label.
+/// `label` lives in MiaouApp.swift: this file is also compiled standalone
+/// by `make icon`, outside SPM, and must not reference Bundle.module.
 enum BarIconStyle: String, CaseIterable, Identifiable {
     /// The Mistral logo.
     case logo
@@ -8,13 +10,6 @@ enum BarIconStyle: String, CaseIterable, Identifiable {
     case chaton
 
     var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .logo: return "Logo"
-        case .chaton: return "Chaton"
-        }
-    }
 }
 
 /// One rectangle of a block glyph, in the shared 24x24 viewBox with the
@@ -47,14 +42,6 @@ enum ChatonColorMode: String, CaseIterable, Identifiable {
     case grayscale
 
     var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .session: return "Session"
-        case .color: return "Couleur"
-        case .grayscale: return "Gris"
-        }
-    }
 }
 
 /// Mistral logo: 12 blocks in 5 rows on the official 24x24 viewBox,

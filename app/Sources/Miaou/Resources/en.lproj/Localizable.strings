@@ -1,0 +1,57 @@
+/* Menu window */
+"settings.headline" = "Settings";
+"bar.picker" = "Menu bar";
+"icon.toggle" = "Icon";
+"icon.headline" = "Icon";
+"login.toggle" = "Launch at startup";
+"refresh.button" = "Refresh";
+"quit.button" = "Quit";
+"installed.question" = "Is miaou installed and up to date?";
+"settings.language" = "Language";
+"language.system" = "System";
+"language.french" = "Français";
+"language.english" = "English";
+
+/* Bar mode picker */
+"barMode.cost" = "Cost";
+"barMode.percent" = "Percentage";
+"barMode.both" = "Both";
+"barMode.none" = "None";
+
+/* Icon settings */
+"iconStyle.logo" = "Logo";
+"iconStyle.chaton" = "Chaton";
+"colorMode.session" = "Session";
+"colorMode.color" = "Color";
+"colorMode.grayscale" = "Grayscale";
+"colorMode.picker" = "Color";
+
+/* Budget section */
+"budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";
+"budget.requests_tokens_month" = "%d requests, %@ tokens this month";
+"budget.payg" = "In PAYG overage: %.2f %@ beyond the envelope";
+"budget.over" = "Over the envelope by %.2f %@";
+"forecast.pace" = "At a pace of %.2f %@/day,";
+"forecast.holds" = "the quota should last until the end of the month";
+"forecast.hit" = "quota reached in ~%d days (%@)";
+
+/* Today section */
+"today.headline" = "Today";
+"today.requests_tokens" = "%d requests, %@ tokens";
+
+/* Live section */
+"live.active" = "Active session";
+
+/* Analytics */
+"chart.daily.title" = "Tokens consumed per day (last 14 days)";
+"chart.axis.day" = "Day";
+"chart.axis.tokens" = "Tokens";
+"tab.daily" = "Days";
+"tab.monthly" = "Months";
+"tab.sessions" = "Sessions";
+"projects.headline" = "Projects (share of month tokens)";
+"row.req_tok" = "%d req, %@ tok";
+
+/* Errors */
+"error.exited" = "miaou exited with %d";
+"error.bad_json" = "miaou returned unexpected JSON";

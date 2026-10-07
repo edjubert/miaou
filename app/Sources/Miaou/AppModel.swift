@@ -14,10 +14,10 @@ enum BarMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .cost: return "Coût"
-        case .percent: return "Pourcentage"
-        case .both: return "Les deux"
-        case .none: return "Aucun"
+        case .cost: return L10n.t("barMode.cost")
+        case .percent: return L10n.t("barMode.percent")
+        case .both: return L10n.t("barMode.both")
+        case .none: return L10n.t("barMode.none")
         }
     }
 }
@@ -148,9 +148,9 @@ final class AppModel: ObservableObject {
     private static func describe(_ error: Error) -> String {
         switch error {
         case MiaouError.processFailed(let code):
-            return "miaou exited with \(code)"
+            return L10n.t("error.exited", code)
         case MiaouError.badJSON:
-            return "miaou returned unexpected JSON"
+            return L10n.t("error.bad_json")
         default:
             return error.localizedDescription
         }
@@ -165,15 +165,16 @@ func formatTokens(_ value: Double) -> String {
     return String(format: "%.0f", value)
 }
 
-/// "2026-10" formatted as "Octobre 2026"; unknown keys pass through.
+/// "2026-10" formatted as a localized month title; unknown keys pass
+/// through.
 func monthTitle(_ ym: String) -> String {
     let parser = DateFormatter()
     parser.locale = Locale(identifier: "en_US_POSIX")
     parser.dateFormat = "yyyy-MM"
     guard let date = parser.date(from: ym) else { return ym }
     let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "fr_FR")
-    formatter.dateFormat = "MMMM yyyy"
+    formatter.locale = L10n.locale
+    formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
     let raw = formatter.string(from: date)
     return raw.prefix(1).uppercased() + raw.dropFirst()
 }
