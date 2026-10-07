@@ -6,6 +6,8 @@ from local session journals, in the spirit of
 local files (no credentials, no undocumented APIs). The mascot is a
 chaton; the menu bar cat keeps an eye on your token bowl.
 
+![Miaou menu window](docs/miaou-menu.png)
+
 ```
 miaou/
 ├── cli/      Rust CLI: parsing, aggregation, budget, calibration (binary: miaou)
