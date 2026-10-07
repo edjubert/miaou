@@ -1,8 +1,8 @@
 import Foundation
 import AppKit
 
-// Decodable mirror of `vibe-god-cli dashboard` JSON output.
-// Run: /usr/bin/env vibe-god-cli dashboard --json
+// Decodable mirror of `miaou dashboard` JSON output.
+// Run: /usr/bin/env miaou dashboard --json
 
 struct TotalsReport: Codable, Equatable {
     let requests: Int
@@ -96,23 +96,23 @@ struct DashboardReport: Codable, Equatable {
     }
 }
 
-enum VibeGodError: Error {
+enum MiaouError: Error {
     case processFailed(exitCode: Int32)
     case badJSON(String)
 }
 
-/// Runs the vibe-god-cli binary and decodes its JSON output.
-enum VibeGodCLI {
+/// Runs the miaou binary and decodes its JSON output.
+enum MiaouCLI {
     /// Candidate locations, tried in order. The preferred one is the copy
     /// embedded in the .app bundle by `make app`, which makes the installed
     /// app self-contained. GUI apps inherit a minimal PATH (no ~/.cargo/bin),
     /// so explicit lookups are required for the fallbacks.
     private static var candidates: [String] {
         [
-            Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/vibe-god-cli").path,
-            NSHomeDirectory() + "/.cargo/bin/vibe-god-cli",
-            "/opt/homebrew/bin/vibe-god-cli",
-            "/usr/local/bin/vibe-god-cli",
+            Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/miaou").path,
+            NSHomeDirectory() + "/.cargo/bin/miaou",
+            "/opt/homebrew/bin/miaou",
+            "/usr/local/bin/miaou",
         ]
     }
 
@@ -123,7 +123,7 @@ enum VibeGodCLI {
             process.arguments = ["dashboard", "--json"]
         } else {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["vibe-god-cli", "dashboard", "--json"]
+            process.arguments = ["miaou", "dashboard", "--json"]
         }
 
         let pipe = Pipe()
@@ -134,14 +134,14 @@ enum VibeGodCLI {
         process.waitUntilExit()
 
         guard process.terminationStatus == 0 else {
-            throw VibeGodError.processFailed(exitCode: process.terminationStatus)
+            throw MiaouError.processFailed(exitCode: process.terminationStatus)
         }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         do {
             return try decoder.decode(DashboardReport.self, from: data)
         } catch {
-            throw VibeGodError.badJSON(String(data: data, encoding: .utf8) ?? "<no data>")
+            throw MiaouError.badJSON(String(data: data, encoding: .utf8) ?? "<no data>")
         }
     }
 }

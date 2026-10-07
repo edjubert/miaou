@@ -4,7 +4,7 @@ import Charts
 import ServiceManagement
 
 @main
-struct VibeGodApp: App {
+struct MiaouApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     var body: some Scene {
@@ -128,7 +128,7 @@ struct MenuContent: View {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text("Is vibe-god-cli installed and up to date?")
+                Text("Is miaou installed and up to date?")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if let dashboard = model.dashboard {

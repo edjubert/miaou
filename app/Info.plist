@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>VibeGod</string>
+	<string>Miaou</string>
 	<key>CFBundleDisplayName</key>
-	<string>VibeGod</string>
+	<string>Miaou</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.edjubert.VibeGod</string>
+	<string>com.edjubert.Miaou</string>
 	<key>CFBundleExecutable</key>
-	<string>VibeGod</string>
+	<string>Miaou</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundlePackageType</key>

@@ -2,7 +2,7 @@
 // Draws the petit chat (the dotted cat of the Vibe CLI banner) on a
 // near-black rounded background. Run via `make icon`.
 //
-// swiftc scripts/icon/main.swift Sources/VibeGod/MistralLogo.swift Sources/VibeGod/Chaton.swift -o build/icongen
+// swiftc scripts/icon/main.swift Sources/Miaou/MistralLogo.swift Sources/Miaou/Chaton.swift -o build/icongen
 // ./build/icongen Resources/AppIcon.icns
 
 import AppKit
@@ -58,7 +58,7 @@ let output = URL(fileURLWithPath: CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
     : "Resources/AppIcon.icns")
 let work = FileManager.default.temporaryDirectory
-    .appendingPathComponent("VibeGod.iconset", isDirectory: true)
+    .appendingPathComponent("Miaou.iconset", isDirectory: true)
 try? FileManager.default.removeItem(at: work)
 try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
 

@@ -1,5 +1,5 @@
 import XCTest
-@testable import VibeGod
+@testable import Miaou
 
 final class DecodeTests: XCTestCase {
     private let decoder: JSONDecoder = {
@@ -129,11 +129,11 @@ final class DecodeTests: XCTestCase {
     /// End-to-end contract check against the real binary, when it is in PATH.
     func testLiveCLIDashboardDecodes() throws {
         do {
-            let report = try VibeGodCLI.dashboard()
+            let report = try MiaouCLI.dashboard()
             XCTAssertFalse(report.currentMonth.isEmpty)
             XCTAssertGreaterThanOrEqual(report.daily.count, 0)
-        } catch VibeGodError.processFailed {
-            throw XCTSkip("vibe-god-cli not runnable from the test environment")
+        } catch MiaouError.processFailed {
+            throw XCTSkip("miaou not runnable from the test environment")
         }
     }
 }

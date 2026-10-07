@@ -62,7 +62,7 @@ enum BarTitle {
     }
 }
 
-/// Polls vibe-god-cli and publishes the values shown in the menu bar.
+/// Polls miaou and publishes the values shown in the menu bar.
 final class AppModel: ObservableObject {
     static let shared = AppModel()
 
@@ -90,7 +90,7 @@ final class AppModel: ObservableObject {
     func refresh() {
         watchSessionLocks()
         do {
-            let dashboard = try VibeGodCLI.dashboard()
+            let dashboard = try MiaouCLI.dashboard()
             DispatchQueue.main.async {
                 self.dashboard = dashboard
                 self.lastError = nil
@@ -147,10 +147,10 @@ final class AppModel: ObservableObject {
 
     private static func describe(_ error: Error) -> String {
         switch error {
-        case VibeGodError.processFailed(let code):
-            return "vibe-god-cli exited with \(code)"
-        case VibeGodError.badJSON:
-            return "vibe-god-cli returned unexpected JSON"
+        case MiaouError.processFailed(let code):
+            return "miaou exited with \(code)"
+        case MiaouError.badJSON:
+            return "miaou returned unexpected JSON"
         default:
             return error.localizedDescription
         }

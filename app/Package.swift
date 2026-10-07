@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "VibeGod",
+    name: "Miaou",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "VibeGod",
-            path: "Sources/VibeGod",
+            name: "Miaou",
+            path: "Sources/Miaou",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "VibeGodTests",
-            dependencies: ["VibeGod"],
-            path: "Sources/VibeGodTests",
+            name: "MiaouTests",
+            dependencies: ["Miaou"],
+            path: "Sources/MiaouTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

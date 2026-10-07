@@ -107,7 +107,7 @@ enum Chaton {
     /// The cycle is periodic on states 1...26: after state 26, the first
     /// transition leads back to state 1. State 0 is only the departure
     /// pose and never comes back. The original rests on state 26;
-    /// VibeGod freezes on ChatonAnimator.restFrame.
+    /// Miaou freezes on ChatonAnimator.restFrame.
     static let frames: [[(col: Int, row: Int)]] = {
         func key(_ c: (col: Int, row: Int)) -> Int { c.col * 32 + c.row }
         var current = Set(cells.map(key))

@@ -1,5 +1,5 @@
 import XCTest
-@testable import VibeGod
+@testable import Miaou
 
 final class ChatonTests: XCTestCase {
     private func key(_ c: (col: Int, row: Int)) -> Int {
