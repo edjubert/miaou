@@ -7,6 +7,7 @@
 "refresh.button" = "Rafraîchir";
 "quit.button" = "Quitter";
 "installed.question" = "miaou est-il installé et à jour ?";
+"version.display" = "v%@";
 "settings.language" = "Langue";
 "language.system" = "Système";
 "language.french" = "Français";

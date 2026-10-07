@@ -5,6 +5,7 @@ APP_DIR = $(HOME)/Applications
 CLI_NAME = miaou
 CLI_EMBED = miaou-cli
 CLI_BIN ?= $(shell command -v $(CLI_NAME) 2>/dev/null || echo $(HOME)/.cargo/bin/$(CLI_NAME))
+CLI_VERSION ?= $(shell sed -n 's/^version = "\(.*\)"/\1/p' ../cli/Cargo.toml | head -1)
 
 .PHONY: build app install-app icon clean
 
@@ -24,6 +25,7 @@ app: build
 	cp -R .build/release/$(APP_NAME)_$(APP_NAME).bundle $(CONTENTS)/MacOS/
 	cp "$(CLI_BIN)" $(CONTENTS)/MacOS/$(CLI_EMBED)
 	cp Info.plist $(CONTENTS)/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(CLI_VERSION)" $(CONTENTS)/Info.plist
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/AppIcon.icns
 	# Sign the nested resource bundle first: codesign does not auto-sign
 	# sub-bundles living in Contents/MacOS.

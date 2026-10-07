@@ -7,6 +7,7 @@
 "refresh.button" = "Refresh";
 "quit.button" = "Quit";
 "installed.question" = "Is miaou installed and up to date?";
+"version.display" = "v%@";
 "settings.language" = "Language";
 "language.system" = "System";
 "language.french" = "Français";

@@ -144,6 +144,12 @@ struct MenuContent: View {
         BarMode(rawValue: barModeRaw) ?? .percent
     }
 
+    /// App version from the bundle plist, stamped by `make app` from the
+    /// CLI's Cargo.toml version. "dev" when run via `swift run`.
+    private var appVersion: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "dev"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ChatonBanner()
@@ -178,12 +184,15 @@ struct MenuContent: View {
             HStack {
                 Button(L10n.t("refresh.button")) { model.refresh() }
                     .keyboardShortcut("r")
-                Spacer()
                 if let refreshed = model.lastRefresh {
                     Text(refreshed.formatted(date: .omitted, time: .standard))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                Spacer()
+                Text(L10n.t("version.display", appVersion))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Divider()
                     .frame(height: 12)
                 Button(L10n.t("quit.button")) {
@@ -214,6 +223,9 @@ struct MenuContent: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            // Rebuild on language change: segmented pickers keep their
+            // initial segment titles otherwise, leaving stale labels.
+            .id(languageRaw)
             Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
                 .font(.caption)
                 .disabled(barMode == .none)
@@ -254,6 +266,7 @@ struct MenuContent: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .id(languageRaw)
             Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
                 ForEach(ChatonColorMode.allCases) { mode in
                     Text(mode.label).tag(mode.rawValue)
@@ -261,6 +274,7 @@ struct MenuContent: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .id(languageRaw)
         }
     }
 
