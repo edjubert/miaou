@@ -106,15 +106,16 @@ enum MistralLogo {
 enum MistralIcon {
     static let barSize: CGFloat = 16
 
-    /// The chaton is wide (25x14 cells): its bar image is not square.
-    static let chatonBarPoints = NSSize(width: barSize * 25 / 14, height: barSize)
-    private static let chatonBarPixels = CGSize(width: 125, height: 70)
+    /// The chaton is wide: its bar image is not square. The window crop
+    /// is 23 x 11 cells at 6 px each.
+    static let chatonBarPoints = NSSize(width: barSize * 23 / 11, height: barSize)
+    private static let chatonBarPixels = CGSize(width: 138, height: 66)
     private static let logoPixels: Int = 64
 
     /// Full-width banner of the menu window header: the chaton at the
     /// window width, with 2x backing to stay crisp.
-    private static let bannerPoints = NSSize(width: 275, height: 154)
-    private static let bannerPixels = CGSize(width: 550, height: 308)
+    private static let bannerPoints = NSSize(width: 287.5, height: 137.5)
+    private static let bannerPixels = CGSize(width: 575, height: 275)
 
     private static var cache: [String: NSImage] = [:]
 
@@ -159,7 +160,7 @@ enum MistralIcon {
         let pixels = bannerPixels
         let palette = palette(live: true, mode: colorMode)
         let image = rasterize(pixels: pixels, points: bannerPoints) { context in
-            Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
+            Chaton.drawBanner(frame: frame, in: context, pixels: pixels, palette: palette)
         }
         cache[key] = image
         return image

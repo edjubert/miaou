@@ -95,12 +95,12 @@ struct ChatonBanner: View {
     // Fixed height: a resizable image with aspectRatio fit has no
     // intrinsic size, so a height-starved VStack squeezes it to zero
     // and the banner vanishes.
-    static let height: CGFloat = 154
+    static let height: CGFloat = 132
 
     var body: some View {
         Image(nsImage: MistralIcon.bannerImage(frame: animator.frame, colorMode: colorMode))
             .resizable()
-            .aspectRatio(25.0 / 14.0, contentMode: .fit)
+            .aspectRatio(23.0 / 11.0, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .frame(height: Self.height)
             .onAppear { animator.setActive(true) }
@@ -182,7 +182,7 @@ struct MenuContent: View {
                 set: { raw in
                     barModeRaw = raw
                     // A bar without text needs its icon: turn it on.
-                    if BarMode(rawValue: raw) == .none { showIcon = true }
+                    if BarMode(rawValue: raw) == BarMode.none { showIcon = true }
                 }
             )) {
                 ForEach(BarMode.allCases) { mode in
@@ -244,6 +244,16 @@ struct MenuContent: View {
                     .tint(overTint(dashboard))
                 Text(String(format: "%.2f %@ used of %.2f %@ (%.1f%%)", used, dashboard.currency, effective, dashboard.currency, pct))
                     .font(.callout)
+                if let forecast = quotaForecast(dashboard) {
+                    // Two single-line Texts, not one multiline Text: the
+                    // menu window clips a Text whose height grows mid-layout.
+                    Text(forecast.pace)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(forecast.outcome)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Text("\(status.usedRequests) requests, \(formatTokens(Double(status.usedTokens))) tokens this month")
                     .font(.callout)
@@ -258,6 +268,38 @@ struct MenuContent: View {
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
             }
         }
+    }
+
+    /// Estimated days until the monthly quota is exhausted, at the average
+    /// daily pace observed since the start of the month. Returns the pace
+    /// and outcome lines to render as separate Texts. Nil when there is
+    /// no usable cost data or the quota is already spent.
+    private func quotaForecast(_ dashboard: DashboardReport) -> (pace: String, outcome: String)? {
+        let status = dashboard.budgetStatus
+        guard let used = status.usedUsd,
+              let effective = status.budget.effectiveUsd,
+              effective > 0, used > 0, used < effective else { return nil }
+
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let today = parser.date(from: dashboard.today) else { return nil }
+
+        let calendar = Calendar.current
+        guard let dayOfMonth = calendar.ordinality(of: .day, in: .month, for: today),
+              let lastDay = calendar.range(of: .day, in: .month, for: today)?.last else { return nil }
+        let avgDaily = used / Double(max(dayOfMonth, 1))
+        let days = Int(ceil((effective - used) / avgDaily))
+        let pace = String(format: "Au rythme de %.2f %@/jour,", avgDaily, dashboard.currency)
+
+        if dayOfMonth + days > lastDay {
+            return (pace: pace, outcome: "le quota devrait tenir jusqu'à la fin du mois")
+        }
+        guard let hit = calendar.date(byAdding: .day, value: days, to: today) else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "d MMM"
+        return (pace: pace, outcome: String(format: "quota atteint dans ~%d jours (%@)", days, formatter.string(from: hit)))
     }
 
     private func todaySection(_ dashboard: DashboardReport) -> some View {

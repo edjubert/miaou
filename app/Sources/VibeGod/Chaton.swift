@@ -14,7 +14,7 @@ import CoreImage.CIFilterBuiltins
 /// and 11), but the tail sweep of the animation reaches col 0, so the
 /// cell pitch is 24/25: the reference pose (cols 3-21) is centered with
 /// exactly three cells of margin for the sweep. Each cell renders as a
-/// centered square dot of 0.7 cell, leaving an even gap. Rows map to
+/// centered square dot of 0.85 cell, leaving an even gap. Rows map to
 /// palette bands: rows 0-2 -> 0, 3-4 -> 1, 5-7 -> 2, 8-9 -> 3,
 /// 10-11 -> 4.
 enum Chaton {
@@ -194,17 +194,19 @@ enum Chaton {
              cell: size / square, palette: palette)
     }
 
-    /// Menu bar window: the cat band of the square, 25 x 14 cells. The
-    /// chaton is wide, so a square image leaves it small: this window
-    /// crops the vertical margins and lets it fill the bar height.
-    static let barWindow = CGRect(x: 0, y: 5.5, width: 25, height: 14)
+    /// Menu bar and banner window: the band of the square around the
+    /// pose. The chaton is wide, so a square image leaves it small:
+    /// this window crops the margins down to half a cell above and
+    /// below the pose and one on the right, none on the left where the
+    /// tail sweep reaches col 0. The pose fills about 9 tenths of the
+    /// bar height.
+    static let barWindow = CGRect(x: 0, y: 7, width: 23, height: 11)
 
     static func drawBar(frame: Int, in context: CGContext, pixels: CGSize, palette: [NSColor]) {
         let index = min(max(frame, 0), frames.count - 1)
         let cell = CGFloat(pixels.height) / barWindow.height
         // The bar variant alone paints a backdrop behind the cat: the
-        // silhouette filled dark, then blurred so it fades out a little
-        // past the contour. The banner keeps the bare dot grid.
+        // silhouette blurred into a halo. The banner draws bare dots.
         blurBehind(silhouettes[index], in: context, pixels: pixels, cell: cell)
         draw(cells: frames[index], in: context,
              window: barWindow,
@@ -212,24 +214,33 @@ enum Chaton {
              palette: palette)
     }
 
+    /// Banner variant: the same crop as the bar, without the halo.
+    static func drawBanner(frame: Int, in context: CGContext, pixels: CGSize, palette: [NSColor]) {
+        let index = min(max(frame, 0), frames.count - 1)
+        draw(cells: frames[index], in: context,
+             window: barWindow,
+             cell: CGFloat(pixels.height) / barWindow.height,
+             palette: palette)
+    }
+
     /// Shared renderer for the backdrop blur; expensive to create.
     private static let ciContext = CIContext()
 
     /// Halo of the bar icon: the silhouette blurred into a soft dark
-    /// ring that surrounds the cat, punched out inside the contour so
-    /// the cat itself stays on the bare bar background. The banner
-    /// draws no halo at all.
+    /// glow, full strength around the cat and reduced to a faint tint
+    /// inside it, so the dots read over any bar background without a
+    /// solid fill. The banner draws no halo at all.
     private static func blurBehind(_ glyph: [(col: Int, row: Int)],
                                    in context: CGContext,
                                    pixels: CGSize,
                                    cell: CGFloat) {
         let canvas = CGRect(origin: .zero, size: pixels)
-        // The halo carrier: the silhouette blurred into a soft blob.
+        // The glow carrier: the silhouette blurred into a soft blob.
         fill(silhouette: glyph, in: context, window: barWindow, cell: cell,
              color: NSColor.black.withAlphaComponent(0.65))
         guard let dark = context.makeImage() else { return }
         context.clear(canvas)
-        // The punch mask: the same silhouette in white. CIBlendWithMask
+        // The split mask: the same silhouette in white. CIBlendWithMask
         // keys on the mask's luminance, and the fill above is black.
         fill(silhouette: glyph, in: context, window: barWindow, cell: cell,
              color: NSColor.white)
@@ -238,14 +249,19 @@ enum Chaton {
         guard let halo = gaussianBlur(CIImage(cgImage: dark), radius: cell * 0.8),
               let mask = gaussianBlur(CIImage(cgImage: white), radius: cell * 0.35)
         else { return }
-        // Halo outside the (feathered) mask, transparent inside it.
+        // The interior share of the glow, fainter than the outside.
+        let tint = CIFilter.colorMatrix()
+        tint.inputImage = halo
+        tint.aVector = CIVector(x: 0, y: 0, z: 0, w: 0.4)
+        guard let interior = tint.outputImage else { return }
+        // Full glow outside the feathered mask, faint glow inside it.
         let blend = CIFilter.blendWithMask()
-        blend.inputImage = CIImage.empty()
+        blend.inputImage = interior
         blend.backgroundImage = halo
         blend.maskImage = mask
         guard let output = blend.outputImage,
-              let ring = ciContext.createCGImage(output, from: canvas) else { return }
-        context.draw(ring, in: canvas)
+              let haloImage = ciContext.createCGImage(output, from: canvas) else { return }
+        context.draw(haloImage, in: canvas)
     }
 
     private static func gaussianBlur(_ image: CIImage, radius: CGFloat) -> CIImage? {
@@ -286,7 +302,7 @@ enum Chaton {
                              window: CGRect,
                              cell: CGFloat,
                              palette: [NSColor]) {
-        let dot = cell * 0.7
+        let dot = cell * 0.85
         let inset = (cell - dot) / 2
         let marginX = (square - CGFloat(maxCol - minCol + 1)) / 2
         let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2

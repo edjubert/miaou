@@ -72,6 +72,12 @@ final class AppModel: ObservableObject {
 
     private var timer: AnyCancellable?
 
+    /// Watcher on Vibe's active-session lock directory, so a session
+    /// starting or stopping refreshes the icon immediately instead of
+    /// waiting for the next poll tick.
+    private var lockWatcher: DispatchSourceFileSystemObject?
+    private var watcherRefresh: AnyCancellable?
+
     var pollInterval: TimeInterval = 60
 
     private init() {
@@ -82,6 +88,7 @@ final class AppModel: ObservableObject {
     }
 
     func refresh() {
+        watchSessionLocks()
         do {
             let dashboard = try VibeGodCLI.dashboard()
             DispatchQueue.main.async {
@@ -104,6 +111,38 @@ final class AppModel: ObservableObject {
     /// Whether a Vibe session is currently running (recent lock).
     var hasLiveSessions: Bool {
         dashboard?.liveSessions.isEmpty == false
+    }
+
+    /// Watch `logs/session/active` for lock files appearing or going away.
+    /// Mirrors the CLI's VIBE_HOME resolution. The directory is created by
+    /// Vibe, so a failed open is retried on every refresh.
+    private func watchSessionLocks() {
+        guard lockWatcher == nil else { return }
+        let home = ProcessInfo.processInfo.environment["VIBE_HOME"]
+            ?? NSHomeDirectory() + "/.vibe"
+        let dir = URL(fileURLWithPath: home)
+            .appendingPathComponent("logs/session/active")
+        let fd = open(dir.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.scheduleWatcherRefresh()
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        lockWatcher = source
+    }
+
+    /// Lock changes come in bursts: one dashboard run per burst.
+    private func scheduleWatcherRefresh() {
+        watcherRefresh?.cancel()
+        watcherRefresh = Just(())
+            .delay(for: .seconds(1), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refresh() }
     }
 
     private static func describe(_ error: Error) -> String {
