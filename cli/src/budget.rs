@@ -143,19 +143,9 @@ impl BudgetStatus {
 }
 
 /// Default config path: `$XDG_CONFIG_HOME/miaou/config.toml`,
-/// else `~/.config/miaou/config.toml`. Falls back to the pre-rename
-/// `vibe-god-cli` directory (config, calibration ledger, events archive)
-/// when it exists and the `miaou` one does not, so observations survive
-/// the rename. Move the old directory to migrate for good.
+/// else `~/.config/miaou/config.toml`.
 pub fn default_config_path() -> std::path::PathBuf {
-    let new = config_dir().join("miaou");
-    if !new.exists() {
-        let legacy = config_dir().join("vibe-god-cli");
-        if legacy.exists() {
-            return legacy.join("config.toml");
-        }
-    }
-    new.join("config.toml")
+    config_dir().join("miaou").join("config.toml")
 }
 
 /// Base config directory: `$XDG_CONFIG_HOME`, else `~/.config`.
@@ -296,25 +286,11 @@ monthly_tokens = 50_000_000
     }
 
     #[test]
-    fn default_config_path_respects_xdg_and_legacy_fallback() {
-        // Single test: both scenarios mutate XDG_CONFIG_HOME, and unit tests
-        // run in parallel threads.
+    fn default_config_path_respects_xdg() {
         let root = std::env::temp_dir().join(format!("miaou-config-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(root.join("vibe-god-cli")).unwrap();
-
-        // No miaou dir yet: the pre-rename vibe-god-cli dir wins.
         std::env::set_var("XDG_CONFIG_HOME", &root);
         let p = default_config_path();
-        assert!(p.to_string_lossy().contains("vibe-god-cli"));
-        assert!(p.ends_with("config.toml"));
-
-        // Once the miaou dir exists, it takes over.
-        std::fs::create_dir_all(root.join("miaou")).unwrap();
-        let p = default_config_path();
         std::env::remove_var("XDG_CONFIG_HOME");
-        assert!(p.to_string_lossy().contains("miaou"));
-        assert!(p.to_string_lossy().contains("config.toml"));
-        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(p, root.join("miaou").join("config.toml"));
     }
 }

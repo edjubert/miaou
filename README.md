@@ -6,9 +6,6 @@ from local session journals, in the spirit of
 local files (no credentials, no undocumented APIs). The mascot is a
 chaton; the menu bar cat keeps an eye on your token bowl.
 
-Monorepo, formerly three separate repositories (`vibe-god-cli`,
-`VibeGod`, `vibe-god-plugin`), with their full git histories preserved.
-
 ```
 miaou/
 ├── cli/      Rust CLI: parsing, aggregation, budget, calibration (binary: miaou)
@@ -40,8 +37,7 @@ make -C app install-app
 ```
 
 Config, calibration ledger and events archive live in
-`~/.config/miaou/` (the pre-rename `~/.config/vibe-god-cli/` is read as
-long as the new directory does not exist).
+`~/.config/miaou/`.
 
 ## Release
 

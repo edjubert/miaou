@@ -96,10 +96,6 @@ Threshold resolution order:
 
 1. `~/.config/miaou/config.toml` (create with `miaou budget --init`,
    or point at another file with `--config PATH`). This file always wins.
-   While `~/.config/miaou/` does not exist but the pre-rename
-   `~/.config/vibe-god-cli/` does, that legacy directory is used instead
-   (config, calibration ledger and events archive), so nothing is lost on
-   upgrade. `mv ~/.config/vibe-god-cli ~/.config/miaou` migrates for good.
 2. Hardcoded plan defaults deduced from the whoami cache (Pro/INDIVIDUAL:
    $255/month of Vibe usage, an observed value, not an official limit).
 
