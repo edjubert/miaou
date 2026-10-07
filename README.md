@@ -12,7 +12,6 @@ chaton; the menu bar cat keeps an eye on your token bowl.
 miaou/
 ├── cli/      Rust CLI: parsing, aggregation, budget, calibration (binary: miaou)
 ├── app/      SwiftUI macOS menu bar app (Miaou.app), embeds the CLI
-├── plugin/   Vibe plugin scaffold (in-TUI usage, post_agent hook + skill)
 └── Makefile  release tooling
 ```
 
