@@ -21,10 +21,10 @@ configured values, not server data).
 Vibe sessions (~/.vibe/logs/session/unified/)
         │
         ▼
-miaou (Rust, local binary)      edjubert/miaou (private repo)
+miaou (Rust, local binary)      cli/ in this monorepo
         │  summary --json / budget --json / daily --json / ...
         ▼
-Miaou (SwiftUI menu bar app, this repo)
+Miaou (SwiftUI menu bar app, app/)
 ```
 
 The CLI is the single source of truth for parsing and aggregation; this app
@@ -33,22 +33,25 @@ is a consumer of its JSON output and bundles a copy of the binary inside
 
 ## Install
 
-`make install-app` builds and installs the app, but it does not build
-`miaou` (private repo, SSH access required). The CLI binary is
-embedded into the bundle at build time, so it must be on the machine
-once, in `PATH` or `~/.cargo/bin`. After that the installed app is
-self-contained and no longer depends on the CLI install.
+`make -C app install-app` builds and installs the app, but it does not build
+`miaou`: the CLI binary is embedded into the bundle at build time, so it
+must be on the machine once, in `PATH` or `~/.cargo/bin`. After that the
+installed app is self-contained and no longer depends on the CLI install.
 
-From scratch:
+From scratch (monorepo root):
 
 ```bash
 # Prerequisites: Xcode Command Line Tools (swift), Rust (cargo)
+git clone git@github.com:edjubert/miaou.git
+cd miaou
 # 1. Build and install the CLI (single source of truth for parsing)
-cargo install --git ssh://git@github.com/edjubert/miaou.git
+cargo install --path cli
 # 2. Build and install the app (embeds the CLI into Miaou.app)
-git clone git@github.com:edjubert/Miaou.git
-cd Miaou && make install-app
+make -C app install-app
 ```
+
+Or release artifacts: `make release` produces `Miaou.app` plus `miaou`
+binaries for macOS ARM and Linux.
 
 `make install-app` builds, bundles and installs to
 `~/Applications/Miaou.app`. Launch it from there, then enable

@@ -104,12 +104,14 @@ enum MiaouError: Error {
 /// Runs the miaou binary and decodes its JSON output.
 enum MiaouCLI {
     /// Candidate locations, tried in order. The preferred one is the copy
-    /// embedded in the .app bundle by `make app`, which makes the installed
-    /// app self-contained. GUI apps inherit a minimal PATH (no ~/.cargo/bin),
-    /// so explicit lookups are required for the fallbacks.
+    /// embedded in the .app bundle by `make app` as `miaou-cli` (a name that
+    /// does not collide with the app executable on case-insensitive APFS),
+    /// which makes the installed app self-contained. GUI apps inherit a
+    /// minimal PATH (no ~/.cargo/bin), so explicit lookups are required for
+    /// the fallbacks.
     private static var candidates: [String] {
         [
-            Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/miaou").path,
+            Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/miaou-cli").path,
             NSHomeDirectory() + "/.cargo/bin/miaou",
             "/opt/homebrew/bin/miaou",
             "/usr/local/bin/miaou",

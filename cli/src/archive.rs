@@ -62,7 +62,7 @@ impl ArchivedEvent {
 }
 
 pub fn archive_path() -> PathBuf {
-    if let Some(overridden) = std::env::var_os("VIBE_GOD_ARCHIVE_PATH") {
+    if let Some(overridden) = std::env::var_os("MIAOU_ARCHIVE_PATH") {
         return PathBuf::from(overridden);
     }
     crate::budget::default_config_path()
