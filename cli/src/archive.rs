@@ -7,7 +7,7 @@
 //! name observed at ingest time, so sessions whose directory disappears
 //! keep their project attribution.
 //!
-//! Stored at `~/.config/vibe-god-cli/events-archive.jsonl`.
+//! Stored at `~/.config/miaou/events-archive.jsonl`.
 
 use crate::scan::SessionMeta;
 use crate::{SessionUsage, UsageEvent};

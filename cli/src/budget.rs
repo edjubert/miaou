@@ -1,7 +1,7 @@
 //! Monthly budget: thresholds deduced from the plan type (hardcoded
 //! defaults), overridable from a config file, with optional PAYG overage.
 //!
-//! Config file (TOML), default `~/.config/vibe-god-cli/config.toml`:
+//! Config file (TOML), default `~/.config/miaou/config.toml`:
 //!
 //! ```toml
 //! [budget]
@@ -142,14 +142,29 @@ impl BudgetStatus {
     }
 }
 
-/// Default config path: `$XDG_CONFIG_HOME/vibe-god-cli/config.toml`,
-/// else `~/.config/vibe-god-cli/config.toml`.
+/// Default config path: `$XDG_CONFIG_HOME/miaou/config.toml`,
+/// else `~/.config/miaou/config.toml`. Falls back to the pre-rename
+/// `vibe-god-cli` directory (config, calibration ledger, events archive)
+/// when it exists and the `miaou` one does not, so observations survive
+/// the rename. Move the old directory to migrate for good.
 pub fn default_config_path() -> std::path::PathBuf {
+    let new = config_dir().join("miaou");
+    if !new.exists() {
+        let legacy = config_dir().join("vibe-god-cli");
+        if legacy.exists() {
+            return legacy.join("config.toml");
+        }
+    }
+    new.join("config.toml")
+}
+
+/// Base config directory: `$XDG_CONFIG_HOME`, else `~/.config`.
+fn config_dir() -> std::path::PathBuf {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()) {
-        return std::path::Path::new(&xdg).join("vibe-god-cli").join("config.toml");
+        return std::path::PathBuf::from(xdg);
     }
     let home = std::env::var_os("HOME").unwrap_or_default();
-    std::path::Path::new(&home).join(".config").join("vibe-god-cli").join("config.toml")
+    std::path::Path::new(&home).join(".config")
 }
 
 /// Currency symbol for cost display, from `[display] currency` in the
@@ -281,10 +296,25 @@ monthly_tokens = 50_000_000
     }
 
     #[test]
-    fn default_config_path_respects_xdg() {
-        // Not isolating env in unit tests: just assert the shape.
+    fn default_config_path_respects_xdg_and_legacy_fallback() {
+        // Single test: both scenarios mutate XDG_CONFIG_HOME, and unit tests
+        // run in parallel threads.
+        let root = std::env::temp_dir().join(format!("miaou-config-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("vibe-god-cli")).unwrap();
+
+        // No miaou dir yet: the pre-rename vibe-god-cli dir wins.
+        std::env::set_var("XDG_CONFIG_HOME", &root);
         let p = default_config_path();
         assert!(p.to_string_lossy().contains("vibe-god-cli"));
-        assert!(p.to_string_lossy().ends_with("config.toml"));
+        assert!(p.ends_with("config.toml"));
+
+        // Once the miaou dir exists, it takes over.
+        std::fs::create_dir_all(root.join("miaou")).unwrap();
+        let p = default_config_path();
+        std::env::remove_var("XDG_CONFIG_HOME");
+        assert!(p.to_string_lossy().contains("miaou"));
+        assert!(p.to_string_lossy().contains("config.toml"));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

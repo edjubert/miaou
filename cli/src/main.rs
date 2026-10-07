@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use vibe_god_cli::aggregate::{Row, SessionRow};
-use vibe_god_cli::dates::{local_time, local_ymd, parse_local_date_end, parse_local_date_start};
-use vibe_god_cli::prices::VibeConfig;
-use vibe_god_cli::{collect_all, default_vibe_home, Totals};
+use miaou::aggregate::{Row, SessionRow};
+use miaou::dates::{local_time, local_ymd, parse_local_date_end, parse_local_date_start};
+use miaou::prices::VibeConfig;
+use miaou::{collect_all, default_vibe_home, Totals};
 
 #[derive(Subcommand)]
 enum CalibrateAction {
@@ -26,7 +26,7 @@ enum CalibrateAction {
 
 #[derive(Parser)]
 #[command(
-    name = "vibe-god-cli",
+    name = "miaou",
     about = "Track Mistral Vibe CLI token usage and estimated cost from local session journals",
     version
 )]
@@ -89,7 +89,7 @@ enum Command {
         /// Write a template config file to the config path and exit.
         #[arg(long)]
         init: bool,
-        /// Config file overriding the default (~/.config/vibe-god-cli/config.toml).
+        /// Config file overriding the default (~/.config/miaou/config.toml).
         #[arg(long)]
         config: Option<PathBuf>,
     },
@@ -106,7 +106,7 @@ enum Command {
 }
 
 fn main() {
-    // Die silently on SIGPIPE (e.g. `vibe-god-cli events | head`), like cat/grep.
+    // Die silently on SIGPIPE (e.g. `miaou events | head`), like cat/grep.
     #[cfg(unix)]
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
@@ -119,7 +119,7 @@ fn main() {
         .unwrap_or_else(default_vibe_home);
     let config = VibeConfig::load(&vibe_home);
     let currency =
-        vibe_god_cli::budget::currency_symbol(&vibe_god_cli::budget::default_config_path());
+        miaou::budget::currency_symbol(&miaou::budget::default_config_path());
     let price = config.resolve(cli.model.as_deref()).cloned();
 
     let since_ms = cli.since.as_deref().and_then(parse_local_date_start);
@@ -153,20 +153,20 @@ fn main() {
             }
             grand.cost_usd = price_of(&grand);
             if json {
-                let daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
+                let daily = priced(miaou::aggregate_daily(&sessions), &price_of);
                 println!(
                     "{}",
                     serde_json::json!({
                         "sessions": sessions_count,
                         "totals": grand,
                         "model": price.as_ref().map(|p| p.name.clone()),
-                        "plan": vibe_god_cli::plan::read_cached(&vibe_home),
+                        "plan": miaou::plan::read_cached(&vibe_home),
                         "daily": daily,
                     })
                 );
             } else {
                 let model = price.as_ref().map(|p| p.name.clone()).unwrap_or_default();
-                let plan = vibe_god_cli::plan::read_cached(&vibe_home);
+                let plan = miaou::plan::read_cached(&vibe_home);
                 println!(
                     "Vibe usage: {} sessions (model: {}, plan: {})",
                     sessions_count,
@@ -175,7 +175,7 @@ fn main() {
                 );
                 print_totals(&grand, &currency);
                 println!("\nPer day:");
-                let daily = vibe_god_cli::aggregate_daily(&sessions);
+                let daily = miaou::aggregate_daily(&sessions);
                 let w = key_width(3, &daily);
                 for row in &daily {
                     print_row(row, w, &price_of, &currency);
@@ -207,11 +207,11 @@ fn main() {
             let (all_sessions, price_of, _) = render(false);
             let now_ms = now_ms();
             let today = local_ymd(now_ms);
-            let current_month = vibe_god_cli::dates::local_ym(now_ms);
+            let current_month = miaou::dates::local_ym(now_ms);
             // The menu bar app tracks the plan period: every view resets
             // with the plan month. Full history stays available via the
             // summary/daily/monthly/sessions commands.
-            let sessions = vibe_god_cli::scope_to_month(&all_sessions, &current_month);
+            let sessions = miaou::scope_to_month(&all_sessions, &current_month);
 
             let mut grand = Totals::default();
             for s in &sessions {
@@ -222,8 +222,8 @@ fn main() {
             let mut today_totals = day_totals(&sessions, &today);
             // Same cost basis as the month: the console-anchored incremental
             // rate, not the raw per-token model prices.
-            let ledger = vibe_god_cli::calibrate::load_ledger(&vibe_god_cli::calibrate::ledger_path());
-            today_totals.cost_usd = vibe_god_cli::calibrate::anchored_day_cost(
+            let ledger = miaou::calibrate::load_ledger(&miaou::calibrate::ledger_path());
+            today_totals.cost_usd = miaou::calibrate::anchored_day_cost(
                 &ledger,
                 today_totals.input_tokens + today_totals.output_tokens,
             )
@@ -233,9 +233,9 @@ fn main() {
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
-                &vibe_god_cli::budget::default_config_path(),
+                &miaou::budget::default_config_path(),
             );
-            let status = vibe_god_cli::budget::BudgetStatus::evaluate(
+            let status = miaou::budget::BudgetStatus::evaluate(
                 &current_month,
                 used_usd,
                 mtd.total_tokens,
@@ -243,11 +243,11 @@ fn main() {
                 budget.clone(),
             );
 
-            let daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
-            let mut monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            let daily = priced(miaou::aggregate_daily(&sessions), &price_of);
+            let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
             apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of);
-            let projects = priced(vibe_god_cli::aggregate_by_project(&sessions), &price_of);
-            let mut session_rows = vibe_god_cli::aggregate_by_session(&sessions);
+            let projects = priced(miaou::aggregate_by_project(&sessions), &price_of);
+            let mut session_rows = miaou::aggregate_by_session(&sessions);
             for r in &mut session_rows {
                 r.totals.cost_usd = price_of(&r.totals);
             }
@@ -269,13 +269,13 @@ fn main() {
                     "monthly": monthly,
                     "projects": projects,
                     "sessions": session_rows,
-                    "active": vibe_god_cli::status::active_sessions(&vibe_home),
+                    "active": miaou::status::active_sessions(&vibe_home),
                 })
             );
         }
         Command::Daily { days } => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut daily = priced(vibe_god_cli::aggregate_daily(&sessions), &price_of);
+            let mut daily = priced(miaou::aggregate_daily(&sessions), &price_of);
             if let Some(n) = days {
                 let len = daily.len();
                 daily = daily.into_iter().skip(len.saturating_sub(n)).collect();
@@ -292,11 +292,11 @@ fn main() {
         }
         Command::Monthly { months } => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut monthly = priced(vibe_god_cli::aggregate_monthly(&sessions), &price_of);
+            let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
             apply_current_month_floor(
                 &mut monthly,
                 &sessions,
-                &vibe_god_cli::dates::local_ym(now_ms()),
+                &miaou::dates::local_ym(now_ms()),
                 &price_of,
             );
             if let Some(n) = months {
@@ -316,12 +316,12 @@ fn main() {
         Command::Budget { init, config } => {
             let config_path = config
                 .clone()
-                .unwrap_or_else(vibe_god_cli::budget::default_config_path);
+                .unwrap_or_else(miaou::budget::default_config_path);
             if init {
                 if config_path.exists() {
                     eprintln!("config already exists: {}", config_path.display());
                 } else {
-                    let plan = vibe_god_cli::plan::read_cached(&vibe_home);
+                    let plan = miaou::plan::read_cached(&vibe_home);
                     let template = budget_template(plan.as_ref());
                     if let Some(parent) = config_path.parent() {
                         std::fs::create_dir_all(parent).ok();
@@ -335,7 +335,7 @@ fn main() {
             }
 
             // Budget source: config file wins, then plan defaults.
-            let current_month = vibe_god_cli::dates::local_ym(now_ms());
+            let current_month = miaou::dates::local_ym(now_ms());
             let (sessions, price_of, _) = render(false);
             let mtd = month_to_date(&sessions, &current_month);
             let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
@@ -344,7 +344,7 @@ fn main() {
                 &vibe_home,
                 &config_path,
             );
-            let status = vibe_god_cli::budget::BudgetStatus::evaluate(
+            let status = miaou::budget::BudgetStatus::evaluate(
                 &current_month,
                 used_usd,
                 mtd.total_tokens,
@@ -370,7 +370,7 @@ fn main() {
                 );
             } else if budget.monthly_usd.is_none() && budget.monthly_tokens.is_none() {
                 println!(
-                    "no budget configured: create one with `vibe-god-cli budget --init` ({})",
+                    "no budget configured: create one with `miaou budget --init` ({})",
                     config_path.display()
                 );
             } else {
@@ -420,7 +420,7 @@ fn main() {
             }
         }
         Command::Calibrate { action } => {
-            let ledger = vibe_god_cli::calibrate::ledger_path();
+            let ledger = miaou::calibrate::ledger_path();
             match action {
                 CalibrateAction::Add { at, cost } => {
                     let parsed = chrono::DateTime::parse_from_rfc3339(&at)
@@ -431,23 +431,23 @@ fn main() {
                         .unwrap();
                     let at_ms = parsed.timestamp_millis().max(0) as u64;
                     let sessions = collect_all(&vibe_home);
-                    let mut observation = vibe_god_cli::calibrate::month_tokens_at(&sessions, at_ms);
+                    let mut observation = miaou::calibrate::month_tokens_at(&sessions, at_ms);
                     observation.cost = cost;
-                    vibe_god_cli::calibrate::append_ledger(&ledger, &observation).unwrap();
+                    miaou::calibrate::append_ledger(&ledger, &observation).unwrap();
                     println!(
                         "recorded observation at {at}: cost {cost}, {} input / {} cached / {} output tokens (UTC month {})",
                         observation.input_tokens,
                         observation.cached_input_tokens,
                         observation.output_tokens,
-                        vibe_god_cli::dates::utc_ym(at_ms)
+                        miaou::dates::utc_ym(at_ms)
                     );
-                    let count = vibe_god_cli::calibrate::load_ledger(&ledger).len();
+                    let count = miaou::calibrate::load_ledger(&ledger).len();
                     if count < 4 {
                         println!("ledger has {count} observation(s); 4+ (3 deltas with varied token mixes) are needed to solve");
                     }
                 }
                 CalibrateAction::List => {
-                    let all = vibe_god_cli::calibrate::load_ledger(&ledger);
+                    let all = miaou::calibrate::load_ledger(&ledger);
                     if all.is_empty() {
                         println!("ledger is empty: {}", ledger.display());
                     }
@@ -465,8 +465,8 @@ fn main() {
                     }
                 }
                 CalibrateAction::Solve => {
-                    let all = vibe_god_cli::calibrate::load_ledger(&ledger);
-                    match vibe_god_cli::calibrate::solve(&all) {
+                    let all = miaou::calibrate::load_ledger(&ledger);
+                    match miaou::calibrate::solve(&all) {
                         Some(s) => {
                             println!("fitted over {} observations (prices in observation currency, per million tokens):", all.len());
                             println!("input_price         = {:.4}", s.input_price);
@@ -496,7 +496,7 @@ fn main() {
             }
         }
         Command::Plan => {
-            match vibe_god_cli::plan::read_cached(&vibe_home) {
+            match miaou::plan::read_cached(&vibe_home) {
                 Some(plan) => {
                     if cli.json {
                         println!("{}", serde_json::to_string_pretty(&plan).unwrap());
@@ -521,7 +521,7 @@ fn main() {
         }
         Command::Projects => {
             let (sessions, price_of, json) = render(cli.json);
-            let rows = priced(vibe_god_cli::aggregate_by_project(&sessions), &price_of);
+            let rows = priced(miaou::aggregate_by_project(&sessions), &price_of);
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());
             } else {
@@ -534,7 +534,7 @@ fn main() {
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
-            let mut rows: Vec<SessionRow> = vibe_god_cli::aggregate_by_session(&sessions);
+            let mut rows: Vec<SessionRow> = miaou::aggregate_by_session(&sessions);
             for r in &mut rows {
                 r.totals.cost_usd = price_of(&r.totals);
             }
@@ -569,10 +569,10 @@ fn main() {
         }
         Command::Events => {
             let (sessions, _, json) = render(cli.json);
-            let mut events: Vec<&vibe_god_cli::UsageEvent> = sessions.iter().flat_map(|s| s.events.iter()).collect();
+            let mut events: Vec<&miaou::UsageEvent> = sessions.iter().flat_map(|s| s.events.iter()).collect();
             events.sort_by_key(|e| e.timestamp_ms);
             if json {
-                let owned: Vec<vibe_god_cli::UsageEvent> = events.into_iter().cloned().collect();
+                let owned: Vec<miaou::UsageEvent> = events.into_iter().cloned().collect();
                 println!("{}", serde_json::to_string_pretty(&owned).unwrap());
             } else {
                 for e in events {
@@ -616,14 +616,14 @@ fn main() {
     }
 }
 
-fn budget_template(plan: Option<&vibe_god_cli::plan::PlanInfo>) -> String {
-    let defaults = plan.and_then(vibe_god_cli::budget::Budget::defaults_for_plan);
+fn budget_template(plan: Option<&miaou::plan::PlanInfo>) -> String {
+    let defaults = plan.and_then(miaou::budget::Budget::defaults_for_plan);
     let line = |comment: &str, key: &str, value: Option<String>| match value {
         Some(v) => format!("{key} = {v}"),
         None => format!("# {comment}\n# {key} = 0.0"),
     };
     format!(
-        r#"# vibe-god-cli budget configuration.
+        r#"# miaou budget configuration.
 # Values here override the hardcoded plan defaults.
 # Cost estimation also needs model prices in Vibe's config.toml
 # ([[models]] input_price / output_price / cached_input_price).
@@ -655,10 +655,10 @@ fn now_ms() -> u64 {
 }
 
 /// Totals of the events in `sessions` that fall on local day `ymd`.
-fn day_totals(sessions: &[vibe_god_cli::SessionUsage], ymd: &str) -> Totals {
+fn day_totals(sessions: &[miaou::SessionUsage], ymd: &str) -> Totals {
     let mut totals = Totals::default();
     for s in sessions {
-        let events: Vec<&vibe_god_cli::UsageEvent> =
+        let events: Vec<&miaou::UsageEvent> =
             s.events.iter().filter(|e| local_ymd(e.timestamp_ms) == ymd).collect();
         totals.add(&Totals::from_events(events.into_iter()));
     }
@@ -666,7 +666,7 @@ fn day_totals(sessions: &[vibe_god_cli::SessionUsage], ymd: &str) -> Totals {
 }
 
 /// Totals of the events in `sessions` that fall in local month `ym`.
-fn month_to_date(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
+fn month_to_date(sessions: &[miaou::SessionUsage], ym: &str) -> Totals {
     month_to_date_floored(sessions, ym)
 }
 
@@ -674,7 +674,7 @@ fn month_to_date(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
 /// monthly tables agree with the budget and the menu bar.
 fn apply_current_month_floor(
     monthly: &mut [Row],
-    sessions: &[vibe_god_cli::SessionUsage],
+    sessions: &[miaou::SessionUsage],
     ym: &str,
     price_of: &impl Fn(&Totals) -> Option<f64>,
 ) {
@@ -691,12 +691,12 @@ fn apply_current_month_floor(
 /// at the anchor. Falls back to the pure local estimate when no
 /// observation exists for the month.
 fn anchored_used_usd(
-    sessions: &[vibe_god_cli::SessionUsage],
+    sessions: &[miaou::SessionUsage],
     ym: &str,
     price_of: &impl Fn(&Totals) -> Option<f64>,
 ) -> Option<f64> {
-    let ledger = vibe_god_cli::calibrate::load_ledger(&vibe_god_cli::calibrate::ledger_path());
-    if let Some(cost) = vibe_god_cli::calibrate::anchored_cost_with_delta(
+    let ledger = miaou::calibrate::load_ledger(&miaou::calibrate::ledger_path());
+    if let Some(cost) = miaou::calibrate::anchored_cost_with_delta(
         &ledger, sessions, ym, now_ms(),
     ) {
         return Some(cost);
@@ -705,11 +705,11 @@ fn anchored_used_usd(
     price_of(&mtd)
 }
 
-fn month_to_date_floored(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> Totals {
-    let ledger = vibe_god_cli::calibrate::load_ledger(
-        &vibe_god_cli::calibrate::ledger_path(),
+fn month_to_date_floored(sessions: &[miaou::SessionUsage], ym: &str) -> Totals {
+    let ledger = miaou::calibrate::load_ledger(
+        &miaou::calibrate::ledger_path(),
     );
-    vibe_god_cli::calibrate::floored_month_totals(sessions, ym, now_ms(), &ledger)
+    miaou::calibrate::floored_month_totals(sessions, ym, now_ms(), &ledger)
 }
 
 /// Budget from the config file (when it declares one), else plan defaults.
@@ -717,9 +717,9 @@ fn month_to_date_floored(sessions: &[vibe_god_cli::SessionUsage], ym: &str) -> T
 fn resolve_budget(
     vibe_home: &std::path::Path,
     config_path: &std::path::Path,
-) -> (vibe_god_cli::budget::Budget, Option<vibe_god_cli::plan::PlanInfo>) {
-    let from_file = vibe_god_cli::budget::Budget::load(config_path);
-    let plan = vibe_god_cli::plan::read_cached(vibe_home);
+) -> (miaou::budget::Budget, Option<miaou::plan::PlanInfo>) {
+    let from_file = miaou::budget::Budget::load(config_path);
+    let plan = miaou::plan::read_cached(vibe_home);
     let configured = from_file.monthly_usd.is_some()
         || from_file.overage_usd.is_some()
         || from_file.monthly_tokens.is_some();
@@ -727,7 +727,7 @@ fn resolve_budget(
         from_file
     } else {
         plan.as_ref()
-            .and_then(vibe_god_cli::budget::Budget::defaults_for_plan)
+            .and_then(miaou::budget::Budget::defaults_for_plan)
             .unwrap_or(from_file)
     };
     (budget, plan)

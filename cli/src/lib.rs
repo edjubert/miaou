@@ -1,4 +1,4 @@
-//! vibe-god-cli: track Mistral Vibe CLI usage from local session journals.
+//! miaou: track Mistral Vibe CLI usage from local session journals.
 //!
 //! Data model (as observed in `$VIBE_HOME/logs/session/unified/<session-id>/`):
 //! - `meta.json` holds session metadata (cwd, start/end time, parent, title).

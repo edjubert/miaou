@@ -13,7 +13,7 @@
 //! fits A, B, C once and reports the config prices as
 //! input_price = A, cached_input_price = A + B, output_price = C.
 //!
-//! Observations are stored in `~/.config/vibe-god-cli/calibration.toml`.
+//! Observations are stored in `~/.config/miaou/calibration.toml`.
 //! Each entry records the token mix *at add time* so the ledger stays
 //! stable even as journals grow.
 
@@ -231,7 +231,7 @@ pub fn append_ledger(path: &Path, observation: &Observation) -> std::io::Result<
     let mut all = load_ledger(path);
     all.push(observation.clone());
     all.sort_by_key(|o| o.at_ms);
-    let mut doc = String::from("# vibe-god-cli calibration ledger. Managed by `calibrate add`.\n\n");
+    let mut doc = String::from("# miaou calibration ledger. Managed by `calibrate add`.\n\n");
     for o in &all {
         doc.push_str(&format!(
             "[[observations]]\nat_ms = {}\ncost = {}\ninput_tokens = {}\noutput_tokens = {}\ncached_input_tokens = {}\n\n",
