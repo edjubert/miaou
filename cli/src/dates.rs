@@ -64,6 +64,30 @@ pub fn local_time(ms: u64) -> String {
         .unwrap_or_default()
 }
 
+/// Parse a timestamp for `calibrate add --at`. Accepts:
+/// - RFC3339 with an explicit offset (`2026-09-28T09:36:00Z`,
+///   `2026-09-28T11:36:00+02:00`) — used as-is.
+/// - A naive local datetime (`2026-09-28T09:36:00` or
+///   `2026-09-28 09:36:00`) — interpreted in the machine's local
+///   timezone, then converted to UTC.
+/// Returns epoch milliseconds.
+pub fn parse_at(s: &str) -> Option<u64> {
+    // RFC3339 with offset: respect it.
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Some(dt.timestamp_millis().max(0) as u64);
+    }
+    // Naive local datetime: try the two common shapes.
+    for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"] {
+        if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
+            return naive
+                .and_local_timezone(chrono::Local)
+                .single()
+                .map(|dt| dt.timestamp_millis().max(0) as u64);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +122,28 @@ mod tests {
         assert_eq!(local_ymd(ms), "2026-09-28");
         assert_eq!(local_ymd(ms + 86_400_000 - 1), "2026-09-28");
         assert_eq!(local_time(ms), "2026-09-28 00:00:00");
+    }
+
+    #[test]
+    fn parse_at_accepts_rfc3339_and_naive_local() {
+        // RFC3339 with Z: exact UTC instant.
+        let utc = parse_at("2026-09-28T09:36:00Z").unwrap();
+        assert_eq!(utc, 1790588160000);
+
+        // RFC3339 with offset: same instant expressed differently.
+        let offset = parse_at("2026-09-28T11:36:00+02:00").unwrap();
+        assert_eq!(offset, utc);
+
+        // Naive local datetime: interpreted in local tz, must round-trip
+        // through local_time back to the same wall clock.
+        let naive = parse_at("2026-09-28T09:36:00").unwrap();
+        assert_eq!(local_time(naive), "2026-09-28 09:36:00");
+        // Space separator also accepted.
+        let naive_sp = parse_at("2026-09-28 09:36:00").unwrap();
+        assert_eq!(naive_sp, naive);
+
+        // Garbage is rejected.
+        assert!(parse_at("not-a-date").is_none());
+        assert!(parse_at("2026-13-45T99:99:99").is_none());
     }
 }

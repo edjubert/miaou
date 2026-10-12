@@ -9,7 +9,9 @@ use miaou::{collect_all, default_vibe_home, Totals};
 enum CalibrateAction {
     /// Record one observation: a Console cost at a period end (UTC).
     Add {
-        /// Console period end, UTC (e.g. "2026-09-28T09:36:00Z"). Defaults to now.
+        /// Observation time. RFC3339 UTC (e.g. "2026-09-28T09:36:00Z") or
+        /// local time without offset (e.g. "2026-09-28T09:36:00").
+        /// Defaults to now.
         #[arg(short = 'a', long)]
         at: Option<String>,
         /// Cost shown by the Console for the month, in its display currency.
@@ -461,14 +463,13 @@ fn main() {
             match action {
                 CalibrateAction::Add { at, cost } => {
                     let at_ms = match at {
-                        Some(at) => chrono::DateTime::parse_from_rfc3339(&at)
-                            .map_err(|e| {
-                                eprintln!("invalid --at (expect RFC3339 UTC, e.g. 2026-09-28T09:36:00Z): {e}");
-                                std::process::exit(2);
-                            })
-                            .unwrap()
-                            .timestamp_millis()
-                            .max(0) as u64,
+                        Some(at) => miaou::dates::parse_at(&at).unwrap_or_else(|| {
+                            eprintln!(
+                                "invalid --at (expect RFC3339 UTC like 2026-09-28T09:36:00Z, \
+                                 or local time like 2026-09-28T09:36:00)"
+                            );
+                            std::process::exit(2);
+                        }),
                         None => now_ms(),
                     };
                     let at = chrono::DateTime::from_timestamp((at_ms / 1000) as i64, 0)
