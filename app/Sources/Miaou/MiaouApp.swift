@@ -374,31 +374,7 @@ struct MenuContent: View {
     }
 
     private func dailyChart(_ dashboard: DashboardReport) -> some View {
-        let days = dashboard.daily.suffix(14)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.t("chart.daily.title"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Chart(days, id: \.key) { row in
-                BarMark(
-                    x: .value(L10n.t("chart.axis.day"), String(row.key.suffix(5))),
-                    y: .value(L10n.t("chart.axis.tokens"), row.totalTokens)
-                )
-                .foregroundStyle(Color.accentColor.opacity(0.85))
-                .annotation(position: .top) {
-                    Text(formatTokens(Double(row.totalTokens)))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .chartXAxis {
-                AxisMarks { _ in
-                    AxisValueLabel()
-                        .font(.caption2)
-                }
-            }
-            .frame(height: 110)
-        }
+        DailyChartView(days: dashboard.daily.suffix(14))
     }
 
     private func projectsSection(_ dashboard: DashboardReport) -> some View {
@@ -501,4 +477,118 @@ struct MenuContent: View {
         return .accentColor
     }
 
+}
+
+/// Daily tokens bar chart. Hovering a bar dims the others and shows a
+/// popover with the day and the exact token count; the value labels and
+/// the x-axis day labels stay hidden to keep the chart readable at menu
+/// size. The y-axis uses localized short units (M/B in English, M/Md in
+/// French) instead of scientific notation.
+struct DailyChartView: View {
+    let days: ArraySlice<PeriodRow>
+
+    @State private var hoveredKey: String?
+
+    private var axisFormatter: NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.locale = L10n.locale
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 1
+        formatter.positiveSuffix = L10n.t("chart.unit.suffix")
+        return formatter
+    }
+
+    private func axisLabel(_ value: Double) -> String {
+        let billions = L10n.t("chart.unit.billions")
+        let millions = L10n.t("chart.unit.millions")
+        if value >= 1_000_000_000 {
+            axisFormatter.positiveSuffix = billions
+            return axisFormatter.string(from: NSNumber(value: value / 1_000_000_000)) ?? ""
+        }
+        if value >= 1_000_000 {
+            axisFormatter.positiveSuffix = millions
+            return axisFormatter.string(from: NSNumber(value: value / 1_000_000)) ?? ""
+        }
+        axisFormatter.positiveSuffix = ""
+        return axisFormatter.string(from: NSNumber(value: value)) ?? ""
+    }
+
+    private func dayLabel(_ key: String) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: key) else { return key }
+        let formatter = DateFormatter()
+        formatter.locale = L10n.locale
+        formatter.setLocalizedDateFormatFromTemplate("d MMM")
+        return formatter.string(from: date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L10n.t("chart.daily.title"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart(days, id: \.key) { row in
+                BarMark(
+                    x: .value(L10n.t("chart.axis.day"), row.key),
+                    y: .value(L10n.t("chart.axis.tokens"), row.totalTokens)
+                )
+                .foregroundStyle(
+                    Color.accentColor.opacity(hoveredKey == nil || hoveredKey == row.key ? 0.85 : 0.25)
+                )
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let double = value.as(Double.self) {
+                            Text(axisLabel(double))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    AxisGridLine()
+                }
+            }
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    ZStack(alignment: .top) {
+                        Rectangle()
+                            .fill(.clear)
+                            .contentShape(Rectangle())
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case .active(let location):
+                                    if let key: String = proxy.value(atX: location.x, as: String.self) {
+                                        hoveredKey = key
+                                    }
+                                case .ended:
+                                    hoveredKey = nil
+                                }
+                            }
+                        if let key = hoveredKey, let row = days.first(where: { $0.key == key }) {
+                            popover(for: row)
+                                .offset(y: -8)
+                        }
+                    }
+                }
+            }
+            .frame(height: 110)
+        }
+    }
+
+    private func popover(for row: PeriodRow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(dayLabel(row.key))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(L10n.t("chart.popover.tokens", formatTokens(Double(row.totalTokens))))
+                .font(.caption)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+    }
 }

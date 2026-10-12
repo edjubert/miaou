@@ -47,6 +47,10 @@
 "chart.daily.title" = "Tokens consumed per day (last 14 days)";
 "chart.axis.day" = "Day";
 "chart.axis.tokens" = "Tokens";
+"chart.unit.millions" = "M";
+"chart.unit.billions" = "B";
+"chart.unit.suffix" = "";
+"chart.popover.tokens" = "%@ tokens";
 "tab.daily" = "Days";
 "tab.monthly" = "Months";
 "tab.sessions" = "Sessions";
