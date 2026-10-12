@@ -26,6 +26,7 @@ app: build
 	cp "$(CLI_BIN)" $(CONTENTS)/MacOS/$(CLI_EMBED)
 	cp Info.plist $(CONTENTS)/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(CLI_VERSION)" $(CONTENTS)/Info.plist
+	@test "$(CLI_VERSION)" != "0.0.0" || { echo "error: version not stamped (cli/Cargo.toml unreadable?)"; exit 1; }
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/AppIcon.icns
 	# Sign the nested resource bundle first: codesign does not auto-sign
 	# sub-bundles living in Contents/MacOS.
