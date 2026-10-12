@@ -15,6 +15,10 @@ pub struct SessionMeta {
     /// Set when this session is a subagent run.
     pub parent_session_id: Option<String>,
     pub child_sessions: Vec<String>,
+    /// Model alias active in this session, read from the latest
+    /// `generations/*/runtime-state.json` (`session_metadata.active_model`).
+    /// Used to price each session's tokens at its own model's rates.
+    pub model: Option<String>,
 }
 
 /// Discover all sessions, returning `(meta, session_dir)` pairs sorted by start time.
@@ -60,6 +64,7 @@ pub fn discover_sessions(vibe_home: &Path) -> Vec<(SessionMeta, PathBuf)> {
                 .and_then(|x| x.as_array())
                 .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect())
                 .unwrap_or_default(),
+            model: read_session_model(&dir),
         };
         out.push((meta, dir));
     }
@@ -73,6 +78,40 @@ fn iso_to_ms(s: Option<&str>) -> Option<u64> {
     chrono::DateTime::parse_from_rfc3339(s)
         .ok()
         .map(|dt| dt.timestamp_millis().max(0) as u64)
+}
+
+/// Read the session's active model alias from the latest
+/// `generations/*/runtime-state.json` (`session_metadata.active_model`).
+/// Returns `None` when no runtime state carries the field (compacted or
+/// pruned sessions).
+fn read_session_model(session_dir: &Path) -> Option<String> {
+    let gens = session_dir.join("generations");
+    let Ok(entries) = std::fs::read_dir(&gens) else {
+        return None;
+    };
+    let mut states: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path().join("runtime-state.json"))
+        .filter(|p| p.is_file())
+        .collect();
+    states.sort();
+    for state in states.iter().rev() {
+        let Ok(raw) = std::fs::read_to_string(state) else {
+            continue;
+        };
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        if let Some(model) = v
+            .get("session_metadata")
+            .and_then(|m| m.get("active_model"))
+            .and_then(|x| x.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            return Some(model.to_string());
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -140,5 +179,43 @@ mod tests {
         let older = &found[0].0;
         assert_eq!(older.parent_session_id.as_deref(), Some("some-parent"));
         assert!(older.title.is_none());
+    }
+
+    #[test]
+    fn reads_model_from_latest_runtime_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let unified = tmp.path().join("logs").join("session").join("unified");
+        let dir = unified.join("s1");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("meta.json"), r#"{"session_id": "s1"}"#).unwrap();
+
+        // Older generation without model, newer with model.
+        let g1 = dir.join("generations").join("0000000000000001");
+        let g2 = dir.join("generations").join("0000000000000002");
+        std::fs::create_dir_all(&g1).unwrap();
+        std::fs::create_dir_all(&g2).unwrap();
+        std::fs::write(g1.join("runtime-state.json"), r#"{"session_metadata": {}}"#).unwrap();
+        std::fs::write(
+            g2.join("runtime-state.json"),
+            r#"{"session_metadata": {"active_model": "glm-5-3"}}"#,
+        )
+        .unwrap();
+
+        let found = discover_sessions(tmp.path());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].0.model.as_deref(), Some("glm-5-3"));
+    }
+
+    #[test]
+    fn model_is_none_without_runtime_state() {
+        let tmp = tempfile::tempdir().unwrap();
+        let unified = tmp.path().join("logs").join("session").join("unified");
+        let dir = unified.join("s1");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("meta.json"), r#"{"session_id": "s1"}"#).unwrap();
+
+        let found = discover_sessions(tmp.path());
+        assert_eq!(found.len(), 1);
+        assert!(found[0].0.model.is_none());
     }
 }

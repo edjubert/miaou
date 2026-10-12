@@ -176,6 +176,7 @@ pub fn merged_sessions_with(
                     end_time_ms: None,
                     parent_session_id: e.parent_session_id.clone(),
                     child_sessions: Vec::new(),
+                    model: None,
                 });
         }
     }

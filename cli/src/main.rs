@@ -9,9 +9,9 @@ use miaou::{collect_all, default_vibe_home, Totals};
 enum CalibrateAction {
     /// Record one observation: a Console cost at a period end (UTC).
     Add {
-        /// Console period end, UTC (e.g. "2026-09-28T09:36:00Z").
+        /// Console period end, UTC (e.g. "2026-09-28T09:36:00Z"). Defaults to now.
         #[arg(short = 'a', long)]
-        at: String,
+        at: Option<String>,
         /// Cost shown by the Console for the month, in its display currency.
         #[arg(short = 'c', long)]
         cost: f64,
@@ -117,13 +117,23 @@ fn main() {
         .vibe_home
         .clone()
         .unwrap_or_else(default_vibe_home);
-    let config = VibeConfig::load(&vibe_home);
+    let vibe_config = VibeConfig::load(&vibe_home);
     let currency =
         miaou::budget::currency_symbol(&miaou::budget::default_config_path());
-    let price = config.resolve(cli.model.as_deref()).cloned();
+    let price = vibe_config.resolve(cli.model.as_deref()).cloned();
 
     let since_ms = cli.since.as_deref().and_then(parse_local_date_start);
     let until_ms = cli.until.as_deref().and_then(parse_local_date_end);
+
+    // Config prices are USD; the display currency may be EUR. Convert
+    // config-derived costs so they match the ledger/console currency.
+    let to_display = |usd: f64| -> f64 {
+        if currency == "€" {
+            usd * miaou::prices::USD_TO_EUR
+        } else {
+            usd
+        }
+    };
 
     let render = |json: bool| {
         let mut sessions = collect_all(&vibe_home);
@@ -138,6 +148,7 @@ fn main() {
         let price_of = |t: &Totals| -> Option<f64> {
             price.as_ref()
                 .and_then(|p| p.cost_usd(t.input_tokens, t.output_tokens, t.cached_input_tokens))
+                .map(to_display)
         };
         (sessions, price_of, json)
     };
@@ -217,7 +228,10 @@ fn main() {
             for s in &sessions {
                 grand.add(&s.totals());
             }
-            grand.cost_usd = price_of(&grand);
+            // Per-session pricing for the month total (same basis as the
+            // budget figure below); falls back to the single-model price.
+            grand.cost_usd = per_session_cost(&sessions, &current_month, &vibe_config, &currency)
+                .or_else(|| price_of(&grand));
 
             let mut today_totals = day_totals(&sessions, &today);
             // Same cost basis as the month: the console-anchored incremental
@@ -229,7 +243,7 @@ fn main() {
             )
             .or_else(|| price_of(&today_totals));
             let mtd = month_to_date(&sessions, &current_month);
-            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
+            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of, &vibe_config, &currency);
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
@@ -245,11 +259,32 @@ fn main() {
 
             let daily = priced(miaou::aggregate_daily(&sessions), &price_of);
             let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
-            apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of);
+            apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of, &vibe_config, &currency);
             let projects = priced(miaou::aggregate_by_project(&sessions), &price_of);
             let mut session_rows = miaou::aggregate_by_session(&sessions);
+            let fallback_price = vibe_config.resolve(None).cloned();
             for r in &mut session_rows {
-                r.totals.cost_usd = price_of(&r.totals);
+                // Price each session at its own model's rates.
+                let s = sessions.iter().find(|s| s.meta.session_id == r.session_id);
+                r.totals.cost_usd = s
+                    .and_then(|s| {
+                        vibe_config
+                            .cost_for_session(
+                                s.meta.model.as_deref(),
+                                r.totals.input_tokens,
+                                r.totals.output_tokens,
+                                r.totals.cached_input_tokens,
+                                fallback_price.as_ref(),
+                            )
+                            .map(|usd| {
+                                if currency == "€" {
+                                    usd * miaou::prices::USD_TO_EUR
+                                } else {
+                                    usd
+                                }
+                            })
+                    })
+                    .or_else(|| price_of(&r.totals));
             }
 
             println!(
@@ -298,6 +333,8 @@ fn main() {
                 &sessions,
                 &miaou::dates::local_ym(now_ms()),
                 &price_of,
+                &vibe_config,
+                &currency,
             );
             if let Some(n) = months {
                 let len = monthly.len();
@@ -338,7 +375,7 @@ fn main() {
             let current_month = miaou::dates::local_ym(now_ms());
             let (sessions, price_of, _) = render(false);
             let mtd = month_to_date(&sessions, &current_month);
-            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of);
+            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of, &vibe_config, &currency);
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
@@ -423,13 +460,20 @@ fn main() {
             let ledger = miaou::calibrate::ledger_path();
             match action {
                 CalibrateAction::Add { at, cost } => {
-                    let parsed = chrono::DateTime::parse_from_rfc3339(&at)
-                        .map_err(|e| {
-                            eprintln!("invalid --at (expect RFC3339 UTC, e.g. 2026-09-28T09:36:00Z): {e}");
-                            std::process::exit(2);
-                        })
-                        .unwrap();
-                    let at_ms = parsed.timestamp_millis().max(0) as u64;
+                    let at_ms = match at {
+                        Some(at) => chrono::DateTime::parse_from_rfc3339(&at)
+                            .map_err(|e| {
+                                eprintln!("invalid --at (expect RFC3339 UTC, e.g. 2026-09-28T09:36:00Z): {e}");
+                                std::process::exit(2);
+                            })
+                            .unwrap()
+                            .timestamp_millis()
+                            .max(0) as u64,
+                        None => now_ms(),
+                    };
+                    let at = chrono::DateTime::from_timestamp((at_ms / 1000) as i64, 0)
+                        .map(|d| d.to_rfc3339())
+                        .unwrap_or_default();
                     let sessions = collect_all(&vibe_home);
                     let mut observation = miaou::calibrate::month_tokens_at(&sessions, at_ms);
                     observation.cost = cost;
@@ -677,24 +721,32 @@ fn apply_current_month_floor(
     sessions: &[miaou::SessionUsage],
     ym: &str,
     price_of: &impl Fn(&Totals) -> Option<f64>,
+    config: &miaou::prices::VibeConfig,
+    currency: &str,
 ) {
     if let Some(row) = monthly.iter_mut().find(|r| r.key == ym) {
         let mtd = month_to_date_floored(sessions, ym);
         row.totals = mtd;
-        // Same cost basis as the budget and the menu bar: console-anchored.
-        row.totals.cost_usd = anchored_used_usd(sessions, ym, price_of);
+        // Same cost basis as the budget and the menu bar: per-session.
+        row.totals.cost_usd = anchored_used_usd(sessions, ym, price_of, config, currency);
     }
 }
 
-/// Authoritative month cost: the latest Console observation plus the
-/// local tokens consumed since it, valued at the effective rate measured
-/// at the anchor. Falls back to the pure local estimate when no
-/// observation exists for the month.
+/// Authoritative month cost. Prefers the per-session estimate: each
+/// session's tokens priced at its own model's rates (read from
+/// `session_metadata.active_model`), converted to the display currency.
+/// Falls back to the console-anchored incremental rate (ledger), then to
+/// the single-model estimate, when per-session pricing is unavailable.
 fn anchored_used_usd(
     sessions: &[miaou::SessionUsage],
     ym: &str,
     price_of: &impl Fn(&Totals) -> Option<f64>,
+    config: &miaou::prices::VibeConfig,
+    currency: &str,
 ) -> Option<f64> {
+    if let Some(cost) = per_session_cost(sessions, ym, config, currency) {
+        return Some(cost);
+    }
     let ledger = miaou::calibrate::load_ledger(&miaou::calibrate::ledger_path());
     if let Some(cost) = miaou::calibrate::anchored_cost_with_delta(
         &ledger, sessions, ym, now_ms(),
@@ -703,6 +755,53 @@ fn anchored_used_usd(
     }
     let mtd = month_to_date_floored(sessions, ym);
     price_of(&mtd)
+}
+
+/// Per-session cost estimate for one local month: sum over the month's
+/// sessions of (session tokens × session model's prices), converted to
+/// the display currency. Returns `None` when no session has a resolvable
+/// priced model.
+fn per_session_cost(
+    sessions: &[miaou::SessionUsage],
+    ym: &str,
+    config: &miaou::prices::VibeConfig,
+    currency: &str,
+) -> Option<f64> {
+    let fallback = config.resolve(None).cloned();
+    let mut total = 0.0f64;
+    let mut any = false;
+    for s in sessions {
+        // Only the session's events within the target month.
+        let events: Vec<&miaou::UsageEvent> = s
+            .events
+            .iter()
+            .filter(|e| miaou::dates::local_ym(e.timestamp_ms) == ym)
+            .collect();
+        if events.is_empty() {
+            continue;
+        }
+        let t = Totals::from_events(events.into_iter());
+        if let Some(cost_usd) = config.cost_for_session(
+            s.meta.model.as_deref(),
+            t.input_tokens,
+            t.output_tokens,
+            t.cached_input_tokens,
+            fallback.as_ref(),
+        ) {
+            total += cost_usd;
+            any = true;
+        }
+    }
+    if !any {
+        return None;
+    }
+    // Config prices are USD; the ledger and the console are in the display
+    // currency. Convert when displaying EUR.
+    if currency == "€" {
+        Some(total * miaou::prices::USD_TO_EUR)
+    } else {
+        Some(total)
+    }
 }
 
 fn month_to_date_floored(sessions: &[miaou::SessionUsage], ym: &str) -> Totals {
