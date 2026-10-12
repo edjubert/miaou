@@ -230,10 +230,13 @@ fn main() {
             for s in &sessions {
                 grand.add(&s.totals());
             }
-            // Per-session pricing for the month total (same basis as the
-            // budget figure below); falls back to the single-model price.
-            grand.cost_usd = per_session_cost(&sessions, &current_month, &vibe_config, &currency)
-                .or_else(|| price_of(&grand));
+            // Month cost on the same basis as the budget figure below:
+            // anchored on the ledger when it has an observation, valued
+            // per session otherwise.
+            let month_cost = anchored_month_cost(
+                &sessions, &current_month, &price_of, &vibe_config, &currency,
+            );
+            grand.cost_usd = month_cost.as_ref().map(|c| c.cost);
 
             let mut today_totals = day_totals(&sessions, &today);
             // Same cost basis as the month: the console-anchored incremental
@@ -245,7 +248,17 @@ fn main() {
             )
             .or_else(|| price_of(&today_totals));
             let mtd = month_to_date(&sessions, &current_month);
-            let used_usd = anchored_used_usd(&sessions, &current_month, &price_of, &vibe_config, &currency);
+            let used_usd = month_cost.as_ref().map(|c| c.cost);
+
+            // Anchor currently applied to the month cost, for display.
+            let anchor = match &month_cost {
+                Some(mc) => mc.anchor.as_ref().map(|a| serde_json::json!({
+                    "at_ms": a.at_ms,
+                    "cost": a.cost,
+                    "delta_usd": mc.delta_usd,
+                })),
+                None => None,
+            };
 
             let (budget, plan) = resolve_budget(
                 &vibe_home,
@@ -302,6 +315,7 @@ fn main() {
                     "month_to_date": mtd,
                     "budget_status": status,
                     "budget": budget,
+                    "anchor": anchor,
                     "daily": daily,
                     "monthly": monthly,
                     "projects": projects,
@@ -733,11 +747,89 @@ fn apply_current_month_floor(
     }
 }
 
-/// Authoritative month cost. Prefers the per-session estimate: each
-/// session's tokens priced at its own model's rates (read from
-/// `session_metadata.active_model`), converted to the display currency.
-/// Falls back to the console-anchored incremental rate (ledger), then to
-/// the single-model estimate, when per-session pricing is unavailable.
+/// Authoritative month cost, with the anchor it was built on. When the
+/// calibration ledger holds an observation in the month, the cost
+/// anchors on it: the Console total is the truth up to the observation
+/// time (it includes usage invisible to the local journals, like Vibe
+/// on the phone), and only the local tokens consumed since are added,
+/// valued per session at each session model's rates (read from
+/// `session_metadata.active_model`). Without an observation, the whole
+/// month is valued per session. The last resorts are the incremental
+/// rate from the ledger pairs, then the single-model estimate.
+struct AnchoredMonthCost {
+    cost: f64,
+    /// The ledger observation the cost is anchored on, when there is one.
+    anchor: Option<miaou::calibrate::Observation>,
+    /// Cost of the local tokens consumed since the anchor. `None` when
+    /// no anchor is applied or no delta estimate was available.
+    delta_usd: Option<f64>,
+}
+
+/// See [`AnchoredMonthCost`].
+fn anchored_month_cost(
+    sessions: &[miaou::SessionUsage],
+    ym: &str,
+    price_of: &impl Fn(&Totals) -> Option<f64>,
+    config: &miaou::prices::VibeConfig,
+    currency: &str,
+) -> Option<AnchoredMonthCost> {
+    let ledger = miaou::calibrate::load_ledger(&miaou::calibrate::ledger_path());
+    let now = now_ms();
+    let per_session =
+        |after: Option<u64>| per_session_cost(sessions, ym, after, config, currency);
+
+    match miaou::calibrate::latest_anchor_cost(&ledger, ym, now) {
+        Some(anchor) => {
+            // Preferred: anchor + per-session priced delta since the anchor.
+            if let Some(delta) = per_session(Some(anchor.at_ms)) {
+                return Some(AnchoredMonthCost {
+                    cost: anchor.cost + delta,
+                    anchor: Some(anchor),
+                    delta_usd: Some(delta),
+                });
+            }
+            // Fallback delta: incremental rate of the most recent pair.
+            if let Some(cost) = miaou::calibrate::anchored_cost_with_delta(
+                &ledger, sessions, ym, now,
+            ) {
+                return Some(AnchoredMonthCost {
+                    cost,
+                    anchor: Some(anchor.clone()),
+                    delta_usd: Some(cost - anchor.cost),
+                });
+            }
+            // Last resort delta: single-model price on the delta tokens.
+            let after = month_totals_after(sessions, ym, anchor.at_ms);
+            if let Some(delta) = price_of(&after) {
+                return Some(AnchoredMonthCost {
+                    cost: anchor.cost + delta,
+                    anchor: Some(anchor),
+                    delta_usd: Some(delta),
+                });
+            }
+            // No delta estimate at all: the anchor stands alone.
+            Some(AnchoredMonthCost {
+                cost: anchor.cost,
+                anchor: Some(anchor),
+                delta_usd: None,
+            })
+        }
+        None => {
+            if let Some(cost) = per_session(None) {
+                return Some(AnchoredMonthCost { cost, anchor: None, delta_usd: None });
+            }
+            if let Some(cost) =
+                miaou::calibrate::anchored_cost_with_delta(&ledger, sessions, ym, now)
+            {
+                return Some(AnchoredMonthCost { cost, anchor: None, delta_usd: None });
+            }
+            let mtd = month_to_date_floored(sessions, ym);
+            price_of(&mtd).map(|cost| AnchoredMonthCost { cost, anchor: None, delta_usd: None })
+        }
+    }
+}
+
+/// Month cost only; see `anchored_month_cost` for the anchor detail.
 fn anchored_used_usd(
     sessions: &[miaou::SessionUsage],
     ym: &str,
@@ -745,26 +837,29 @@ fn anchored_used_usd(
     config: &miaou::prices::VibeConfig,
     currency: &str,
 ) -> Option<f64> {
-    if let Some(cost) = per_session_cost(sessions, ym, config, currency) {
-        return Some(cost);
-    }
-    let ledger = miaou::calibrate::load_ledger(&miaou::calibrate::ledger_path());
-    if let Some(cost) = miaou::calibrate::anchored_cost_with_delta(
-        &ledger, sessions, ym, now_ms(),
-    ) {
-        return Some(cost);
-    }
-    let mtd = month_to_date_floored(sessions, ym);
-    price_of(&mtd)
+    anchored_month_cost(sessions, ym, price_of, config, currency).map(|c| c.cost)
+}
+
+/// Totals of the events in local month `ym` strictly after `after_ms`.
+fn month_totals_after(sessions: &[miaou::SessionUsage], ym: &str, after_ms: u64) -> Totals {
+    Totals::from_events(
+        sessions
+            .iter()
+            .flat_map(|s| s.events.iter())
+            .filter(|e| miaou::dates::local_ym(e.timestamp_ms) == ym && e.timestamp_ms > after_ms),
+    )
 }
 
 /// Per-session cost estimate for one local month: sum over the month's
 /// sessions of (session tokens × session model's prices), converted to
-/// the display currency. Returns `None` when no session has a resolvable
-/// priced model.
+/// the display currency. `after_ms` restricts the valuation to events
+/// after that timestamp (the delta since an anchor); `None` values the
+/// whole month. Returns `None` when no session has a resolvable priced
+/// model.
 fn per_session_cost(
     sessions: &[miaou::SessionUsage],
     ym: &str,
+    after_ms: Option<u64>,
     config: &miaou::prices::VibeConfig,
     currency: &str,
 ) -> Option<f64> {
@@ -772,11 +867,15 @@ fn per_session_cost(
     let mut total = 0.0f64;
     let mut any = false;
     for s in sessions {
-        // Only the session's events within the target month.
+        // Only the session's events within the target month (and after
+        // the anchor, when one is applied).
         let events: Vec<&miaou::UsageEvent> = s
             .events
             .iter()
-            .filter(|e| miaou::dates::local_ym(e.timestamp_ms) == ym)
+            .filter(|e| {
+                miaou::dates::local_ym(e.timestamp_ms) == ym
+                    && after_ms.is_none_or(|t| e.timestamp_ms > t)
+            })
             .collect();
         if events.is_empty() {
             continue;

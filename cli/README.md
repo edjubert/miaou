@@ -145,19 +145,44 @@ same instant. The fit runs on **deltas between consecutive observations**
 total includes usage that never touched this machine (web, mobile, remote
 agents, pruned sessions) and would bias an absolute fit. Protocol:
 
-- The Console displays UTC+2; `--at` takes UTC (convert the displayed
-  boundary). There is no ingestion latency: the period end is the read
+- `--at` takes UTC RFC3339 (`2026-09-28T09:36:00Z`), a local time without
+  offset (`2026-09-28T11:36:00`, interpreted in the machine's timezone) or
+  nothing (now). There is no ingestion latency: the period end is the read
   time.
 - Console costs do NOT track local tokens linearly: usage invisible to
   the local journals (IDE plugin, other surfaces) varies per window, so
   per-window rates swing from ~0.12 EUR/M (pure local) to ~1.65 EUR/M
   (heavy invisible usage). A per-token price fit is therefore not
   identifiable from console pairs.
-- Working design: the budget anchors on the latest observation cost and
-  values the tokens consumed since at the incremental rate of the most
-  recent observation pair. Each `calibrate add` re-anchors and refines
-  the rate.
 - Keep the display currency identical across observations.
+
+### Anchored month cost
+
+The authoritative month cost resolves in this order:
+
+1. **Console anchor** (when the ledger holds an observation in the
+   current month): the Console total is the truth up to the observation
+   time, because it includes usage the local journals never see. Only
+   the local tokens consumed **since** the observation are added, valued
+   per session at each session model's rates. Each `calibrate add`
+   re-anchors; the dashboard's `anchor` field shows which observation is
+   applied (`at_ms`, `cost`, `delta_usd`).
+2. **Per-session estimate** (no observation this month): every session's
+   tokens priced at its own model's rates, summed over the month.
+3. Incremental rate from the most recent ledger pair, then the
+   single-model estimate, when per-session pricing is unavailable.
+
+Use case: reading Vibe on the phone (or any other surface) inflates the
+Console total with tokens the local journals never record, so the local
+estimate lags behind the Console. Record the Console figure once:
+
+```
+miaou calibrate add --cost 190.05      # --at defaults to now
+```
+
+The month re-anchors on the real total, the display catches up
+immediately, and it stays truthful as local usage resumes (the delta
+since the anchor is priced per session).
 
 The tracker bills with the convention "cached tokens are a discounted part
 of input": `cost = (in - cached) * input_price + cached * cached_input_price

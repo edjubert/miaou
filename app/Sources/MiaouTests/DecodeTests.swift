@@ -39,6 +39,7 @@ final class DecodeTests: XCTestCase {
                       "cached_input_tokens": 360, "total_tokens": 420, "cost_usd": nil] as [String: Any?]],
         "active": [["id": "85ed9e33", "age_ms": 120000],
                    ["id": "61fe6adc", "age_ms": 9844595]] as [[String: Any]],
+        "anchor": ["at_ms": 1790610000000, "cost": 190.05, "delta_usd": 0.42] as [String: Any],
     ]
 
     func testDashboardDecodes() throws {
@@ -57,6 +58,17 @@ final class DecodeTests: XCTestCase {
         XCTAssertFalse(report.sessions[0].subagent)
         XCTAssertEqual(report.active.count, 2)
         XCTAssertEqual(report.liveSessions.map(\.id), ["85ed9e33"])
+        XCTAssertEqual(report.anchor?.cost, 190.05)
+        XCTAssertEqual(report.anchor?.deltaUsd, 0.42)
+        XCTAssertEqual(report.anchor?.atMs, 1_790_610_000_000)
+    }
+
+    func testDashboardDecodesWithoutAnchor() throws {
+        var withoutAnchor = sample
+        withoutAnchor.removeValue(forKey: "anchor")
+        let data = try JSONSerialization.data(withJSONObject: withoutAnchor)
+        let report = try decoder.decode(DashboardReport.self, from: data)
+        XCTAssertNil(report.anchor)
     }
 
     func testEffectiveUsdRespectsOverageFlag() throws {
@@ -100,6 +112,7 @@ final class DecodeTests: XCTestCase {
                 usedRequests: 10,
                 budget: BudgetReport(monthlyUsd: 255.0, overageUsd: nil,
                                      overageAllowed: true, monthlyTokens: nil)),
+            anchor: nil,
             daily: [], monthly: [], projects: [], sessions: [],
             active: [])
     }

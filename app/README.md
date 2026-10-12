@@ -103,6 +103,12 @@ Refreshes every 60 s and on menu open. The CLI binary is looked up in
 the app bundle first (embedded by `make app`), then `~/.cargo/bin` and
 Homebrew paths: GUI processes inherit a minimal PATH.
 
+When the CLI's calibration ledger holds a Console observation for the
+current month, the month cost anchors on it (see the CLI README) and the
+budget section shows the applied anchor: its cost and the time it was
+recorded (`Ancre console : 190.05 € à 12 oct. 14:31`). The displayed
+used amount is then anchor cost + local usage since, valued per session.
+
 The bundle carries LSUIElement (no Dock icon). Structure:
 `Sources/Miaou` (app + CLI bridge), `Sources/MiaouTests`
 (decode tests against miaou JSON). No `.xcodeproj`: the package

@@ -303,6 +303,11 @@ struct MenuContent: View {
                 Text(L10n.t("budget.requests_tokens_month", status.usedRequests, formatTokens(Double(status.usedTokens))))
                     .font(.callout)
             }
+            if let anchor = dashboard.anchor {
+                Text(L10n.t("budget.anchor", anchor.cost, dashboard.currency, anchorTime(anchor.atMs)))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             if let over = dashboard.budgetStatus.usedUsd,
                let envelope = status.budget.monthlyUsd,
                over > envelope {
@@ -313,6 +318,14 @@ struct MenuContent: View {
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
             }
         }
+    }
+
+    /// Localized day and time of a console anchor, e.g. "12 Oct 14:31".
+    private func anchorTime(_ ms: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = L10n.locale
+        formatter.setLocalizedDateFormatFromTemplate("d MMM HH:mm")
+        return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(ms) / 1000))
     }
 
     /// Estimated days until the monthly quota is exhausted, at the average

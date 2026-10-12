@@ -32,6 +32,7 @@
 "budget.requests_tokens_month" = "%d requests, %@ tokens this month";
 "budget.payg" = "In PAYG overage: %.2f %@ beyond the envelope";
 "budget.over" = "Over the envelope by %.2f %@";
+"budget.anchor" = "Console anchor: %.2f %@ at %@";
 "forecast.pace" = "At a pace of %.2f %@/day,";
 "forecast.holds" = "the quota should last until the end of the month";
 "forecast.hit" = "quota reached in ~%d days (%@)";

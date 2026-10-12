@@ -66,6 +66,18 @@ struct BudgetStatusReport: Codable, Equatable {
     let budget: BudgetReport
 }
 
+/// Console observation the month cost is anchored on, when the CLI's
+/// calibration ledger holds one for the current month.
+struct AnchorReport: Codable, Equatable {
+    /// Observation time (epoch ms, UTC).
+    let atMs: Int
+    /// Console cost at that time, in the display currency.
+    let cost: Double
+    /// Cost of the local tokens consumed since the anchor, when an
+    /// estimate was available.
+    let deltaUsd: Double?
+}
+
 struct ActiveSessionReport: Codable, Equatable {
     let id: String
     let ageMs: Int
@@ -85,6 +97,9 @@ struct DashboardReport: Codable, Equatable {
     let todayTotals: TotalsReport
     let monthToDate: TotalsReport
     let budgetStatus: BudgetStatusReport
+    /// Console anchor applied to the month cost (from the CLI's
+    /// calibration ledger), nil when the month is valued per session.
+    let anchor: AnchorReport?
     let daily: [PeriodRow]
     let monthly: [PeriodRow]
     let projects: [PeriodRow]
