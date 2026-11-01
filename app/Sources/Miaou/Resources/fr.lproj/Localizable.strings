@@ -33,6 +33,8 @@
 "budget.payg" = "En dépassement PAYG : %.2f %@ au-delà de l'enveloppe";
 "budget.over" = "Au-delà de l'enveloppe de %.2f %@";
 "budget.anchor" = "Ancre console : %.2f %@ à %@";
+"anchor.placeholder" = "Coût console du mois (%@)";
+"anchor.button" = "Ancrer";
 "forecast.pace" = "Au rythme de %.2f %@/jour,";
 "forecast.holds" = "le quota devrait tenir jusqu'à la fin du mois";
 "forecast.hit" = "quota atteint dans ~%d jours (%@)";
@@ -61,3 +63,4 @@
 /* Errors */
 "error.exited" = "miaou a terminé avec le code %d";
 "error.bad_json" = "miaou a renvoyé un JSON inattendu";
+"error.invalid_anchor_cost" = "Saisissez un coût valide, supérieur ou égal à zéro.";

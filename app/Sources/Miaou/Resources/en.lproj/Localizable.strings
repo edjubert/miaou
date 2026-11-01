@@ -33,6 +33,8 @@
 "budget.payg" = "In PAYG overage: %.2f %@ beyond the envelope";
 "budget.over" = "Over the envelope by %.2f %@";
 "budget.anchor" = "Console anchor: %.2f %@ at %@";
+"anchor.placeholder" = "Console month cost (%@)";
+"anchor.button" = "Anchor";
 "forecast.pace" = "At a pace of %.2f %@/day,";
 "forecast.holds" = "the quota should last until the end of the month";
 "forecast.hit" = "quota reached in ~%d days (%@)";
@@ -61,3 +63,4 @@
 /* Errors */
 "error.exited" = "miaou exited with %d";
 "error.bad_json" = "miaou returned unexpected JSON";
+"error.invalid_anchor_cost" = "Enter a valid, non-negative cost.";

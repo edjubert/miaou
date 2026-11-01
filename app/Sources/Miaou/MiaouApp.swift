@@ -139,6 +139,9 @@ struct MenuContent: View {
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
+    @State private var anchorCostText: String = ""
+    @State private var anchorError: String?
+    @State private var isAddingAnchor: Bool = false
 
     private var barMode: BarMode {
         BarMode(rawValue: barModeRaw) ?? .percent
@@ -303,6 +306,7 @@ struct MenuContent: View {
                 Text(L10n.t("budget.requests_tokens_month", status.usedRequests, formatTokens(Double(status.usedTokens))))
                     .font(.callout)
             }
+            anchorInput(dashboard)
             if let anchor = dashboard.anchor {
                 Text(L10n.t("budget.anchor", anchor.cost, dashboard.currency, anchorTime(anchor.atMs)))
                     .font(.caption2)
@@ -316,6 +320,55 @@ struct MenuContent: View {
                      : L10n.t("budget.over", over - envelope, dashboard.currency))
                     .font(.caption)
                     .foregroundStyle(status.budget.overageAllowed ? .orange : .red)
+            }
+        }
+    }
+
+    /// Cost input stays available even before the first Console anchor.
+    private func anchorInput(_ dashboard: DashboardReport) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                TextField(L10n.t("anchor.placeholder", dashboard.currency), text: $anchorCostText)
+                    .font(.caption)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isAddingAnchor)
+                    .onSubmit { addAnchor() }
+                Button(L10n.t("anchor.button")) { addAnchor() }
+                    .font(.caption)
+                    .disabled(ConsoleCost.parse(anchorCostText) == nil || isAddingAnchor)
+            }
+            if let anchorError {
+                Text(anchorError)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private func addAnchor() {
+        guard !isAddingAnchor, let cost = ConsoleCost.parse(anchorCostText) else { return }
+        isAddingAnchor = true
+        anchorError = nil
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try MiaouCLI.addAnchor(cost: cost)
+                DispatchQueue.main.async {
+                    self.isAddingAnchor = false
+                    self.anchorCostText = ""
+                    self.model.refresh()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isAddingAnchor = false
+                    switch error {
+                    case MiaouError.processFailed(let code):
+                        self.anchorError = L10n.t("error.exited", code)
+                    case MiaouError.invalidAnchorCost:
+                        self.anchorError = L10n.t("error.invalid_anchor_cost")
+                    default:
+                        self.anchorError = error.localizedDescription
+                    }
+                }
             }
         }
     }

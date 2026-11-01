@@ -62,6 +62,17 @@ enum BarTitle {
     }
 }
 
+/// Validation for the Console month cost entered in the menu.
+enum ConsoleCost {
+    /// Accept both decimal separators, including when the UI is in French.
+    static func parse(_ text: String) -> Double? {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        guard let cost = Double(normalized), cost.isFinite, cost >= 0 else { return nil }
+        return cost
+    }
+}
+
 /// Polls miaou and publishes the values shown in the menu bar.
 final class AppModel: ObservableObject {
     static let shared = AppModel()
@@ -151,6 +162,8 @@ final class AppModel: ObservableObject {
             return L10n.t("error.exited", code)
         case MiaouError.badJSON:
             return L10n.t("error.bad_json")
+        case MiaouError.invalidAnchorCost:
+            return L10n.t("error.invalid_anchor_cost")
         default:
             return error.localizedDescription
         }

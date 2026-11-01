@@ -114,6 +114,7 @@ struct DashboardReport: Codable, Equatable {
 enum MiaouError: Error {
     case processFailed(exitCode: Int32)
     case badJSON(String)
+    case invalidAnchorCost
 }
 
 /// Runs the miaou binary and decodes its JSON output.
@@ -133,19 +134,20 @@ enum MiaouCLI {
         ]
     }
 
-    static func dashboard() throws -> DashboardReport {
+    private static func run(arguments: [String], environment: [String: String]? = nil) throws -> Data {
         let process = Process()
         if let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
             process.executableURL = URL(fileURLWithPath: path)
-            process.arguments = ["dashboard", "--json"]
+            process.arguments = arguments
         } else {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["miaou", "dashboard", "--json"]
+            process.arguments = ["miaou"] + arguments
         }
+        process.environment = environment
 
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = Pipe() // keep the UI quiet on CLI diagnostics
+        process.standardError = FileHandle.nullDevice // keep the UI quiet on CLI diagnostics
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
@@ -153,6 +155,11 @@ enum MiaouCLI {
         guard process.terminationStatus == 0 else {
             throw MiaouError.processFailed(exitCode: process.terminationStatus)
         }
+        return data
+    }
+
+    static func dashboard() throws -> DashboardReport {
+        let data = try run(arguments: ["dashboard", "--json"])
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         do {
@@ -160,5 +167,15 @@ enum MiaouCLI {
         } catch {
             throw MiaouError.badJSON(String(data: data, encoding: .utf8) ?? "<no data>")
         }
+    }
+
+    /// Records the Console month total in the display currency at the
+    /// current time. An environment override allows isolated ledger runs.
+    static func addAnchor(cost: Double, environment: [String: String]? = nil) throws {
+        guard cost.isFinite, cost >= 0 else { throw MiaouError.invalidAnchorCost }
+        _ = try run(
+            arguments: ["calibrate", "add", "--cost", String(cost)],
+            environment: environment
+        )
     }
 }

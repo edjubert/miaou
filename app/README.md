@@ -109,6 +109,11 @@ budget section shows the applied anchor: its cost and the time it was
 recorded (`Ancre console : 190.05 € à 12 oct. 14:31`). The displayed
 used amount is then anchor cost + local usage since, valued per session.
 
+The "Console month cost" field and "Anchor" button above that line record
+the Console's current month total in the displayed currency at the current
+time. Submit with the button or Return; both `190.05` and `190,05` are
+accepted. After saving, the dashboard and menu bar refresh automatically.
+
 The bundle carries LSUIElement (no Dock icon). Structure:
 `Sources/Miaou` (app + CLI bridge), `Sources/MiaouTests`
 (decode tests against miaou JSON). No `.xcodeproj`: the package
