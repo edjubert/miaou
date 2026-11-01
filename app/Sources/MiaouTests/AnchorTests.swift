@@ -25,6 +25,54 @@ final class AnchorTests: XCTestCase {
         }
     }
 
+    func testDashboardInheritsConfigurationEnvironment() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("miaou-environment-test-\(UUID().uuidString)")
+        let configDirectory = root.appendingPathComponent("miaou")
+        try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try """
+        [display]
+        currency = "EUR"
+        [budget]
+        monthly_usd = 255.0
+        """.write(to: configDirectory.appendingPathComponent("config.toml"),
+                  atomically: true, encoding: .utf8)
+
+        // Set parent variables so the default CLI calls must inherit them.
+        // UTC keeps the Console anchor and dashboard in the same month.
+        let overrides = [
+            "XDG_CONFIG_HOME": root.path,
+            "VIBE_HOME": root.appendingPathComponent("vibe").path,
+            "TZ": "UTC",
+        ]
+        let originalEnvironment = ProcessInfo.processInfo.environment
+        defer {
+            for key in overrides.keys {
+                if let original = originalEnvironment[key] {
+                    setenv(key, original, 1)
+                } else {
+                    unsetenv(key)
+                }
+            }
+        }
+        for (key, value) in overrides {
+            setenv(key, value, 1)
+        }
+        var environment = originalEnvironment
+        environment.merge(overrides) { _, override in override }
+        do {
+            try MiaouCLI.addAnchor(cost: 12.34, environment: environment)
+            let report = try MiaouCLI.dashboard()
+            XCTAssertEqual(report.currency, "€")
+            XCTAssertEqual(report.budgetStatus.budget.monthlyUsd, 255.0)
+            XCTAssertEqual(report.anchor?.cost, 12.34)
+            XCTAssertEqual(report.budgetStatus.usedUsd, 12.34)
+        } catch MiaouError.processFailed(let code) where code == 127 {
+            throw XCTSkip("miaou not installed in the test environment")
+        }
+    }
+
     /// Exercise the app's CLI bridge without touching the user's ledger.
     func testAddAnchorRecordsCostAtCurrentTime() throws {
         let root = FileManager.default.temporaryDirectory

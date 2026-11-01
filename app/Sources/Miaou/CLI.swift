@@ -143,7 +143,11 @@ enum MiaouCLI {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             process.arguments = ["miaou"] + arguments
         }
-        process.environment = environment
+        // On macOS, assigning nil clears the child's environment rather
+        // than inheriting it. Keep the default unless explicitly overridden.
+        if let environment {
+            process.environment = environment
+        }
 
         let pipe = Pipe()
         process.standardOutput = pipe
