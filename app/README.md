@@ -69,7 +69,7 @@ Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
 | Quotas | Progress bar against the plan envelope (see miaou budget) |
 | Analytics | Daily/weekly sparkline, per-project and per-session breakdown |
 | Alerts | Notification when approaching the envelope or entering PAYG overage |
-| Live | Detect active Vibe sessions (session locks under ~/.vibe/logs/session/active) |
+| Live | Detect held Vibe session locks under ~/.vibe/logs/session/active; orphaned files and the cleanup lease are ignored |
 
 ## Roadmap
 

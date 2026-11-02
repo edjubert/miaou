@@ -57,7 +57,7 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(report.sessions[0].shortId, "abcd1234")
         XCTAssertFalse(report.sessions[0].subagent)
         XCTAssertEqual(report.active.count, 2)
-        XCTAssertEqual(report.liveSessions.map(\.id), ["85ed9e33"])
+        XCTAssertEqual(report.liveSessions.map(\.id), ["85ed9e33", "61fe6adc"])
         XCTAssertEqual(report.anchor?.cost, 190.05)
         XCTAssertEqual(report.anchor?.deltaUsd, 0.42)
         XCTAssertEqual(report.anchor?.atMs, 1_790_610_000_000)
@@ -80,9 +80,10 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(without.effectiveUsd, 255.0)
     }
 
-    func testActiveSessionLiveness() {
-        XCTAssertTrue(ActiveSessionReport(id: "a", ageMs: 299_999).isLive)
-        XCTAssertFalse(ActiveSessionReport(id: "a", ageMs: 300_000).isLive)
+    func testActiveSessionDoesNotExpireBasedOnLockAge() {
+        var dashboard = dashboardFixture(usedUsd: nil)
+        dashboard.active = [ActiveSessionReport(id: "a", ageMs: 600_000)]
+        XCTAssertEqual(dashboard.liveSessions.map(\.id), ["a"])
     }
 
     func testTokenFormatting() {

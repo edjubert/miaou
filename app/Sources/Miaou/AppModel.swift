@@ -127,7 +127,7 @@ final class AppModel: ObservableObject {
         BarTitle.text(mode, dashboard: dashboard)
     }
 
-    /// Whether a Vibe session is currently running (recent lock).
+    /// Whether a Vibe session currently holds its OS lock.
     var hasLiveSessions: Bool {
         dashboard?.liveSessions.isEmpty == false
     }

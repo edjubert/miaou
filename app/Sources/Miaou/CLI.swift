@@ -80,10 +80,8 @@ struct AnchorReport: Codable, Equatable {
 
 struct ActiveSessionReport: Codable, Equatable {
     let id: String
+    /// Diagnostic only: an open session does not need to touch its lock.
     let ageMs: Int
-
-    /// Vibe leaves stale locks behind; only recent ones mean a live session.
-    var isLive: Bool { ageMs < 5 * 60 * 1000 }
 }
 
 struct DashboardReport: Codable, Equatable {
@@ -107,7 +105,8 @@ struct DashboardReport: Codable, Equatable {
     var active: [ActiveSessionReport]
 
     var liveSessions: [ActiveSessionReport] {
-        active.filter(\.isLive)
+        // The CLI checks the OS lock; orphaned files are already excluded.
+        active
     }
 }
 

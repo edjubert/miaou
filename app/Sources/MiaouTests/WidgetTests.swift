@@ -51,7 +51,8 @@ final class WidgetTests: XCTestCase {
         let now = Date()
         let value = MiaouWidgetSnapshot(dashboard: fixture(date: now), language: "en")
         XCTAssertTrue(value.isActive(at: value.updatedAt))
-        XCTAssertFalse(value.isActive(at: value.updatedAt.addingTimeInterval(290)))
+        XCTAssertTrue(value.isActive(at: value.updatedAt.addingTimeInterval(299)))
+        XCTAssertFalse(value.isActive(at: value.updatedAt.addingTimeInterval(300)))
         XCTAssertFalse(value.isStale(at: value.updatedAt.addingTimeInterval(299)))
         XCTAssertTrue(value.isStale(at: value.updatedAt.addingTimeInterval(300)))
         let nextDay = try XCTUnwrap(Calendar.current.dateInterval(of: .day, for: now)?.end)
@@ -60,6 +61,18 @@ final class WidgetTests: XCTestCase {
         let nextMonth = try XCTUnwrap(Calendar.current.dateInterval(of: .month, for: now)?.end)
         XCTAssertFalse(value.isCurrentMonth(at: nextMonth))
         XCTAssertFalse(value.isActive(at: nextMonth))
+    }
+
+    func testActivityFollowsVerifiedSessionsRatherThanLockAge() {
+        var dashboard = fixture()
+        dashboard.active = [ActiveSessionReport(id: "open-session", ageMs: 600_000)]
+        let active = MiaouWidgetSnapshot(dashboard: dashboard, language: "en")
+        XCTAssertTrue(active.isActive(at: active.updatedAt))
+
+        dashboard.active = []
+        let inactive = MiaouWidgetSnapshot(dashboard: dashboard, language: "en")
+        XCTAssertNil(inactive.activityExpiresAt)
+        XCTAssertFalse(inactive.isActive(at: inactive.updatedAt))
     }
 
     func testSharedStorageRejectsInvalidVersionsPublicFilesAndSymlinks() throws {

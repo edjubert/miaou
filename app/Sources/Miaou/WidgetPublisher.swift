@@ -13,9 +13,8 @@ extension MiaouWidgetSnapshot {
             monthTokens: dashboard.budgetStatus.usedTokens,
             todayCost: dashboard.todayTotals.costUsd, todayTokens: dashboard.todayTotals.totalTokens,
             todayRequests: dashboard.todayTotals.requests,
-            activityExpiresAt: dashboard.liveSessions.map {
-                date.addingTimeInterval(Double(5 * 60 * 1000 - $0.ageMs) / 1000)
-            }.max(),
+            activityExpiresAt: dashboard.liveSessions.isEmpty ? nil :
+                date.addingTimeInterval(MiaouWidgetSnapshot.staleInterval),
             daily: dashboard.daily.suffix(14).map { MiaouWidgetDay(day: $0.key, tokens: $0.totalTokens) }
         )
     }
