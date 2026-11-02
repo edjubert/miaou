@@ -33,7 +33,7 @@ See `cli/README.md` and `app/README.md` for the details.
 cargo install --path cli
 miaou summary
 
-# macOS menu bar app (Xcode Command Line Tools required)
+# macOS menu bar app + desktop widget (full Xcode required)
 make -C app install-app
 ```
 

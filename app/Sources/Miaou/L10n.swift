@@ -1,7 +1,7 @@
 import Foundation
 
-/// Key-based localization through the package resource bundle
-/// (`Bundle.module`).
+/// Key-based localization through the native bundle, or `Bundle.module`
+/// when built with Swift Package Manager.
 ///
 /// Resolution order for every key:
 /// 1. the `language` user default, when set to "fr" or "en" (the in-app
@@ -16,6 +16,13 @@ enum L10n {
     private static let overrideKey = "language"
     private static let lock = NSLock()
     private static var cache: [String: [String: String]] = [:]
+    private static var bundle: Bundle {
+        #if SWIFT_PACKAGE
+        return .module
+        #else
+        return .main
+        #endif
+    }
 
     /// The forced language from the user default, when valid.
     private static var forcedLanguage: String? {
@@ -30,7 +37,11 @@ enum L10n {
     /// Locale matching the resolved language: forced language if set,
     /// else the system locale. Use for date formatting.
     static var locale: Locale {
-        switch forcedLanguage {
+        locale(language: forcedLanguage ?? "system")
+    }
+
+    static func locale(language: String) -> Locale {
+        switch language {
         case "fr": return Locale(identifier: "fr_FR")
         case "en": return Locale(identifier: "en_US")
         default: return .current
@@ -39,10 +50,15 @@ enum L10n {
 
     /// Look up `key` in the resolved Localizable.strings.
     static func t(_ key: String) -> String {
-        if let lang = forcedLanguage, let value = catalog(lang)[key] {
+        t(key, language: forcedLanguage ?? "system")
+    }
+
+    /// Widgets use the language published by the containing app.
+    static func t(_ key: String, language: String) -> String {
+        if ["fr", "en"].contains(language), let value = catalog(language)[key] {
             return value
         }
-        return NSLocalizedString(key, bundle: .module, comment: "")
+        return NSLocalizedString(key, bundle: bundle, comment: "")
     }
 
     /// Localized format string, then `String(format:)`. Numbers stay in
@@ -57,7 +73,7 @@ enum L10n {
         lock.lock()
         defer { lock.unlock() }
         if let cached = cache[lang] { return cached }
-        guard let path = Bundle.module.path(
+        guard let path = bundle.path(
             forResource: "Localizable",
             ofType: "strings",
             inDirectory: nil,

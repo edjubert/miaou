@@ -77,7 +77,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu bar agent: no Dock icon, no main window.
         NSApplication.shared.setActivationPolicy(.accessory)
+        MiaouWidgetRefreshRouter.refresh = { AppModel.shared.refresh() }
         AppModel.shared.refresh()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard urls.contains(where: { $0.scheme == "miaou" && $0.host == "dashboard" }) else { return }
+        DashboardWindow.shared.show()
+    }
+}
+
+/// The widget opens the same dashboard in a scrollable, reusable window.
+final class DashboardWindow {
+    static let shared = DashboardWindow()
+    private var window: NSWindow?
+
+    func show() {
+        if window == nil {
+            let height = min(780, (NSScreen.main?.visibleFrame.height ?? 860) - 80)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
+                                  styleMask: [.titled, .closable, .miniaturizable],
+                                  backing: .buffered, defer: false)
+            window.title = "Miaou"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView:
+                ScrollView { MenuContent().environmentObject(AppModel.shared) })
+            window.center()
+            self.window = window
+        }
+        AppModel.shared.refresh()
+        window?.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
 }
 
@@ -207,6 +237,7 @@ struct MenuContent: View {
         .padding(12)
         .frame(minWidth: 300)
         .onAppear { model.refresh() }
+        .onChange(of: languageRaw) { _ in model.publishWidget() }
     }
 
     private var displaySection: some View {

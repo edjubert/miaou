@@ -64,3 +64,17 @@
 "error.exited" = "miaou a terminé avec le code %d";
 "error.bad_json" = "miaou a renvoyé un JSON inattendu";
 "error.invalid_anchor_cost" = "Saisissez un coût valide, supérieur ou égal à zéro.";
+
+/* Desktop widget */
+"widget.description" = "Coût du mois, budget et activité locale de Mistral Vibe.";
+"widget.open_app" = "Ouvrir Miaou";
+"widget.no_data" = "Ouvrez l’app une fois pour afficher votre consommation.";
+"widget.new_month" = "Rafraîchissez Miaou pour charger la consommation de ce mois.";
+"widget.refresh.title" = "Rafraîchir Miaou";
+"widget.requests" = "requêtes";
+"widget.requests_today" = "Requêtes du jour";
+"widget.tokens_today" = "Tokens du jour";
+"widget.remaining" = "Budget restant";
+"widget.budget_used" = "Budget utilisé";
+"widget.daily" = "Tokens par jour · 14 derniers jours";
+"widget.last_update" = "Dernière mise à jour";

@@ -82,6 +82,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastRefresh: Date?
 
     private var timer: AnyCancellable?
+    private let widgetPublisher = MiaouWidgetPublisher()
 
     /// Watcher on Vibe's active-session lock directory, so a session
     /// starting or stopping refreshes the icon immediately instead of
@@ -106,12 +107,19 @@ final class AppModel: ObservableObject {
                 self.dashboard = dashboard
                 self.lastError = nil
                 self.lastRefresh = Date()
+                self.publishWidget()
             }
         } catch {
             DispatchQueue.main.async {
                 self.lastError = Self.describe(error)
             }
         }
+    }
+
+    func publishWidget() {
+        guard let dashboard else { return }
+        widgetPublisher.publish(dashboard,
+                                language: UserDefaults.standard.string(forKey: "language") ?? "system")
     }
 
     /// Short label in the menu bar for the selected display mode.

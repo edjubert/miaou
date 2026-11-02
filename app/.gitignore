@@ -5,3 +5,4 @@ DerivedData/
 Package.resolved
 .build/
 Miaou.app/
+__pycache__/

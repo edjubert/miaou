@@ -41,7 +41,7 @@ installed app is self-contained and no longer depends on the CLI install.
 From scratch (monorepo root):
 
 ```bash
-# Prerequisites: Xcode Command Line Tools (swift), Rust (cargo)
+# Prerequisites: full Xcode (app and widget), Rust (cargo), Python 3
 git clone git@github.com:edjubert/miaou.git
 cd miaou
 # 1. Build and install the CLI (single source of truth for parsing)
@@ -80,6 +80,49 @@ Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
 The data layer being shared, the Linux variant should reuse `miaou`
 as-is.
 
+## Desktop and Notification Center widget
+
+The menu bar app supports macOS 13 or later. On macOS 14 or later, open the
+installed Miaou app, use **Edit Widgets**, search for **Miaou**, and choose
+the small, medium or large format.
+
+| Size | Display |
+|---|---|
+| Small | Month cost (tokens fallback), budget progress and session activity |
+| Medium | Month budget plus today's cost, requests and tokens |
+| Large | Budget, remaining amount, today's metrics and a daily token chart |
+
+Click the widget background to open the dashboard. The refresh button opens
+Miaou and refreshes its data. The widget follows the app's language setting
+and currency configuration.
+
+The app publishes display metrics to a private App Group after each refresh.
+The sandboxed widget reads that snapshot; it does not run the CLI or read Vibe
+journals. Keep Miaou running for fresh figures. If it quits, the last snapshot
+remains visible with its update age. Old session activity expires, and a new
+calendar month asks you to reopen the app instead of showing the previous
+month's spending as current. At midnight, daily metrics retain their date
+until the app publishes the new day's figures.
+
+WidgetKit controls refresh timing: Miaou requests another update after 60
+seconds, and macOS may defer it. Desktop widget colors also follow macOS's
+widget appearance settings.
+
+The app bundle now builds with **full Xcode**, using native app and extension
+targets. Swift Package Manager remains available for development and tests.
+Both bundles use the same Apple signing identity and App Group. The builder
+selects an available Apple Development identity automatically; override with:
+
+```bash
+SIGN_IDENTITY="Apple Development: Your Name (ID)" TEAM_ID=YOURTEAMID make -C app install-app
+```
+
+`APP_GROUP` can override the default `TEAM_ID.com.edjubert.miaou`.
+`SIGN_IDENTITY=-` builds an ad-hoc development bundle; macOS widget activation
+requires a valid Apple signing identity. The app and widget receive matching
+build numbers, and installation unregisters older widget copies before
+registering the installed extension.
+
 ## Settings
 
 The menu window has a "Barre de menu" section with a segmented picker:
@@ -115,7 +158,7 @@ time. Submit with the button or Return; both `190.05` and `190,05` are
 accepted. After saving, the dashboard and menu bar refresh automatically.
 
 The bundle carries LSUIElement (no Dock icon). Structure:
-`Sources/Miaou` (app + CLI bridge), `Sources/MiaouTests`
-(decode tests against miaou JSON). No `.xcodeproj`: the package
-can be adopted into an Xcode app bundle later for login-at-startup and
-notarization.
+`Sources/Miaou` (app + CLI bridge), `Shared` (widget snapshot, view and
+refresh intent), `Widget` (WidgetKit extension), `Sources/MiaouTests`
+(CLI decoding and widget tests). `build-app.py` generates the native
+Xcode project under `.build/native-app`; it is not checked into Git.

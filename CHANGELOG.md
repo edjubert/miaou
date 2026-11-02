@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Native macOS desktop and Notification Center widget in three sizes, with
+  monthly cost and budget, today's usage, session activity and a daily chart.
+- Widget refresh action and dashboard link, localized in English and French.
+
+### Changed
+
+- App bundles build with native Xcode app and WidgetKit extension targets,
+  sharing a signed App Group and matching build numbers.
+- Installation registers the widget and removes obsolete extension candidates.
+
 ## [0.2.0] - 2026-10-12
 
 ### Added
