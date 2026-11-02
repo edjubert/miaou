@@ -7,17 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-02
+
 ### Added
 
 - Native macOS desktop and Notification Center widget in three sizes, with
   monthly cost and budget, today's usage, session activity and a daily chart.
 - Widget refresh action and dashboard link, localized in English and French.
+- Console cost input to anchor the month's estimate on the latest observation.
 
 ### Changed
 
 - App bundles build with native Xcode app and WidgetKit extension targets,
   sharing a signed App Group and matching build numbers.
 - Installation registers the widget and removes obsolete extension candidates.
+- App and CLI versions share a single source of truth.
+
+### Fixed
+
+- Session activity checks the held OS lock instead of the lock file's age,
+  ignoring orphaned files after a process exits and Vibe's cleanup lease.
+- Open sessions stay active even when their lock file is older than five minutes.
+- Widget activity expires from the latest verified observation rather than
+  the lock file's modification time.
+- Console cost adjustment remains available before the first anchor.
+- CLI subprocesses inherit the app's environment when no override is supplied.
 
 ## [0.2.0] - 2026-10-12
 
