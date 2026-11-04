@@ -43,6 +43,30 @@ impl ModelPrice {
     }
 }
 
+/// Match a versioned model name against declared models by progressively
+/// stripping trailing numeric version segments (`-0-3`, `-1017`): Vibe's
+/// runtime state reports versioned names like `mistral-large-4-0-3` while
+/// `config.toml` declares the base name `mistral-large-4`. The longest
+/// declared base wins; non-numeric tails (`-flash`, `-latest`) stop the
+/// strip, so `zai-glm-5-3-flash` never falls back to `zai-glm-5-3`.
+fn find_by_base_name<'a>(models: &'a [ModelPrice], name: &str) -> Option<&'a ModelPrice> {
+    let mut base = name;
+    while let Some((head, tail)) = base.rsplit_once('-') {
+        if tail.is_empty() || !tail.bytes().all(|b| b.is_ascii_digit()) {
+            break;
+        }
+        base = head;
+        if let Some(m) = models
+            .iter()
+            .find(|m| m.alias.as_deref() == Some(base))
+            .or_else(|| models.iter().find(|m| m.name == base))
+        {
+            return Some(m);
+        }
+    }
+    None
+}
+
 /// Parsed subset of `~/.vibe/config.toml`.
 #[derive(Debug, Clone, Default)]
 pub struct VibeConfig {
@@ -88,6 +112,7 @@ impl VibeConfig {
             .iter()
             .find(|m| m.alias.as_deref() == Some(want))
             .or_else(|| self.models.iter().find(|m| m.name == want))
+            .or_else(|| find_by_base_name(&self.models, want))
     }
 
     /// Resolve a model by alias or canonical name only (no active_model
@@ -98,6 +123,7 @@ impl VibeConfig {
             .iter()
             .find(|m| m.alias.as_deref() == Some(name))
             .or_else(|| self.models.iter().find(|m| m.name == name))
+            .or_else(|| find_by_base_name(&self.models, name))
     }
 
     /// Cost of one session's tokens, priced at the session's own model.
@@ -178,6 +204,36 @@ cached_input_price = 0.015
         );
         // Unknown.
         assert!(cfg.resolve_name("nope").is_none());
+    }
+
+    #[test]
+    fn resolve_name_matches_versioned_name_to_base_name() {
+        let raw = r#"
+[[models]]
+name = "mistral-large-4"
+alias = "Le Chonk"
+input_price = 0.7
+output_price = 2.1
+cached_input_price = 0.07
+
+[[models]]
+name = "zai-glm-5-3"
+alias = "glm-5-3"
+input_price = 1.4
+output_price = 4.4
+"#;
+        let cfg = VibeConfig::parse(raw);
+        // Runtime state reports the versioned name; config declares the base.
+        assert_eq!(
+            cfg.resolve_name("mistral-large-4-0-3").unwrap().name,
+            "mistral-large-4"
+        );
+        // A non-numeric tail is not a version: no base-name match.
+        assert!(cfg.resolve_name("zai-glm-5-3-flash").is_none());
+        // active_model with a version suffix resolves through the same path.
+        let raw_active = raw.replace("[[models]]", "active_model = \"mistral-large-4-0-3\"\n\n[[models]]");
+        let cfg = VibeConfig::parse(&raw_active);
+        assert_eq!(cfg.resolve(None).unwrap().name, "mistral-large-4");
     }
 
     #[test]
