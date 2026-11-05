@@ -692,7 +692,6 @@ struct LiveSessionsFold: View {
             }
             .contentShape(Rectangle())
         }
-        .unfoldOnHover(expanded: $expanded)
     }
 
     private func liveLine(_ live: ActiveSessionReport) -> some View {
@@ -711,13 +710,9 @@ struct LiveSessionsFold: View {
             costUsd: nil)
         row.active = true
         row.titleSource = row.titleSource ?? live.titleSource
-        return HStack(spacing: 6) {
-            Text("\(row.title ?? row.project) \(row.titleSource ?? "auto").")
-                .font(.caption)
-                .lineLimit(1)
-            Spacer()
-            CopyIdButton(sessionId: row.sessionId)
-        }
+        // Each live session is its own fold: hover unfolds it to show the
+        // metadata, click on the id copies it.
+        return SessionFold(row: row, currency: dashboard.currency)
     }
 }
 
