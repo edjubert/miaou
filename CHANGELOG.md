@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
+### Added
+
+- Session rows expose `title_source` and an `active` flag (OS lock held) in
+  `miaou sessions` and `miaou dashboard` JSON; the dashboard's `active` list
+  also carries `title` and `title_source`.
+- Menu bar app: sessions render as folds. Live sessions are labeled
+  `titre title_source.  session_id`; hovering a row shows a metadata popover
+  without flickering, clicking anywhere on a row toggles the fold, and
+  clicking the id copies it to the pasteboard. The live section is a fold
+  with a generic label showing the active session count.
+- `make install` at the repo root builds the app and installs it into
+  `~/Applications`.
+
+### Fixed
+
+- Budget config accepts integer USD amounts: `monthly_usd = 255` was silently
+  dropped (only TOML floats were read), leaving the menu bar without a
+  percentage once the plan cache no longer provided a default.
+- Installing the app quits a running instance started from the installed
+  bundle, so relaunching cannot keep serving the old binary from memory.
+
 ## [0.2.1] - 2026-11-02
 
 ### Added
