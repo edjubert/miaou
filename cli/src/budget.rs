@@ -55,8 +55,10 @@ impl Budget {
         let Some(section) = value.get("budget") else {
             return b;
         };
-        b.monthly_usd = section.get("monthly_usd").and_then(|v| v.as_float());
-        b.overage_usd = section.get("overage_usd").and_then(|v| v.as_float());
+        // USD amounts accept both TOML floats and integers (`255` is valid).
+        let as_f64 = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+        b.monthly_usd = section.get("monthly_usd").and_then(as_f64);
+        b.overage_usd = section.get("overage_usd").and_then(as_f64);
         b.overage_allowed = section
             .get("overage_allowed")
             .and_then(|v| v.as_bool())
@@ -224,6 +226,13 @@ monthly_tokens = 50_000_000
         let raw = "[budget]\nmonthly_usd = 300.0\noverage_usd = 50.0\noverage_allowed = false\n";
         let b = Budget::from_toml_str(raw);
         assert_eq!(b.effective_usd(), Some(300.0));
+
+        // Integer USD amounts are valid TOML and must parse as floats.
+        let raw = "[budget]\nmonthly_usd = 255\noverage_usd = 50\noverage_allowed = true\n";
+        let b = Budget::from_toml_str(raw);
+        assert_eq!(b.monthly_usd, Some(255.0));
+        assert_eq!(b.overage_usd, Some(50.0));
+        assert_eq!(b.effective_usd(), Some(305.0));
 
         // Missing file / empty / broken content -> defaults.
         assert_eq!(Budget::from_toml_str(""), Budget::default());
