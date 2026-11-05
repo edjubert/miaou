@@ -599,6 +599,8 @@ private func sessionDateTime(_ ms: Int) -> String {
 /// French) instead of scientific notation.
 struct DailyChartView: View {
     let days: ArraySlice<PeriodRow>
+    /// Chart height: compact in the menu bar, taller in the main window.
+    var height: CGFloat = 110
 
     @State private var hoveredKey: String?
 
@@ -687,7 +689,7 @@ struct DailyChartView: View {
                     }
                 }
             }
-            .frame(height: 110)
+            .frame(height: height)
         }
     }
 

@@ -153,106 +153,99 @@ struct MainWindow: View {
     }
 
     @ViewBuilder private func content(_ dashboard: DashboardReport) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                switch section ?? .graphs {
-                case .graphs:
-                    analyticsSection(dashboard)
-                        .modifier(GlassCard())
-                        .padding(16)
-                case .projects:
-                    if dashboard.projects.isEmpty {
-                        Text(L10n.t("projects.headline")).font(.headline)
-                    } else {
+        switch section ?? .graphs {
+        case .settings:
+            // A Form scrolls itself.
+            settingsForm
+                .modifier(GlassCard())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(20)
+        default:
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    switch section ?? .graphs {
+                    case .graphs:
+                        analyticsSection(dashboard)
+                    case .projects:
                         projectsSection(dashboard)
-                            .modifier(GlassCard())
-                            .padding(16)
+                    case .settings:
+                        EmptyView()
                     }
-                case .settings:
-                    displaySection
-                        .modifier(GlassCard())
-                        .padding(16)
                 }
+                .modifier(GlassCard())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(20)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
         }
     }
 
-    private var displaySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.t("settings.headline")).font(.headline)
-            Picker(L10n.t("bar.picker"), selection: Binding(
-                get: { barModeRaw },
-                set: { raw in
-                    barModeRaw = raw
-                    // A bar without text needs its icon: turn it on.
-                    if BarMode(rawValue: raw) == BarMode.none { showIcon = true }
-                }
-            )) {
-                ForEach(BarMode.allCases) { mode in
-                    Text(mode.label).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            // Rebuild on language change: segmented pickers keep their
-            // initial segment titles otherwise, leaving stale labels.
-            .id(languageRaw)
-            Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
-                .font(.caption)
-                .disabled(barMode == .none)
-            Toggle(L10n.t("login.toggle"), isOn: Binding(
-                get: { SMAppService.mainApp.status == .enabled },
-                set: { enabled in
-                    do {
-                        if enabled {
-                            try SMAppService.mainApp.register()
-                        } else {
-                            try SMAppService.mainApp.unregister()
-                        }
-                        loginError = nil
-                    } catch {
-                        loginError = error.localizedDescription
+    /// Idiomatic settings: a Form with sections, full width.
+    private var settingsForm: some View {
+        Form {
+            Section(L10n.t("settings.headline")) {
+                Picker(L10n.t("bar.picker"), selection: Binding(
+                    get: { barModeRaw },
+                    set: { raw in
+                        barModeRaw = raw
+                        // A bar without text needs its icon: turn it on.
+                        if BarMode(rawValue: raw) == BarMode.none { showIcon = true }
+                    }
+                )) {
+                    ForEach(BarMode.allCases) { mode in
+                        Text(mode.label).tag(mode.rawValue)
                     }
                 }
-            ))
-            .font(.caption)
-            Picker(L10n.t("settings.language"), selection: $languageRaw) {
-                Text(L10n.t("language.system")).tag("system")
-                Text(L10n.t("language.french")).tag("fr")
-                Text(L10n.t("language.english")).tag("en")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .font(.caption)
-            if let loginError {
-                Text(loginError)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
-            }
-            Text(L10n.t("icon.headline")).font(.headline)
-            Picker(L10n.t("icon.headline"), selection: $barIconRaw) {
-                ForEach(BarIconStyle.allCases) { style in
-                    Text(style.label).tag(style.rawValue)
+                .pickerStyle(.segmented)
+                .id(languageRaw)
+                Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
+                    .disabled(barMode == .none)
+                Toggle(L10n.t("login.toggle"), isOn: Binding(
+                    get: { SMAppService.mainApp.status == .enabled },
+                    set: { enabled in
+                        do {
+                            if enabled {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                            loginError = nil
+                        } catch {
+                            loginError = error.localizedDescription
+                        }
+                    }
+                ))
+                Picker(L10n.t("settings.language"), selection: $languageRaw) {
+                    Text(L10n.t("language.system")).tag("system")
+                    Text(L10n.t("language.french")).tag("fr")
+                    Text(L10n.t("language.english")).tag("en")
+                }
+                .pickerStyle(.segmented)
+                if let loginError {
+                    Text(loginError).foregroundStyle(.red)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .id(languageRaw)
-            Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
-                ForEach(ChatonColorMode.allCases) { mode in
-                    Text(mode.label).tag(mode.rawValue)
+            Section(L10n.t("icon.headline")) {
+                Picker(L10n.t("icon.headline"), selection: $barIconRaw) {
+                    ForEach(BarIconStyle.allCases) { style in
+                        Text(style.label).tag(style.rawValue)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .id(languageRaw)
+                Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
+                    ForEach(ChatonColorMode.allCases) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id(languageRaw)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .id(languageRaw)
         }
     }
+
 
     private func dailyChart(_ dashboard: DashboardReport) -> some View {
-        DailyChartView(days: dashboard.daily.suffix(14))
+        DailyChartView(days: dashboard.daily.suffix(14), height: 260)
     }
 
     private func projectsSection(_ dashboard: DashboardReport) -> some View {
@@ -329,7 +322,7 @@ struct MainWindow: View {
 
     private func sessionsTable(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(dashboard.sessions.prefix(8)) { s in
+            ForEach(dashboard.sessions) { s in
                 SessionFold(row: s, currency: dashboard.currency)
             }
         }
