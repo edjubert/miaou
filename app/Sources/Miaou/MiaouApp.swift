@@ -572,6 +572,7 @@ struct SessionFold: View {
             label
                 .contentShape(Rectangle())
         }
+        .unfoldOnHover(expanded: $expanded)
     }
 
     /// Live sessions carry `titre + title_source.  session_id`; the others
@@ -691,6 +692,7 @@ struct LiveSessionsFold: View {
             }
             .contentShape(Rectangle())
         }
+        .unfoldOnHover(expanded: $expanded)
     }
 
     private func liveLine(_ live: ActiveSessionReport) -> some View {
@@ -716,6 +718,30 @@ struct LiveSessionsFold: View {
             Spacer()
             CopyIdButton(sessionId: row.sessionId)
         }
+    }
+}
+
+/// Expands the fold while the pointer is over it and collapses it when the
+/// pointer leaves. The state only flips on enter/leave transitions, not on
+/// every mouse move.
+struct UnfoldOnHover: ViewModifier {
+    @Binding var expanded: Bool
+    @State private var hovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: if !hovered { hovered = true; expanded = true }
+                case .ended: if hovered { hovered = false; expanded = false }
+                }
+            }
+    }
+}
+
+extension View {
+    func unfoldOnHover(expanded: Binding<Bool>) -> some View {
+        modifier(UnfoldOnHover(expanded: expanded))
     }
 }
 
