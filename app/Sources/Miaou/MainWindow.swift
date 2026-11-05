@@ -187,54 +187,56 @@ struct MainWindow: View {
     // MARK: - Graphs
 
     private func graphsSection(_ dashboard: DashboardReport) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 16) {
-                    MetricCard(
-                        title: L10n.t("metric.month"),
-                        value: dashboard.budgetStatus.usedUsd.map { String(format: "%.2f %@", $0, dashboard.currency) } ?? "—",
-                        subtitle: dashboard.budgetStatus.budget.effectiveUsd.map {
-                            L10n.t("metric.month.sub", $0, dashboard.currency)
-                        } ?? L10n.t("metric.month.sub.none"),
-                        symbol: "eurosign.circle")
-                    MetricCard(
-                        title: L10n.t("today.headline"),
-                        value: formatTokens(Double(dashboard.todayTotals.totalTokens)),
-                        subtitle: L10n.t("metric.today.sub", dashboard.todayTotals.requests),
-                        symbol: "bolt.circle")
-                    MetricCard(
-                        title: L10n.t("metric.active"),
-                        value: "\(dashboard.liveSessions.count)",
-                        subtitle: L10n.t("metric.active.sub"),
-                        symbol: "circle.fill")
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
+        // No ScrollView around the tables: a Table needs a bounded height to
+        // render rows and scrolls natively inside the detail pane.
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                MetricCard(
+                    title: L10n.t("metric.month"),
+                    value: dashboard.budgetStatus.usedUsd.map { String(format: "%.2f %@", $0, dashboard.currency) } ?? "—",
+                    subtitle: dashboard.budgetStatus.budget.effectiveUsd.map {
+                        L10n.t("metric.month.sub", $0, dashboard.currency)
+                    } ?? L10n.t("metric.month.sub.none"),
+                    symbol: "eurosign.circle")
+                MetricCard(
+                    title: L10n.t("today.headline"),
+                    value: formatTokens(Double(dashboard.todayTotals.totalTokens)),
+                    subtitle: L10n.t("metric.today.sub", dashboard.todayTotals.requests),
+                    symbol: "bolt.circle")
+                MetricCard(
+                    title: L10n.t("metric.active"),
+                    value: "\(dashboard.liveSessions.count)",
+                    subtitle: L10n.t("metric.active.sub"),
+                    symbol: "circle.fill")
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
 
-                Picker("", selection: $analyticsTab) {
-                    Text(L10n.t("tab.daily")).tag("daily")
-                    Text(L10n.t("tab.monthly")).tag("monthly")
-                    Text(L10n.t("tab.sessions")).tag("sessions")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, 24)
+            Picker("", selection: $analyticsTab) {
+                Text(L10n.t("tab.daily")).tag("daily")
+                Text(L10n.t("tab.monthly")).tag("monthly")
+                Text(L10n.t("tab.sessions")).tag("sessions")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 24)
 
-                Group {
-                    switch analyticsTab {
-                    case "monthly":
-                        monthlyTable(dashboard)
-                    case "sessions":
-                        sessionsTable(dashboard)
-                    default:
+            Group {
+                switch analyticsTab {
+                case "monthly":
+                    monthlyTable(dashboard)
+                case "sessions":
+                    sessionsTable(dashboard)
+                default:
+                    ScrollView {
                         DailyChartView(days: dashboard.daily.suffix(14), height: 260)
                     }
                 }
-                .modifier(GlassCard())
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
+            .modifier(GlassCard())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
     }
 
@@ -318,39 +320,39 @@ struct MainWindow: View {
 
     private func projectsSection(_ dashboard: DashboardReport) -> some View {
         let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 16) {
-                    MetricCard(
-                        title: L10n.t("section.projects"),
-                        value: "\(dashboard.projects.count)",
-                        subtitle: L10n.t("metric.projects.sub", formatTokens(Double(total))),
-                        symbol: "folder")
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-
-                Table(dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }) {
-                    TableColumn(L10n.t("col.project")) { row in
-                        Text(row.key).fontWeight(.medium)
-                    }.width(min: 200, ideal: 320)
-                    TableColumn(L10n.t("col.share")) { row in
-                        let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
-                        Text(String(format: "%.0f%%", share)).monospacedDigit()
-                    }.width(min: 70, ideal: 90)
-                    TableColumn(L10n.t("col.tokens")) { row in
-                        Text(formatTokens(Double(row.totalTokens))).monospacedDigit()
-                    }.width(min: 110, ideal: 140)
-                    TableColumn("") { row in
-                        ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
-                            .frame(width: 120)
-                    }.width(min: 130, ideal: 150)
-                }
-                .modifier(GlassCard())
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
+        // No ScrollView around the Table: it needs a bounded height and
+        // scrolls natively inside the detail pane.
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                MetricCard(
+                    title: L10n.t("section.projects"),
+                    value: "\(dashboard.projects.count)",
+                    subtitle: L10n.t("metric.projects.sub", formatTokens(Double(total))),
+                    symbol: "folder")
             }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+
+            Table(dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }) {
+                TableColumn(L10n.t("col.project")) { row in
+                    Text(row.key).fontWeight(.medium)
+                }.width(min: 200, ideal: 320)
+                TableColumn(L10n.t("col.share")) { row in
+                    let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
+                    Text(String(format: "%.0f%%", share)).monospacedDigit()
+                }.width(min: 70, ideal: 90)
+                TableColumn(L10n.t("col.tokens")) { row in
+                    Text(formatTokens(Double(row.totalTokens))).monospacedDigit()
+                }.width(min: 110, ideal: 140)
+                TableColumn("") { row in
+                    ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
+                        .frame(width: 120)
+                }.width(min: 130, ideal: 150)
+            }
+            .modifier(GlassCard())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
     }
 
