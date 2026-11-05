@@ -23,6 +23,10 @@
 "col.tokens" = "Tokens";
 "col.cost" = "Coût";
 "col.share" = "Part";
+"settings.tagline" = "L'usage de Mistral Vibe, sur ton Mac.";
+"settings.section.bar" = "Barre de menu";
+"settings.reset" = "Valeurs d'origine";
+"icon.style" = "Style d'icône";
 "installed.question" = "miaou est-il installé et à jour ?";
 "version.display" = "v%@";
 "settings.language" = "Langue";

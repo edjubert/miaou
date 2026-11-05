@@ -23,6 +23,10 @@
 "col.tokens" = "Tokens";
 "col.cost" = "Cost";
 "col.share" = "Share";
+"settings.tagline" = "Mistral Vibe usage, on your Mac.";
+"settings.section.bar" = "Menu bar";
+"settings.reset" = "Reset to defaults";
+"icon.style" = "Icon style";
 "installed.question" = "Is miaou installed and up to date?";
 "version.display" = "v%@";
 "settings.language" = "Language";

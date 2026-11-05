@@ -356,10 +356,22 @@ struct MainWindow: View {
 
     // MARK: - Settings
 
-    /// Idiomatic settings: a Form with sections, full width.
+    /// Idiomatic settings, kapitsa style: a grouped Form with a header card,
+    /// labeled rows (label left, control right) and a reset footer.
     private var settingsForm: some View {
         Form {
-            Section(L10n.t("settings.headline")) {
+            Section {
+                HStack {
+                    Image(nsImage: MistralIcon.image(style: .logo, live: false, colorMode: .color))
+                        .resizable().scaledToFit().frame(width: 28, height: 28)
+                    Text("Miaou").font(.system(.title3, design: .rounded).weight(.bold))
+                    Spacer()
+                    Text(L10n.t("version.display", appVersion))
+                        .font(.caption.monospaced()).foregroundStyle(.secondary)
+                }
+                Text(L10n.t("settings.tagline")).foregroundStyle(.secondary)
+            }
+            Section(L10n.t("settings.section.bar")) {
                 Picker(L10n.t("bar.picker"), selection: Binding(
                     get: { barModeRaw },
                     set: { raw in
@@ -402,7 +414,7 @@ struct MainWindow: View {
                 }
             }
             Section(L10n.t("icon.headline")) {
-                Picker(L10n.t("icon.headline"), selection: $barIconRaw) {
+                Picker(L10n.t("icon.style"), selection: $barIconRaw) {
                     ForEach(BarIconStyle.allCases) { style in
                         Text(style.label).tag(style.rawValue)
                     }
@@ -417,6 +429,18 @@ struct MainWindow: View {
                 .pickerStyle(.segmented)
                 .id(languageRaw)
             }
+            Section {
+                Button(L10n.t("settings.reset")) { resetSettings() }
+            }
         }
+        .formStyle(.grouped)
+    }
+
+    private func resetSettings() {
+        barModeRaw = BarMode.percent.rawValue
+        barIconRaw = BarIconStyle.logo.rawValue
+        chatonColorRaw = ChatonColorMode.session.rawValue
+        showIcon = true
+        languageRaw = "system"
     }
 }
