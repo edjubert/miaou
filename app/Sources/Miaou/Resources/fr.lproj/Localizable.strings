@@ -6,6 +6,7 @@
 "login.toggle" = "Lancer au démarrage";
 "refresh.button" = "Rafraîchir";
 "quit.button" = "Quitter";
+"window.open" = "Ouvrir la fenêtre principale";
 "installed.question" = "miaou est-il installé et à jour ?";
 "version.display" = "v%@";
 "settings.language" = "Langue";
