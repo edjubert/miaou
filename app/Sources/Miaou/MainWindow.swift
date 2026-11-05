@@ -1,5 +1,32 @@
 import SwiftUI
+import AppKit
 import ServiceManagement
+
+/// Brings the main window forward after `openWindow(id: "main")`: opening an
+/// existing SwiftUI scene need not make its NSWindow key while the menu bar
+/// panel has focus (same pattern as kapitsa's DesktopWindowFocus).
+enum MainWindowFocus {
+    static let identifier = NSUserInterfaceItemIdentifier("miaou-main")
+
+    @MainActor static func activate() {
+        DispatchQueue.main.async {
+            NSApplication.shared.windows.first { $0.identifier == identifier }?.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+    }
+}
+
+/// Tags the hosting NSWindow with `MainWindowFocus.identifier`.
+struct MainWindowMarker: NSViewRepresentable {
+    final class Anchor: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.identifier = MainWindowFocus.identifier
+        }
+    }
+    func makeNSView(context: Context) -> Anchor { Anchor() }
+    func updateNSView(_ nsView: Anchor, context: Context) {}
+}
 
 /// The main window: graphs (daily chart, monthly, per-session) and the
 /// settings. The menu bar panel keeps the budget, today and the active
@@ -25,7 +52,8 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
             if let error = model.lastError {
                 Text(error)
                     .font(.caption)
@@ -60,8 +88,10 @@ struct MainWindow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .frame(minWidth: 360)
+            .padding(12)
+            .frame(minWidth: 360)
+        }
+        .background(MainWindowMarker())
         .onAppear { model.refresh() }
         .onChange(of: languageRaw) { _ in model.publishWidget() }
     }

@@ -8,6 +8,21 @@ struct MiaouApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     var body: some Scene {
+        Window("Miaou", id: "main") {
+            MainWindow()
+                .environmentObject(AppModel.shared)
+                .onOpenURL { url in
+                    guard url.scheme == "miaou", url.host == "dashboard" else { return }
+                    MainWindowFocus.activate()
+                }
+        }
+        .defaultSize(width: 420, height: 640)
+        .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                OpenMainWindowCommand()
+            }
+        }
         MenuBarExtra {
             MenuContent()
                 .environmentObject(AppModel.shared)
@@ -15,6 +30,19 @@ struct MiaouApp: App {
             BarLabel()
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Cmd+0 / menu item that opens the main window, like kapitsa's desktop.
+struct OpenMainWindowCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(L10n.t("window.open")) {
+            openWindow(id: "main")
+            MainWindowFocus.activate()
+        }
+        .keyboardShortcut("0", modifiers: .command)
     }
 }
 
@@ -75,40 +103,15 @@ struct BarLabel: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Menu bar agent: no Dock icon, no main window.
-        NSApplication.shared.setActivationPolicy(.accessory)
+        // Regular app: the main window needs a Dock presence and normal
+        // activation, like kapitsa's desktop window.
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
         MiaouWidgetRefreshRouter.refresh = { AppModel.shared.refresh() }
         AppModel.shared.refresh()
     }
 
-    func application(_ application: NSApplication, open urls: [URL]) {
-        guard urls.contains(where: { $0.scheme == "miaou" && $0.host == "dashboard" }) else { return }
-        DashboardWindow.shared.show()
-    }
-}
-
-/// The widget opens the same dashboard in a scrollable, reusable window.
-final class DashboardWindow {
-    static let shared = DashboardWindow()
-    private var window: NSWindow?
-
-    func show() {
-        if window == nil {
-            let height = min(780, (NSScreen.main?.visibleFrame.height ?? 860) - 80)
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
-                                  styleMask: [.titled, .closable, .miniaturizable],
-                                  backing: .buffered, defer: false)
-            window.title = "Miaou"
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView:
-                ScrollView { MainWindow().environmentObject(AppModel.shared) })
-            window.center()
-            self.window = window
-        }
-        AppModel.shared.refresh()
-        window?.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
 /// The petit chat as a full-width banner at the top of the menu window,
@@ -162,6 +165,7 @@ extension ChatonColorMode {
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     @State private var anchorCostText: String = ""
     @State private var anchorError: String?
     @State private var isAddingAnchor: Bool = false
@@ -209,7 +213,10 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                 Divider()
                     .frame(height: 12)
-                Button(L10n.t("window.open")) { DashboardWindow.shared.show() }
+                Button(L10n.t("window.open")) {
+                    openWindow(id: "main")
+                    MainWindowFocus.activate()
+                }
                 Divider()
                     .frame(height: 12)
                 Button(L10n.t("quit.button")) {
