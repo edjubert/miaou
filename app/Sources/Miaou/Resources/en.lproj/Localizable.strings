@@ -7,6 +7,8 @@
 "refresh.button" = "Refresh";
 "quit.button" = "Quit";
 "window.open" = "Open main window";
+"section.graphs" = "Graphs";
+"section.projects" = "Projects";
 "installed.question" = "Is miaou installed and up to date?";
 "version.display" = "v%@";
 "settings.language" = "Language";

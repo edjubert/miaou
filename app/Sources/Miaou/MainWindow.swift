@@ -2,6 +2,38 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 
+/// Sidebar sections of the main window.
+enum MainSection: String, CaseIterable, Identifiable {
+    case graphs, projects, settings
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .graphs: return L10n.t("section.graphs")
+        case .projects: return L10n.t("section.projects")
+        case .settings: return L10n.t("settings.headline")
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .graphs: return "chart.bar"
+        case .projects: return "folder"
+        case .settings: return "slider.horizontal.3"
+        }
+    }
+}
+
+/// Liquid glass card on macOS 26+, material fallback before (same pattern as
+/// kapitsa's NativeGlassCard).
+struct GlassCard: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
+        } else {
+            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        }
+    }
+}
+
 /// Brings the main window forward after `openWindow(id: "main")`: opening an
 /// existing SwiftUI scene need not make its NSWindow key while the menu bar
 /// panel has focus (same pattern as kapitsa's DesktopWindowFocus).
@@ -51,49 +83,100 @@ struct MainWindow: View {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "dev"
     }
 
+    @State private var section: MainSection? = .graphs
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-            if let error = model.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                Text(L10n.t("installed.question"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } else if let dashboard = model.dashboard {
-                analyticsSection(dashboard)
-                if !dashboard.projects.isEmpty {
-                    Divider()
-                    projectsSection(dashboard)
+        NavigationSplitView {
+            List(selection: $section) {
+                ForEach(MainSection.allCases, id: \.self) { item in
+                    Button {
+                        section = item
+                    } label: {
+                        Label(item.title, systemImage: item.symbol)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .tag(Optional(item))
                 }
-                Divider()
-                displaySection
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
             }
-            Divider()
-            HStack {
-                Button(L10n.t("refresh.button")) { model.refresh() }
-                    .keyboardShortcut("r")
-                if let refreshed = model.lastRefresh {
-                    Text(refreshed.formatted(date: .omitted, time: .standard))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 6) {
+                    if let refreshed = model.lastRefresh {
+                        Text(refreshed.formatted(date: .omitted, time: .standard))
+                    }
+                    Spacer()
+                    Text(L10n.t("version.display", appVersion))
                 }
-                Spacer()
-                Text(L10n.t("version.display", appVersion))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(16)
+            }
+        } detail: {
+            VStack(spacing: 0) {
+                if let error = model.lastError {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                        Text(L10n.t("installed.question"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.orange.opacity(0.12))
+                }
+                if let dashboard = model.dashboard {
+                    content(dashboard)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationTitle((section ?? .graphs).title)
+            .toolbar {
+                ToolbarItemGroup {
+                    Button(L10n.t("refresh.button"), systemImage: "arrow.clockwise") {
+                        model.refresh()
+                    }
+                    .help(L10n.t("refresh.button"))
+                }
             }
         }
-            .padding(12)
-            .frame(minWidth: 360)
-        }
+        .frame(minWidth: 560, minHeight: 480)
         .background(MainWindowMarker())
         .onAppear { model.refresh() }
         .onChange(of: languageRaw) { _ in model.publishWidget() }
+    }
+
+    @ViewBuilder private func content(_ dashboard: DashboardReport) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                switch section ?? .graphs {
+                case .graphs:
+                    analyticsSection(dashboard)
+                        .modifier(GlassCard())
+                        .padding(16)
+                case .projects:
+                    if dashboard.projects.isEmpty {
+                        Text(L10n.t("projects.headline")).font(.headline)
+                    } else {
+                        projectsSection(dashboard)
+                            .modifier(GlassCard())
+                            .padding(16)
+                    }
+                case .settings:
+                    displaySection
+                        .modifier(GlassCard())
+                        .padding(16)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+        }
     }
 
     private var displaySection: some View {

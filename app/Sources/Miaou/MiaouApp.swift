@@ -16,7 +16,7 @@ struct MiaouApp: App {
                     MainWindowFocus.activate()
                 }
         }
-        .defaultSize(width: 420, height: 640)
+        .defaultSize(width: 680, height: 640)
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {
