@@ -30,6 +30,42 @@ pub fn session_is_active(bumped_at_ms: Option<u64>, now_ms: u64) -> bool {
     }
 }
 
+/// Holder process names whose leases never count as active sessions: the app
+/// server manages its own (API/ACP) sessions, they are not user-facing runs.
+const EXCLUDED_LEASE_HOLDERS: [&str; 1] = ["vibe-app-server"];
+
+/// Process id recorded in the `<id>.lock.json` diagnostic beside a lease file.
+fn lease_holder_pid(lock_path: &Path) -> Option<u64> {
+    let diagnostic = lock_path.with_extension("lock.json");
+    let raw = std::fs::read_to_string(diagnostic).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    value.get("process_id").and_then(|p| p.as_u64())
+}
+
+/// Name of the process `pid`, via `ps` (None when the pid is gone).
+fn process_name(pid: u64) -> Option<String> {
+    let output = std::process::Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .output()
+        .ok()?;
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!name.is_empty()).then_some(name)
+}
+
+fn is_excluded_holder(name: &str) -> bool {
+    EXCLUDED_LEASE_HOLDERS
+        .iter()
+        .any(|excluded| name.ends_with(excluded))
+}
+
+/// True when the lease's recorded holder is an excluded process. A missing or
+/// unreadable diagnostic fails open: not excluded.
+fn lease_holder_excluded(lock_path: &Path) -> bool {
+    lease_holder_pid(lock_path)
+        .and_then(process_name)
+        .is_some_and(|name| is_excluded_holder(&name))
+}
+
 /// List sessions whose OS lock is still held, most recently touched first.
 pub fn active_sessions(vibe_home: &Path) -> Vec<ActiveSession> {
     let dir = vibe_home.join("logs").join("session").join("active");
@@ -44,6 +80,10 @@ pub fn active_sessions(vibe_home: &Path) -> Vec<ActiveSession> {
         };
         // This lease belongs to Vibe's background cleanup, not a session.
         if id == "process-output-cleanup" {
+            continue;
+        }
+        // Leases held by the app server are its own API/ACP sessions.
+        if lease_holder_excluded(&entry.path()) {
             continue;
         }
         let Ok(file) = std::fs::File::open(entry.path()) else {
@@ -206,6 +246,27 @@ mod tests {
     fn missing_active_dir_is_empty() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(active_sessions(tmp.path()).is_empty());
+    }
+
+    #[test]
+    fn lease_holder_pid_reads_diagnostic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = tmp.path().join("abc.lock");
+        std::fs::write(&lock, "").unwrap();
+        assert_eq!(lease_holder_pid(&lock), None);
+        std::fs::write(lock.with_extension("lock.json"), r#"{"process_id": 4242}"#).unwrap();
+        assert_eq!(lease_holder_pid(&lock), Some(4242));
+        // Torn read: not a pid.
+        std::fs::write(lock.with_extension("lock.json"), r#"{"process_id": "x"}"#).unwrap();
+        assert_eq!(lease_holder_pid(&lock), None);
+    }
+
+    #[test]
+    fn excluded_holder_names() {
+        assert!(is_excluded_holder("vibe-app-server"));
+        assert!(is_excluded_holder("/usr/local/bin/vibe-app-server"));
+        assert!(!is_excluded_holder("vibe-acp"));
+        assert!(!is_excluded_holder("Python"));
     }
 
     #[test]
