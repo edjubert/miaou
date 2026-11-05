@@ -233,7 +233,6 @@ struct MainWindow: View {
                     }
                 }
             }
-            .modifier(GlassCard())
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
@@ -349,7 +348,6 @@ struct MainWindow: View {
                         .frame(width: 120)
                 }.width(min: 130, ideal: 150)
             }
-            .modifier(GlassCard())
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
