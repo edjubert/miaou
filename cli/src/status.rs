@@ -15,6 +15,21 @@ pub struct ActiveSession {
     pub age_ms: u64,
 }
 
+/// A held lease only proves a live process owns the session. Long-lived
+/// processes (ACP servers, the app server) keep their lease forever, so a
+/// session counts as active only when its metadata was saved recently too.
+pub const ACTIVE_FRESHNESS_MS: u64 = 15 * 60 * 1000;
+
+/// True when the last metadata save (`bumped_at`) is within the freshness
+/// window. Unknown `bumped_at` fails open: a held lease with no readable
+/// metadata still counts as active.
+pub fn session_is_active(bumped_at_ms: Option<u64>, now_ms: u64) -> bool {
+    match bumped_at_ms {
+        Some(b) => now_ms.saturating_sub(b) <= ACTIVE_FRESHNESS_MS,
+        None => true,
+    }
+}
+
 /// List sessions whose OS lock is still held, most recently touched first.
 pub fn active_sessions(vibe_home: &Path) -> Vec<ActiveSession> {
     let dir = vibe_home.join("logs").join("session").join("active");
@@ -191,5 +206,15 @@ mod tests {
     fn missing_active_dir_is_empty() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(active_sessions(tmp.path()).is_empty());
+    }
+
+    #[test]
+    fn freshness_window_filters_stale_but_keeps_unknown() {
+        let now = 1_000_000_000_000;
+        assert!(session_is_active(Some(now), now));
+        assert!(session_is_active(Some(now - ACTIVE_FRESHNESS_MS), now));
+        assert!(!session_is_active(Some(now - ACTIVE_FRESHNESS_MS - 1), now));
+        // No metadata: fail open, the held lease is the only signal left.
+        assert!(session_is_active(None, now));
     }
 }
