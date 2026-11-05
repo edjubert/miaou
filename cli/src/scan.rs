@@ -14,6 +14,9 @@ pub struct SessionMeta {
     /// Session start, unix epoch milliseconds (derived from ISO-8601 `start_time`).
     pub start_time_ms: Option<u64>,
     pub end_time_ms: Option<u64>,
+    /// Last metadata save, unix epoch milliseconds (from ISO-8601 `bumped_at`).
+    /// Freshness signal for "session currently active".
+    pub bumped_at_ms: Option<u64>,
     /// Set when this session is a subagent run.
     pub parent_session_id: Option<String>,
     pub child_sessions: Vec<String>,
@@ -57,6 +60,7 @@ pub fn discover_sessions(vibe_home: &Path) -> Vec<(SessionMeta, PathBuf)> {
             title_source: v.get("title_source").and_then(|x| x.as_str()).map(str::to_owned),
             start_time_ms: iso_to_ms(v.get("start_time").and_then(|x| x.as_str())),
             end_time_ms: iso_to_ms(v.get("end_time").and_then(|x| x.as_str())),
+            bumped_at_ms: iso_to_ms(v.get("bumped_at").and_then(|x| x.as_str())),
             parent_session_id: v
                 .get("parent_session_id")
                 .and_then(|x| x.as_str())
@@ -153,7 +157,8 @@ mod tests {
                 "parent_session_id": null,
                 "child_sessions": ["kid-1"],
                 "title": "Some title",
-                "title_source": "manual"}"#,
+                "title_source": "manual",
+                "bumped_at": "2026-09-28T13:05:00+00:00"}"#,
         );
         write_session(
             &unified,
@@ -177,6 +182,7 @@ mod tests {
         assert_eq!(newer.cwd.as_deref(), Some("/home/me/proj-a"));
         assert_eq!(newer.title.as_deref(), Some("Some title"));
         assert_eq!(newer.title_source.as_deref(), Some("manual"));
+        assert_eq!(newer.bumped_at_ms, Some(1790600700000)); // 2026-09-28T13:05Z
         assert!(newer.parent_session_id.is_none());
         assert_eq!(newer.child_sessions, vec!["kid-1".to_string()]);
         assert_eq!(newer.start_time_ms, Some(1790600400000)); // 2026-09-28T13:00Z

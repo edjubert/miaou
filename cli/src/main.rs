@@ -276,7 +276,21 @@ fn main() {
             let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
             apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of, &vibe_config, &currency);
             let projects = priced(miaou::aggregate_by_project(&sessions), &price_of);
-            let active = miaou::status::active_sessions(&vibe_home);
+            // Live metadata for every session dir, including event-less ones
+            // (merged_sessions only returns sessions with archived events).
+            let live_metas: std::collections::HashMap<String, _> = miaou::discover_sessions(&vibe_home)
+                .into_iter()
+                .map(|(m, _)| (m.session_id.clone(), m))
+                .collect();
+            // Held lease + recent metadata save: idle long-lived processes
+            // (ACP servers, app server) keep their lease but are not active.
+            let active: Vec<_> = miaou::status::active_sessions(&vibe_home)
+                .into_iter()
+                .filter(|a| {
+                    let bumped = live_metas.get(&a.id).and_then(|m| m.bumped_at_ms);
+                    miaou::status::session_is_active(bumped, now_ms)
+                })
+                .collect();
             let active_ids: std::collections::HashSet<&str> =
                 active.iter().map(|a| a.id.as_str()).collect();
             let mut session_rows = miaou::aggregate_by_session(&sessions);
@@ -327,10 +341,7 @@ fn main() {
                     // Active sessions joined with their metadata, so the UI
                     // can label a live session even outside the month scope.
                     "active": active.iter().map(|a| {
-                        let meta = all_sessions
-                            .iter()
-                            .find(|s| s.meta.session_id == a.id)
-                            .map(|s| &s.meta);
+                        let meta = live_metas.get(&a.id);
                         serde_json::json!({
                             "id": a.id,
                             "age_ms": a.age_ms,
@@ -610,8 +621,16 @@ fn main() {
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
+            let live_metas: std::collections::HashMap<String, _> = miaou::discover_sessions(&vibe_home)
+                .into_iter()
+                .map(|(m, _)| (m.session_id.clone(), m))
+                .collect();
             let active_ids: std::collections::HashSet<String> = miaou::status::active_sessions(&vibe_home)
                 .into_iter()
+                .filter(|a| {
+                    let bumped = live_metas.get(&a.id).and_then(|m| m.bumped_at_ms);
+                    miaou::status::session_is_active(bumped, now_ms())
+                })
                 .map(|a| a.id)
                 .collect();
             let mut rows: Vec<SessionRow> = miaou::aggregate_by_session(&sessions);
