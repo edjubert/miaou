@@ -34,10 +34,12 @@ final class DecodeTests: XCTestCase {
                       "input_tokens": 400, "output_tokens": 20,
                       "cached_input_tokens": 360, "total_tokens": 420, "cost_usd": nil] as [String: Any?]],
         "sessions": [["session_id": "abcd1234-rest", "short_id": "abcd1234", "project": "dotfiles",
-                      "title": nil, "subagent": false, "started_ms": 1790600000000,
+                      "title": "Fix the thing", "title_source": "manual", "active": true,
+                      "subagent": false, "started_ms": 1790600000000,
                       "requests": 40, "input_tokens": 400, "output_tokens": 20,
                       "cached_input_tokens": 360, "total_tokens": 420, "cost_usd": nil] as [String: Any?]],
-        "active": [["id": "85ed9e33", "age_ms": 120000],
+        "active": [["id": "85ed9e33", "age_ms": 120000,
+                    "title": "Live one", "title_source": "manual"],
                    ["id": "61fe6adc", "age_ms": 9844595]] as [[String: Any]],
         "anchor": ["at_ms": 1790610000000, "cost": 190.05, "delta_usd": 0.42] as [String: Any],
     ]
@@ -55,12 +57,34 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(report.daily[0].totalTokens, 1050)
         XCTAssertEqual(report.projects[0].key, "dotfiles")
         XCTAssertEqual(report.sessions[0].shortId, "abcd1234")
+        XCTAssertEqual(report.sessions[0].title, "Fix the thing")
+        XCTAssertEqual(report.sessions[0].titleSource, "manual")
+        XCTAssertTrue(report.sessions[0].isActive)
         XCTAssertFalse(report.sessions[0].subagent)
         XCTAssertEqual(report.active.count, 2)
         XCTAssertEqual(report.liveSessions.map(\.id), ["85ed9e33", "61fe6adc"])
+        XCTAssertEqual(report.active[0].title, "Live one")
+        XCTAssertEqual(report.active[0].titleSource, "manual")
+        XCTAssertNil(report.active[1].titleSource)
         XCTAssertEqual(report.anchor?.cost, 190.05)
         XCTAssertEqual(report.anchor?.deltaUsd, 0.42)
         XCTAssertEqual(report.anchor?.atMs, 1_790_610_000_000)
+    }
+
+    /// An older CLI does not emit `title_source`/`active`: decoding must
+    /// stay lenient and report the session as inactive.
+    func testSessionRowDecodesWithoutTitleSourceOrActive() throws {
+        var legacy = sample
+        var sessions = legacy["sessions"] as! [[String: Any?]]
+        var first = sessions[0]
+        first.removeValue(forKey: "title_source")
+        first.removeValue(forKey: "active")
+        sessions[0] = first
+        legacy["sessions"] = sessions
+        let data = try JSONSerialization.data(withJSONObject: legacy)
+        let report = try decoder.decode(DashboardReport.self, from: data)
+        XCTAssertNil(report.sessions[0].titleSource)
+        XCTAssertFalse(report.sessions[0].isActive)
     }
 
     func testDashboardDecodesWithoutAnchor() throws {

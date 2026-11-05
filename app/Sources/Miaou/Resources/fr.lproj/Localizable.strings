@@ -45,6 +45,7 @@
 
 /* Live section */
 "live.active" = "Session active";
+"live.show_sessions" = "Afficher les sessions actives (%d)";
 
 /* Analytics */
 "chart.daily.title" = "Tokens consommés par jour (14 derniers jours)";
@@ -59,6 +60,19 @@
 "tab.sessions" = "Sessions";
 "projects.headline" = "Projets (part des tokens du mois)";
 "row.req_tok" = "%d req, %@ tok";
+
+/* Sessions folds */
+"sessions.copied" = "Copié";
+"sessions.copy_help" = "Cliquez pour copier l’identifiant de session";
+"sessions.detail.project" = "Projet";
+"sessions.detail.started" = "Débutée le";
+"sessions.detail.usage" = "Usage";
+"sessions.detail.cost" = "Coût";
+"sessions.detail.subagent" = "Session sous-agent";
+"sessions.detail.id" = "Identifiant";
+"sessions.detail.title" = "Titre";
+"sessions.detail.title_source" = "Source du titre";
+"sessions.detail.live" = "En cours";
 
 /* Errors */
 "error.exited" = "miaou a terminé avec le code %d";

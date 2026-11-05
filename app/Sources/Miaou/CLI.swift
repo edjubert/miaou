@@ -29,6 +29,13 @@ struct SessionRow: Codable, Equatable, Identifiable {
     let shortId: String
     let project: String
     let title: String?
+    /// How the title was set: "auto" (generated) or "manual" (/rename).
+    /// Nil when the CLI is too old to report it. `var` + default so the
+    /// synthesized Codable still decodes it and old JSON stays readable.
+    var titleSource: String? = nil
+    /// True while the session's OS lock is held (the session is running).
+    /// Nil when the CLI is too old to report it.
+    var active: Bool? = nil
     let subagent: Bool
     let startedMs: Int?
     let requests: Int
@@ -39,6 +46,8 @@ struct SessionRow: Codable, Equatable, Identifiable {
     let costUsd: Double?
 
     var id: String { sessionId }
+
+    var isActive: Bool { active ?? false }
 }
 
 struct PlanReport: Codable, Equatable {
@@ -82,6 +91,10 @@ struct ActiveSessionReport: Codable, Equatable {
     let id: String
     /// Diagnostic only: an open session does not need to touch its lock.
     let ageMs: Int
+    /// Session metadata, when the CLI reports it. `var` + default so the
+    /// synthesized Codable still decodes them and old JSON stays readable.
+    var title: String? = nil
+    var titleSource: String? = nil
 }
 
 struct DashboardReport: Codable, Equatable {

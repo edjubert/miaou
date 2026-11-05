@@ -457,17 +457,7 @@ struct MenuContent: View {
     }
 
     private func liveSection(_ dashboard: DashboardReport) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(.green)
-                .frame(width: 8, height: 8)
-            Text(L10n.t("live.active"))
-                .font(.callout)
-            Spacer()
-            Text(dashboard.liveSessions[0].id.prefix(8))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        LiveSessionsFold(dashboard: dashboard)
     }
 
     private func dailyChart(_ dashboard: DashboardReport) -> some View {
@@ -549,19 +539,7 @@ struct MenuContent: View {
     private func sessionsTable(_ dashboard: DashboardReport) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(dashboard.sessions.prefix(8)) { s in
-                HStack {
-                    Text(s.subagent ? "\(s.shortId)*" : s.shortId)
-                        .font(.caption)
-                        .monospaced()
-                    Text(s.project)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(L10n.t("row.req_tok", s.requests, formatTokens(Double(s.totalTokens))))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                SessionFold(row: s, currency: dashboard.currency)
             }
         }
     }
@@ -574,6 +552,245 @@ struct MenuContent: View {
         return .accentColor
     }
 
+}
+
+/// One session row as a fold. Live sessions are marked in the label with
+/// `titre title_source.  session_id` and the id copies on click. Hovering
+/// the row shows a popover with more metadata; unfolding reveals the
+/// usage details.
+struct SessionFold: View {
+    let row: SessionRow
+    let currency: String
+
+    @State private var expanded = false
+
+    var body: some View {
+        HoverPopover {
+            DisclosureGroup(isExpanded: $expanded) {
+                details
+            } label: {
+                // Full-width tap toggles the fold; the copy button keeps
+                // its own hit area inside the label.
+                label
+                    .contentShape(Rectangle())
+            }
+        } popover: {
+            SessionPopover(row: row)
+        }
+    }
+
+    /// Live sessions carry `titre + title_source.  session_id`; the others
+    /// keep the compact `shortId + project` look.
+    private var label: some View {
+        HStack(spacing: 6) {
+            if row.isActive {
+                Text("\(row.title ?? row.project) \(row.titleSource ?? "auto").")
+                    .font(.caption)
+                    .lineLimit(1)
+                Spacer()
+                CopyIdButton(sessionId: row.sessionId)
+            } else {
+                Text(row.subagent ? "\(row.shortId)*" : row.shortId)
+                    .font(.caption)
+                    .monospaced()
+                Text(row.project)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                Text(L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            sessionDetail(L10n.t("sessions.detail.project"), row.project)
+            if let startedMs = row.startedMs {
+                sessionDetail(L10n.t("sessions.detail.started"), sessionDateTime(startedMs))
+            }
+            sessionDetail(L10n.t("sessions.detail.usage"),
+                          L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
+            if let cost = row.costUsd {
+                sessionDetail(L10n.t("sessions.detail.cost"), String(format: "%.2f %@", cost, currency))
+            }
+            if row.subagent {
+                Text(L10n.t("sessions.detail.subagent"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 4) {
+                Text(L10n.t("sessions.detail.id"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                CopyIdButton(sessionId: row.sessionId)
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.bottom, 2)
+    }
+}
+
+/// Shows `popover` above `content` while the pointer is over it. The hover
+/// state only changes on enter/leave transitions (not on every mouse move,
+/// which used to make the popover flicker and recompute), and the popover
+/// itself is not hit-testable so moving onto it does not end the hover.
+struct HoverPopover<Content: View, Popover: View>: View {
+    @ViewBuilder let content: Content
+    @ViewBuilder let popover: Popover
+    @State private var hovered = false
+
+    var body: some View {
+        content
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: if !hovered { hovered = true }
+                case .ended: if hovered { hovered = false }
+                }
+            }
+            .zIndex(hovered ? 1 : 0)
+            .overlay(alignment: .topLeading) {
+                if hovered {
+                    popover
+                        .allowsHitTesting(false)
+                        .offset(y: -6)
+                }
+            }
+    }
+}
+
+/// Hover popover: the metadata that does not fit in the row.
+struct SessionPopover: View {
+    let row: SessionRow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(row.sessionId)
+                .font(.caption2)
+                .monospaced()
+            sessionDetail(L10n.t("sessions.detail.project"), row.project)
+            if let title = row.title {
+                sessionDetail(L10n.t("sessions.detail.title"), title)
+            }
+            sessionDetail(L10n.t("sessions.detail.title_source"), row.titleSource ?? "auto")
+            if let startedMs = row.startedMs {
+                sessionDetail(L10n.t("sessions.detail.started"), sessionDateTime(startedMs))
+            }
+            if row.isActive {
+                Text(L10n.t("sessions.detail.live"))
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
+    }
+}
+
+/// Click copies the full session id to the pasteboard.
+struct CopyIdButton: View {
+    let sessionId: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(sessionId, forType: .string)
+            copied = true
+            Task {
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                copied = false
+            }
+        } label: {
+            Text(copied ? L10n.t("sessions.copied") : sessionId)
+                .font(.caption2)
+                .monospaced()
+                .foregroundStyle(copied ? .green : .secondary)
+        }
+        .buttonStyle(.plain)
+        .help(L10n.t("sessions.copy_help"))
+    }
+}
+
+/// The live-session section as a fold with a generic label. Unfolded, each
+/// running session is a `titre title_source.  session_id` line: hover shows
+/// the popover, clicking the id copies it.
+struct LiveSessionsFold: View {
+    let dashboard: DashboardReport
+
+    @State private var expanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(dashboard.liveSessions, id: \.id) { live in
+                    liveLine(live)
+                }
+            }
+            .padding(.leading, 14)
+            .padding(.bottom, 2)
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(.green)
+                    .frame(width: 8, height: 8)
+                Text(L10n.t("live.show_sessions", dashboard.liveSessions.count))
+                    .font(.callout)
+            }
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func liveLine(_ live: ActiveSessionReport) -> some View {
+        var row = dashboard.sessions.first(where: { $0.sessionId == live.id }) ?? SessionRow(
+            sessionId: live.id,
+            shortId: String(live.id.prefix(8)),
+            project: String(live.id.prefix(8)),
+            title: live.title,
+            subagent: false,
+            startedMs: nil,
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cachedInputTokens: 0,
+            totalTokens: 0,
+            costUsd: nil)
+        row.active = true
+        row.titleSource = row.titleSource ?? live.titleSource
+        return HoverPopover {
+            HStack(spacing: 6) {
+                Text("\(row.title ?? row.project) \(row.titleSource ?? "auto").")
+                    .font(.caption)
+                    .lineLimit(1)
+                Spacer()
+                CopyIdButton(sessionId: row.sessionId)
+            }
+        } popover: {
+            SessionPopover(row: row)
+        }
+    }
+}
+
+private func sessionDetail(_ key: String, _ value: String) -> some View {
+    HStack(spacing: 4) {
+        Text(key)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        Text(value)
+            .font(.caption2)
+            .lineLimit(1)
+    }
+}
+
+private func sessionDateTime(_ ms: Int) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = L10n.locale
+    formatter.setLocalizedDateFormatFromTemplate("d MMM HH:mm")
+    return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(ms) / 1000))
 }
 
 /// Daily tokens bar chart. Hovering a bar dims the others and shows a
