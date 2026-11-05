@@ -172,6 +172,7 @@ pub fn merged_sessions_with(
                     session_id: e.session_id.clone(),
                     cwd: e.project.clone().map(|p| format!("/{p}")),
                     title: None,
+                    title_source: None,
                     start_time_ms: None,
                     end_time_ms: None,
                     parent_session_id: e.parent_session_id.clone(),

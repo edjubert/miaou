@@ -276,9 +276,13 @@ fn main() {
             let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
             apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of, &vibe_config, &currency);
             let projects = priced(miaou::aggregate_by_project(&sessions), &price_of);
+            let active = miaou::status::active_sessions(&vibe_home);
+            let active_ids: std::collections::HashSet<&str> =
+                active.iter().map(|a| a.id.as_str()).collect();
             let mut session_rows = miaou::aggregate_by_session(&sessions);
             let fallback_price = vibe_config.resolve(None).cloned();
             for r in &mut session_rows {
+                r.active = active_ids.contains(r.session_id.as_str());
                 // Price each session at its own model's rates.
                 let s = sessions.iter().find(|s| s.meta.session_id == r.session_id);
                 r.totals.cost_usd = s
@@ -320,7 +324,20 @@ fn main() {
                     "monthly": monthly,
                     "projects": projects,
                     "sessions": session_rows,
-                    "active": miaou::status::active_sessions(&vibe_home),
+                    // Active sessions joined with their metadata, so the UI
+                    // can label a live session even outside the month scope.
+                    "active": active.iter().map(|a| {
+                        let meta = all_sessions
+                            .iter()
+                            .find(|s| s.meta.session_id == a.id)
+                            .map(|s| &s.meta);
+                        serde_json::json!({
+                            "id": a.id,
+                            "age_ms": a.age_ms,
+                            "title": meta.and_then(|m| m.title.clone()),
+                            "title_source": meta.and_then(|m| m.title_source.clone()),
+                        })
+                    }).collect::<Vec<_>>(),
                 })
             );
         }
@@ -593,9 +610,14 @@ fn main() {
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
+            let active_ids: std::collections::HashSet<String> = miaou::status::active_sessions(&vibe_home)
+                .into_iter()
+                .map(|a| a.id)
+                .collect();
             let mut rows: Vec<SessionRow> = miaou::aggregate_by_session(&sessions);
             for r in &mut rows {
                 r.totals.cost_usd = price_of(&r.totals);
+                r.active = active_ids.contains(&r.session_id);
             }
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());

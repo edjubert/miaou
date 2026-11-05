@@ -138,6 +138,8 @@ pub fn aggregate_by_session(sessions: &[SessionUsage]) -> Vec<SessionRow> {
                 .unwrap_or("(unknown)")
                 .to_string(),
             title: s.meta.title.clone(),
+            title_source: s.meta.title_source.clone(),
+            active: false, // set by the caller from status::active_sessions
             subagent: s.meta.parent_session_id.is_some(),
             started_ms: s.meta.start_time_ms,
             totals: s.totals(),
@@ -155,6 +157,9 @@ pub struct SessionRow {
     pub short_id: String,
     pub project: String,
     pub title: Option<String>,
+    pub title_source: Option<String>,
+    /// Whether the session's OS lock is currently held (it is running).
+    pub active: bool,
     pub subagent: bool,
     pub started_ms: Option<u64>,
     #[serde(flatten)]
@@ -347,5 +352,16 @@ mod tests {
         let rows = aggregate_by_session(&[s]);
         assert!(rows[0].subagent);
         assert_eq!(rows[0].short_id, "kid");
+    }
+
+    #[test]
+    fn session_row_carries_title_source_and_defaults_inactive() {
+        let mut s = session("s", Some("/p"), 0, vec![event(0, 1, 1)]);
+        s.meta.title = Some("My title".into());
+        s.meta.title_source = Some("manual".into());
+        let rows = aggregate_by_session(&[s]);
+        assert_eq!(rows[0].title.as_deref(), Some("My title"));
+        assert_eq!(rows[0].title_source.as_deref(), Some("manual"));
+        assert!(!rows[0].active);
     }
 }

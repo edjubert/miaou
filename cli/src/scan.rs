@@ -9,6 +9,8 @@ pub struct SessionMeta {
     pub session_id: String,
     pub cwd: Option<String>,
     pub title: Option<String>,
+    /// How `title` was set: `auto` (generated) or `manual` (`/rename`).
+    pub title_source: Option<String>,
     /// Session start, unix epoch milliseconds (derived from ISO-8601 `start_time`).
     pub start_time_ms: Option<u64>,
     pub end_time_ms: Option<u64>,
@@ -52,6 +54,7 @@ pub fn discover_sessions(vibe_home: &Path) -> Vec<(SessionMeta, PathBuf)> {
             cwd: v.get("environment").and_then(|e| e.get("working_directory")).and_then(|x| x.as_str()).map(str::to_owned)
                 .or_else(|| v.get("origin_directory").and_then(|x| x.as_str()).map(str::to_owned)),
             title: v.get("title").and_then(|x| x.as_str()).map(str::to_owned),
+            title_source: v.get("title_source").and_then(|x| x.as_str()).map(str::to_owned),
             start_time_ms: iso_to_ms(v.get("start_time").and_then(|x| x.as_str())),
             end_time_ms: iso_to_ms(v.get("end_time").and_then(|x| x.as_str())),
             parent_session_id: v
@@ -149,7 +152,8 @@ mod tests {
                 "end_time": "2026-09-28T14:00:00+00:00",
                 "parent_session_id": null,
                 "child_sessions": ["kid-1"],
-                "title": "Some title"}"#,
+                "title": "Some title",
+                "title_source": "manual"}"#,
         );
         write_session(
             &unified,
@@ -172,6 +176,7 @@ mod tests {
         let newer = &found[1].0;
         assert_eq!(newer.cwd.as_deref(), Some("/home/me/proj-a"));
         assert_eq!(newer.title.as_deref(), Some("Some title"));
+        assert_eq!(newer.title_source.as_deref(), Some("manual"));
         assert!(newer.parent_session_id.is_none());
         assert_eq!(newer.child_sessions, vec!["kid-1".to_string()]);
         assert_eq!(newer.start_time_ms, Some(1790600400000)); // 2026-09-28T13:00Z
@@ -179,6 +184,7 @@ mod tests {
         let older = &found[0].0;
         assert_eq!(older.parent_session_id.as_deref(), Some("some-parent"));
         assert!(older.title.is_none());
+        assert!(older.title_source.is_none());
     }
 
     #[test]
