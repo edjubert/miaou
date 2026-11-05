@@ -574,7 +574,7 @@ extension View {
     }
 }
 
-private func sessionDetail(_ key: String, _ value: String) -> some View {
+func sessionDetail(_ key: String, _ value: String) -> some View {
     HStack(spacing: 4) {
         Text(key)
             .font(.caption2)
@@ -585,7 +585,7 @@ private func sessionDetail(_ key: String, _ value: String) -> some View {
     }
 }
 
-private func sessionDateTime(_ ms: Int) -> String {
+func sessionDateTime(_ ms: Int) -> String {
     let formatter = DateFormatter()
     formatter.locale = L10n.locale
     formatter.setLocalizedDateFormatFromTemplate("d MMM HH:mm")

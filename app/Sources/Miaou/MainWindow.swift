@@ -34,6 +34,25 @@ struct GlassCard: ViewModifier {
     }
 }
 
+/// Big stat card at the top of a section, like kapitsa's MetricCard.
+struct MetricCard: View {
+    let title: String
+    let value: String
+    let subtitle: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol).font(.callout).foregroundStyle(.secondary)
+            Text(value).font(.system(.title, design: .rounded).weight(.semibold)).monospacedDigit()
+            Text(subtitle).font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(GlassCard())
+    }
+}
+
 /// Brings the main window forward after `openWindow(id: "main")`: opening an
 /// existing SwiftUI scene need not make its NSWindow key while the menu bar
 /// panel has focus (same pattern as kapitsa's DesktopWindowFocus).
@@ -60,9 +79,9 @@ struct MainWindowMarker: NSViewRepresentable {
     func updateNSView(_ nsView: Anchor, context: Context) {}
 }
 
-/// The main window: graphs (daily chart, monthly, per-session) and the
-/// settings. The menu bar panel keeps the budget, today and the active
-/// sessions.
+/// The main window: native sidebar + detail with graphs (metric cards, chart,
+/// tables) and settings. The menu bar panel keeps the budget, today and the
+/// active sessions.
 struct MainWindow: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
@@ -72,6 +91,8 @@ struct MainWindow: View {
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
+    @State private var section: MainSection? = .graphs
+    @State private var sessionSelection: String?
 
     private var barMode: BarMode {
         BarMode(rawValue: barModeRaw) ?? .percent
@@ -82,8 +103,6 @@ struct MainWindow: View {
     private var appVersion: String {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "dev"
     }
-
-    @State private var section: MainSection? = .graphs
 
     var body: some View {
         NavigationSplitView {
@@ -154,30 +173,188 @@ struct MainWindow: View {
 
     @ViewBuilder private func content(_ dashboard: DashboardReport) -> some View {
         switch section ?? .graphs {
+        case .graphs:
+            graphsSection(dashboard)
+        case .projects:
+            projectsSection(dashboard)
         case .settings:
             // A Form scrolls itself.
             settingsForm
-                .modifier(GlassCard())
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(20)
-        default:
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch section ?? .graphs {
-                    case .graphs:
-                        analyticsSection(dashboard)
-                    case .projects:
-                        projectsSection(dashboard)
-                    case .settings:
-                        EmptyView()
+        }
+    }
+
+    // MARK: - Graphs
+
+    private func graphsSection(_ dashboard: DashboardReport) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 16) {
+                    MetricCard(
+                        title: L10n.t("metric.month"),
+                        value: dashboard.budgetStatus.usedUsd.map { String(format: "%.2f %@", $0, dashboard.currency) } ?? "—",
+                        subtitle: dashboard.budgetStatus.budget.effectiveUsd.map {
+                            L10n.t("metric.month.sub", $0, dashboard.currency)
+                        } ?? L10n.t("metric.month.sub.none"),
+                        symbol: "eurosign.circle")
+                    MetricCard(
+                        title: L10n.t("today.headline"),
+                        value: formatTokens(Double(dashboard.todayTotals.totalTokens)),
+                        subtitle: L10n.t("metric.today.sub", dashboard.todayTotals.requests),
+                        symbol: "bolt.circle")
+                    MetricCard(
+                        title: L10n.t("metric.active"),
+                        value: "\(dashboard.liveSessions.count)",
+                        subtitle: L10n.t("metric.active.sub"),
+                        symbol: "circle.fill")
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+
+                Picker("", selection: $analyticsTab) {
+                    Text(L10n.t("tab.daily")).tag("daily")
+                    Text(L10n.t("tab.monthly")).tag("monthly")
+                    Text(L10n.t("tab.sessions")).tag("sessions")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal, 24)
+
+                Group {
+                    switch analyticsTab {
+                    case "monthly":
+                        monthlyTable(dashboard)
+                    case "sessions":
+                        sessionsTable(dashboard)
+                    default:
+                        DailyChartView(days: dashboard.daily.suffix(14), height: 260)
                     }
                 }
                 .modifier(GlassCard())
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(20)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
         }
     }
+
+    private func monthlyTable(_ dashboard: DashboardReport) -> some View {
+        Table(dashboard.monthly) {
+            TableColumn(L10n.t("col.month")) { row in Text(row.key) }
+            TableColumn(L10n.t("col.requests")) { row in Text("\(row.requests)") }
+            TableColumn(L10n.t("col.tokens")) { row in Text(formatTokens(Double(row.totalTokens))).monospacedDigit() }
+            TableColumn(L10n.t("col.cost")) { row in
+                if let cost = row.costUsd {
+                    Text(String(format: "%.2f %@", cost, dashboard.currency)).monospacedDigit()
+                }
+            }
+        }
+        .padding(8)
+    }
+
+    private func sessionsTable(_ dashboard: DashboardReport) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Table(dashboard.sessions, selection: $sessionSelection) {
+                TableColumn(L10n.t("col.session")) { s in
+                    Text(s.subagent ? "\(s.shortId)*" : s.shortId).monospaced()
+                }.width(min: 90, ideal: 110)
+                TableColumn(L10n.t("col.project")) { s in Text(s.project) }
+                    .width(min: 140, ideal: 220)
+                TableColumn(L10n.t("col.requests")) { s in Text("\(s.requests)") }
+                TableColumn(L10n.t("col.tokens")) { s in
+                    Text(formatTokens(Double(s.totalTokens))).monospacedDigit()
+                }
+                TableColumn(L10n.t("col.cost")) { s in
+                    if let cost = s.costUsd {
+                        Text(String(format: "%.2f %@", cost, dashboard.currency)).monospacedDigit()
+                    }
+                }
+            }
+            if let selected = dashboard.sessions.first(where: { $0.sessionId == sessionSelection }) {
+                Divider()
+                sessionInspector(selected, currency: dashboard.currency)
+                    .padding(16)
+            }
+        }
+        .padding(8)
+    }
+
+    /// Native inspector for the selected session row: full metadata and a
+    /// copy button for the id.
+    private func sessionInspector(_ row: SessionRow, currency: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.title ?? row.shortId).font(.title3.weight(.semibold))
+                    HStack(spacing: 4) {
+                        Text(L10n.t("sessions.detail.id")).font(.caption).foregroundStyle(.secondary)
+                        CopyIdButton(sessionId: row.sessionId)
+                    }
+                }
+                Spacer()
+                if row.isActive {
+                    Label(L10n.t("sessions.detail.live"), systemImage: "circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            }
+            sessionDetail(L10n.t("sessions.detail.project"), row.project)
+            sessionDetail(L10n.t("sessions.detail.title_source"), row.titleSource ?? "auto")
+            if let startedMs = row.startedMs {
+                sessionDetail(L10n.t("sessions.detail.started"), sessionDateTime(startedMs))
+            }
+            sessionDetail(L10n.t("sessions.detail.usage"),
+                          L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
+            if let cost = row.costUsd {
+                sessionDetail(L10n.t("sessions.detail.cost"), String(format: "%.2f %@", cost, currency))
+            }
+            if row.subagent {
+                Text(L10n.t("sessions.detail.subagent")).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Projects
+
+    private func projectsSection(_ dashboard: DashboardReport) -> some View {
+        let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 16) {
+                    MetricCard(
+                        title: L10n.t("section.projects"),
+                        value: "\(dashboard.projects.count)",
+                        subtitle: L10n.t("metric.projects.sub", formatTokens(Double(total))),
+                        symbol: "folder")
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+
+                Table(dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }) {
+                    TableColumn(L10n.t("col.project")) { row in
+                        Text(row.key).fontWeight(.medium)
+                    }.width(min: 200, ideal: 320)
+                    TableColumn(L10n.t("col.share")) { row in
+                        let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
+                        Text(String(format: "%.0f%%", share)).monospacedDigit()
+                    }.width(min: 70, ideal: 90)
+                    TableColumn(L10n.t("col.tokens")) { row in
+                        Text(formatTokens(Double(row.totalTokens))).monospacedDigit()
+                    }.width(min: 110, ideal: 140)
+                    TableColumn("") { row in
+                        ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
+                            .frame(width: 120)
+                    }.width(min: 130, ideal: 150)
+                }
+                .modifier(GlassCard())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    // MARK: - Settings
 
     /// Idiomatic settings: a Form with sections, full width.
     private var settingsForm: some View {
@@ -239,91 +416,6 @@ struct MainWindow: View {
                 }
                 .pickerStyle(.segmented)
                 .id(languageRaw)
-            }
-        }
-    }
-
-
-    private func dailyChart(_ dashboard: DashboardReport) -> some View {
-        DailyChartView(days: dashboard.daily.suffix(14), height: 260)
-    }
-
-    private func projectsSection(_ dashboard: DashboardReport) -> some View {
-        let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
-        let top = dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }.prefix(5)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.t("projects.headline")).font(.headline)
-            ForEach(Array(top), id: \.key) { row in
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack {
-                        Text(row.key).font(.caption)
-                        Spacer()
-                        let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
-                        Text(String(format: "%.0f%%, %@ tok", share, formatTokens(Double(row.totalTokens))))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
-                        .frame(height: 4)
-                }
-            }
-        }
-    }
-
-    private func analyticsSection(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                tabButton(L10n.t("tab.daily"), tab: "daily")
-                tabButton(L10n.t("tab.monthly"), tab: "monthly")
-                tabButton(L10n.t("tab.sessions"), tab: "sessions")
-            }
-            switch analyticsTab {
-            case "monthly":
-                monthlyTable(dashboard)
-            case "sessions":
-                sessionsTable(dashboard)
-            default:
-                dailyChart(dashboard)
-            }
-        }
-    }
-
-    private func tabButton(_ label: String, tab: String) -> some View {
-        Button {
-            analyticsTab = tab
-        } label: {
-            Text(label)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(analyticsTab == tab ? Color.accentColor.opacity(0.25) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func monthlyTable(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(dashboard.monthly, id: \.key) { row in
-                HStack {
-                    Text(row.key).font(.caption)
-                    Spacer()
-                    Text(L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    if let cost = row.costUsd {
-                        Text(String(format: "%.2f %@", cost, dashboard.currency))
-                            .font(.caption2)
-                    }
-                }
-            }
-        }
-    }
-
-    private func sessionsTable(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(dashboard.sessions) { s in
-                SessionFold(row: s, currency: dashboard.currency)
             }
         }
     }
