@@ -4,7 +4,7 @@ APP_DIR = $(HOME)/Applications
 CLI_NAME = miaou
 CLI_BIN ?= $(shell command -v $(CLI_NAME) 2>/dev/null || echo $(HOME)/.cargo/bin/$(CLI_NAME))
 
-.PHONY: build app install-app icon clean test
+.PHONY: build app install-app install-only icon clean test
 
 build:
 	swift build -c release
@@ -17,8 +17,10 @@ icon:
 app:
 	CLI_BIN="$(CLI_BIN)" python3 build-app.py
 
-install-app: app
+install-only:
 	INSTALL_DIR="$(APP_DIR)" python3 build-app.py --install-only
+
+install-app: app install-only
 
 test:
 	swift test

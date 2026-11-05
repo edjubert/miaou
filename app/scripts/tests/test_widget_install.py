@@ -2,6 +2,7 @@ import importlib.util
 import os
 from pathlib import Path
 import plistlib
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -27,11 +28,13 @@ class WidgetInstallTests(unittest.TestCase):
         environment = dict(os.environ)
         environment.pop("BUILD_NUMBER", None)
         environment["INSTALL_DIR"] = str(self.install_root)
+        self.stop_old_app_patch = patch.object(builder, "stop_old_app")
         self.patches = [
             patch.object(builder, "APP", self.app),
             patch.object(builder, "BUILD", self.build),
             patch.dict(os.environ, environment, clear=True),
             patch.object(builder, "stop_old_widget"),
+            self.stop_old_app_patch,
             patch.object(builder.subprocess, "run",
                          return_value=subprocess.CompletedProcess([], 0, stdout="", stderr="")),
         ]
@@ -92,6 +95,27 @@ class WidgetInstallTests(unittest.TestCase):
         (self.build / "build-number").write_text("4")
         self.assertEqual(builder.build_number(), "9")
         self.assertEqual(builder.build_number(), "10")
+
+    def test_stop_old_app_kills_only_the_process_from_the_installed_bundle(self):
+        self.stop_old_app_patch.stop()
+        self.addCleanup(self.stop_old_app_patch.start)
+        installed = self.install_root / "Miaou.app/Contents/MacOS/Miaou"
+        elsewhere = Path("/somewhere/else/Miaou.app/Contents/MacOS/Miaou")
+
+        def fake_run(cmd, **kwargs):
+            if cmd[:2] == ["pgrep", "-x"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="111\n222\n", stderr="")
+            if cmd[0] == "ps":
+                comm = str(installed) if cmd[2] == "111" else str(elsewhere)
+                return subprocess.CompletedProcess(cmd, 0, stdout=comm + "\n", stderr="")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        killed = []
+        with patch.object(builder.subprocess, "run", side_effect=fake_run), \
+                patch.object(builder.os, "kill",
+                             side_effect=lambda pid, sig: killed.append((pid, sig))):
+            builder.stop_old_app()
+        self.assertEqual(killed, [(111, signal.SIGTERM)])
 
 
 if __name__ == "__main__":

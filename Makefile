@@ -3,7 +3,7 @@ VERSION ?= $(shell sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)
 DARWIN_TARGET := aarch64-apple-darwin
 LINUX_TARGETS := aarch64-unknown-linux-musl x86_64-unknown-linux-musl
 
-.PHONY: release app cli-darwin cli-linux clean
+.PHONY: release app install cli-darwin cli-linux clean
 
 release: cli-darwin cli-linux app
 	@echo "Release artifacts in $(DIST)/"
@@ -31,6 +31,10 @@ app:
 	rm -rf $(DIST)/Miaou.app
 	cp -R app/Miaou.app $(DIST)/
 	ditto -c -k --keepParent app/Miaou.app $(DIST)/Miaou-$(VERSION)-macos-arm64.zip
+
+# Build the app and install it into ~/Applications (relaunchable from there).
+install: app
+	$(MAKE) -C app install-only
 
 clean:
 	rm -rf $(DIST)

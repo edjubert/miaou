@@ -219,6 +219,24 @@ def stop_old_widget():
                 pass
 
 
+def stop_old_app():
+    """Quit a running Miaou started from the installed bundle.
+
+    Replacing the bundle on disk does not touch a running process, and
+    relaunching would just reactivate it, so the old instance must go.
+    """
+    expected = install_directory() / "Miaou.app" / "Contents/MacOS/Miaou"
+    result = subprocess.run(["pgrep", "-x", "Miaou"], capture_output=True, text=True)
+    for pid in result.stdout.split():
+        command = subprocess.run(["ps", "-p", pid, "-o", "comm="],
+                                 capture_output=True, text=True).stdout.strip()
+        if Path(command) == expected:
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+
 def install():
     source = APP / "Miaou.app"
     destination = install_directory() / "Miaou.app"
@@ -237,6 +255,7 @@ def install():
         run("codesign", "--verify", "--deep", "--strict", str(temporary))
         if previous.exists():
             shutil.rmtree(previous)
+        stop_old_app()
         stop_old_widget()
         if destination.exists():
             destination.rename(previous)
@@ -264,7 +283,7 @@ def install():
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     run(LSREGISTER, "-f", "-R", str(destination))
     run("pluginkit", "-a", str(destination / "Contents/PlugIns/MiaouWidget.appex"))
-    print(f"Installed {destination}. Reopen Miaou, then add its widget with macOS Edit Widgets.")
+    print(f"Installed {destination}. Launch Miaou from there, then add its widget with macOS Edit Widgets.")
 
 
 if __name__ == "__main__":
