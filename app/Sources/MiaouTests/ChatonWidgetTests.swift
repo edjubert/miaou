@@ -142,7 +142,7 @@ final class ChatonWidgetTests: XCTestCase {
                                              pet: .chonk)
             XCTAssertEqual(plan.entries.last,
                            ChatonWidgetFrame(date: now.addingTimeInterval(0.4),
-                                             frame: 16, active: false))
+                                             frame: BarPet.chonk.restFrame, active: false))
             XCTAssertTrue(plan.entries.dropLast().allSatisfy { $0.active })
         }
     }

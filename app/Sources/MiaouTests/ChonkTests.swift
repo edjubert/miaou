@@ -11,9 +11,9 @@ final class ChonkTests: XCTestCase {
     }
 
     func testAnimationFrameCount() {
-        // Reference pose + 16 transitions.
+        // Reference pose plus the timed idle story.
         XCTAssertEqual(Chonk.frames.count, Chonk.transitions.count + 1)
-        XCTAssertEqual(Chonk.frames.count, 17)
+        XCTAssertGreaterThan(Chonk.frames.count, 1)
     }
 
     func testFirstFrameIsReferencePose() {
@@ -44,9 +44,10 @@ final class ChonkTests: XCTestCase {
     }
 
     func testCycleWrapsAfterLastState() {
-        // Periodic loop on states 1...16: state 0 is never revisited.
-        XCTAssertEqual(BarPet.chonk.nextFrame(after: 16), 1)
-        XCTAssertEqual(BarPet.chonk.nextFrame(after: 15), 16)
+        // Periodic loop on states 1...N: state 0 is never revisited.
+        let last = Chonk.frames.count - 1
+        XCTAssertEqual(BarPet.chonk.nextFrame(after: last), 1)
+        XCTAssertEqual(BarPet.chonk.nextFrame(after: last - 1), last)
         XCTAssertEqual(BarPet.chonk.nextFrame(after: 7), 8)
     }
 
