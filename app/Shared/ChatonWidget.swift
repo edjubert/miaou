@@ -89,18 +89,38 @@ struct ChatonWidgetProvider: AppIntentTimelineProvider {
     }
 }
 
-/// Desktop widget that only shows the animated chaton. Brand colors
-/// while a session is active, grayscale on the rest pose, like the
-/// menu bar's session color mode.
+/// The chaton as a SwiftUI Canvas: WidgetKit does not reliably rasterize
+/// NSImages built from a raw CGContext bitmap (they show up as a gray
+/// placeholder), so the glyph is drawn natively. Brand colors while a
+/// session is active, grayscale otherwise, like the menu bar's session
+/// color mode.
+@available(macOS 14.0, *)
+struct ChatonGlyphView: View {
+    let frame: Int
+    let live: Bool
+
+    var body: some View {
+        GeometryReader { geometry in
+            let palette: [Color] = (live ? MistralLogo.brand : MistralLogo.grayscale)
+                .map(Color.init(nsColor:))
+            Canvas { context, size in
+                for dot in Chaton.dotRects(frame: frame, size: size) {
+                    context.fill(Path(dot.rect),
+                                 with: .color(palette[min(4, dot.row * 5 / 12)]))
+                }
+            }
+        }
+    }
+}
+
+/// Desktop widget that only shows the animated chaton.
 @available(macOS 14.0, *)
 struct MiaouChatonWidgetView: View {
     let entry: ChatonWidgetEntry
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        Image(nsImage: MistralIcon.widgetImage(frame: entry.frame, live: entry.active))
-            .resizable()
-            .scaledToFit()
+        ChatonGlyphView(frame: entry.frame, live: entry.active)
             .padding(family == .systemSmall ? 16 : 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .containerBackground(for: .widget) {

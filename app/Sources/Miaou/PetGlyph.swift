@@ -143,6 +143,25 @@ extension PetGlyph {
              palette: palette)
     }
 
+    /// Dot geometry in a top-left-origin SwiftUI box, using the same
+    /// fixed crop as the banner so changing poses never shifts the pet.
+    static func dotRects(frame: Int, size: CGSize) -> [(rect: CGRect, row: Int)] {
+        let index = min(max(frame, 0), frames.count - 1)
+        let window = barWindow
+        let cell = min(size.width / window.width, size.height / window.height)
+        let dot = cell * 0.85
+        let inset = (cell - dot) / 2
+        let marginX = (square - CGFloat(maxCol - minCol + 1)) / 2
+        let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2
+        let offsetX = (size.width - window.width * cell) / 2
+        let offsetY = (size.height - window.height * cell) / 2
+        return frames[index].map { c in
+            let x = offsetX + (marginX + CGFloat(c.col - minCol) - window.minX) * cell + inset
+            let y = offsetY + (marginY + CGFloat(c.row - minRow) - window.minY) * cell + inset
+            return (CGRect(x: x, y: y, width: dot, height: dot), c.row)
+        }
+    }
+
     /// Banner variant: the same crop as the bar, without the halo.
     static func drawBanner(frame: Int, in context: CGContext, pixels: CGSize, palette: [NSColor]) {
         let index = min(max(frame, 0), frames.count - 1)

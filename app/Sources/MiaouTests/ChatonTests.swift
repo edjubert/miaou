@@ -55,6 +55,27 @@ final class ChatonTests: XCTestCase {
         XCTAssertFalse(Chaton.frames[rest].isEmpty)
     }
 
+    func testDotRectsMirrorTheFrameGeometry() {
+        let size = CGSize(width: 230, height: 110)
+        for frame in [0, 1, Chaton.restFrame, Chaton.frames.count - 1] {
+            let dots = Chaton.dotRects(frame: frame, size: size)
+            XCTAssertEqual(dots.count, Chaton.frames[frame].count)
+            for dot in dots {
+                XCTAssertTrue(CGRect(origin: .zero, size: size).contains(dot.rect),
+                              "frame \(frame) dot out of bounds: \(dot.rect)")
+                XCTAssertTrue((0..<Chaton.gridH).contains(dot.row))
+                // Dots are 85% of a cell, never larger.
+                let cell = min(size.width / Chaton.barWindow.width,
+                               size.height / Chaton.barWindow.height)
+                XCTAssertLessThanOrEqual(dot.rect.width, cell * 0.85 + 0.001)
+            }
+        }
+        // Out-of-range frames clamp instead of crashing.
+        XCTAssertEqual(Chaton.dotRects(frame: -3, size: size).count, Chaton.frames[0].count)
+        XCTAssertEqual(Chaton.dotRects(frame: 99, size: size).count,
+                       Chaton.frames[Chaton.frames.count - 1].count)
+    }
+
     func testSilhouetteFillsEnclosedHolesOnly() {
         var ring: [(col: Int, row: Int)] = []
         for i in 4...10 {
