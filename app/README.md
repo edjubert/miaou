@@ -97,15 +97,18 @@ Miaou and refreshes its data. The widget follows the app's language setting
 and currency configuration.
 
 A second widget, **Chaton**, only shows the animated cat in small and medium
-formats. Its configuration offers two animation modes: **Always** loops the
-animation forever, **When a session is active** animates while a Vibe session
-is live (same activity signal as the green dot above) and freezes the cat on
+formats. Choose **Chaton** or **Le Chonk** in its **Cat** setting. Existing
+widgets keep Chaton by default. Its configuration offers two animation modes:
+**Always** loops the animation forever, **When a session is active** animates
+while a Vibe session is live (same activity signal as the green dot above) and freezes the cat on
 its rest pose otherwise. The cat uses brand colors while active and turns
 grayscale when idle. The widget shares the menu banner's animation clock:
-poses advance every 0.16 s and pause for 5–20 s on the sleeping pose. WidgetKit
+poses advance every 0.16 s and pause for 5–20 s on each cat's rest pose
+(the sleeping Chaton or the lying Chonk). WidgetKit
 receives 15 minutes of pose changes ahead of time, without crossfades between
 poses. Refreshing the widget or reopening the menu preserves the current
 pose and the remaining pause.
+Both sizes use a minimal inset so the selected cat fills the available width.
 
 The app publishes display metrics to a private App Group after each refresh.
 The sandboxed widget reads that snapshot; it does not run the CLI or read Vibe

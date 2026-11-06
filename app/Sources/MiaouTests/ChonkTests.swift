@@ -74,4 +74,25 @@ final class ChonkTests: XCTestCase {
         XCTAssertFalse(ModelRefReport(name: "mistral-large-4-flash", alias: nil).isChonk)
         XCTAssertFalse(ModelRefReport(name: "zai-glm-5-3", alias: "glm-5-3").isChonk)
     }
+
+    func testWidgetDotsKeepAllChonkPosesInTheSameLayout() {
+        for size in [CGSize(width: 250, height: 110),
+                     CGSize(width: 164, height: 164),
+                     CGSize(width: 344, height: 164)] {
+            let slots = BarPet.chonk.dotSlots(size: size)
+            let byID = Dictionary(uniqueKeysWithValues: slots.map { ($0.id, $0.rect) })
+            let allIDs = Set(Chonk.frames.flatMap { $0.map(Chonk.key) })
+            XCTAssertEqual(Set(byID.keys), allIDs)
+            XCTAssertEqual(slots.count, allIDs.count)
+            for (index, frame) in Chonk.frames.enumerated() {
+                XCTAssertEqual(BarPet.chonk.visibleDots(frame: index), Set(frame.map(Chonk.key)))
+                for (cell, dot) in zip(frame, Chonk.dotRects(frame: index, size: size)) {
+                    XCTAssertEqual(byID[Chonk.key(cell)], dot.rect,
+                                   "Changing pose must keep each dot fixed.")
+                    XCTAssertTrue(CGRect(origin: .zero, size: size).contains(dot.rect))
+                    XCTAssertTrue((0..<BarPet.chonk.gridHeight).contains(dot.row))
+                }
+            }
+        }
+    }
 }

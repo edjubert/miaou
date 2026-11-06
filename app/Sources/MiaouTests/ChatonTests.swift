@@ -57,7 +57,7 @@ final class ChatonTests: XCTestCase {
 
     func testDotRectsMirrorTheFrameGeometry() {
         let size = CGSize(width: 230, height: 110)
-        for frame in [0, 1, Chaton.restFrame, Chaton.frames.count - 1] {
+        for frame in [0, 1, BarPet.chaton.restFrame, Chaton.frames.count - 1] {
             let dots = Chaton.dotRects(frame: frame, size: size)
             XCTAssertEqual(dots.count, Chaton.frames[frame].count)
             for dot in dots {

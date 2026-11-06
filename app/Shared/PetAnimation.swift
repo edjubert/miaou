@@ -3,7 +3,8 @@ import Foundation
 /// The menu banner and desktop widget use the same clock and poses.
 /// A reproducible sequence of varied pauses lets separate processes
 /// agree on the animation without restarting it on a widget reload.
-enum ChatonAnimation {
+enum PetAnimation {
+    static let frameInterval: TimeInterval = 0.16
     static let restDelay: ClosedRange<Double> = 5...20
 
     struct Pose {
@@ -23,7 +24,7 @@ enum ChatonAnimation {
     )
 
     private static func makeSteps(pet: BarPet) -> [Step] {
-        let frameMilliseconds = Int64((Chaton.frameInterval * 1_000).rounded())
+        let frameMilliseconds = Int64((frameInterval * 1_000).rounded())
         let minimumRest = Int64(restDelay.lowerBound * 1_000)
         let restRange = UInt64((restDelay.upperBound - restDelay.lowerBound) * 1_000) + 1
         var seed: UInt64 = 0x4D_49_41_4F_55

@@ -280,7 +280,7 @@ extension PetGlyph {
 
 /// The animated pet glyphs: the petit chat, and the chonk that Vibe shows
 /// when the active model is "Le Chonk".
-enum BarPet: String, CaseIterable, Identifiable {
+enum BarPet: String, Codable, CaseIterable, Identifiable, Sendable {
     case chaton
     case chonk
 
@@ -315,6 +315,28 @@ enum BarPet: String, CaseIterable, Identifiable {
         switch self {
         case .chaton: return Chaton.barWindow
         case .chonk: return Chonk.barWindow
+        }
+    }
+
+    var gridHeight: Int {
+        switch self {
+        case .chaton: return Chaton.gridH
+        case .chonk: return Chonk.gridH
+        }
+    }
+
+    func visibleDots(frame: Int) -> Set<Int> {
+        let index = min(max(frame, 0), frameCount - 1)
+        switch self {
+        case .chaton: return Set(Chaton.frames[index].map(Chaton.key))
+        case .chonk: return Set(Chonk.frames[index].map(Chonk.key))
+        }
+    }
+
+    func dotSlots(size: CGSize) -> [(id: Int, rect: CGRect, row: Int)] {
+        switch self {
+        case .chaton: return Chaton.dotSlots(size: size)
+        case .chonk: return Chonk.dotSlots(size: size)
         }
     }
 

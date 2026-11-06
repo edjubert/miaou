@@ -1,16 +1,16 @@
 import Foundation
 
-/// When the chaton widget animates. Also the widget's configuration
+/// When the pet widget animates. Also the widget's configuration
 /// parameter (see the AppEnum conformance in ChatonWidget.swift).
 enum ChatonAnimationMode: String, Codable, CaseIterable, Sendable {
-    /// The chaton loops forever.
+    /// The selected pet loops forever.
     case always
-    /// The chaton loops while a Vibe session is active, then freezes on
+    /// The selected pet loops while a Vibe session is active, then freezes on
     /// the rest pose.
     case session
 }
 
-/// One planned widget entry: the chaton pose to show at a date.
+/// One planned widget entry: the selected pet's pose to show at a date.
 struct ChatonWidgetFrame: Equatable {
     let date: Date
     let frame: Int
@@ -33,10 +33,11 @@ struct ChatonWidgetPlan {
 
     static func make(now: Date = Date(),
                      mode: ChatonAnimationMode,
-                     snapshot: MiaouWidgetSnapshot?) -> Self {
+                     snapshot: MiaouWidgetSnapshot?,
+                     pet: BarPet = .chaton) -> Self {
         let active = snapshot?.isActive(at: now) ?? false
         guard mode == .always || active else {
-            return Self(entries: [ChatonWidgetFrame(date: now, frame: Chaton.restFrame,
+            return Self(entries: [ChatonWidgetFrame(date: now, frame: pet.restFrame,
                                                     active: false)],
                         reloadAfter: now.addingTimeInterval(60))
         }
@@ -53,10 +54,10 @@ struct ChatonWidgetPlan {
         }
         let limit = mode == .session ? min(activityEnd ?? end, end) : end
         var dates = [now]
-        var next = ChatonAnimation.pose(at: now).nextChange
+        var next = PetAnimation.pose(at: now, pet: pet).nextChange
         while next < limit {
             dates.append(next)
-            next = ChatonAnimation.pose(at: next).nextChange
+            next = PetAnimation.pose(at: next, pet: pet).nextChange
         }
         // Expiration can happen in the middle of a sleeping pause:
         // update the palette (and freeze in session mode) immediately.
@@ -67,8 +68,8 @@ struct ChatonWidgetPlan {
             let live = activityEnd.map { date < $0 } ?? false
             return ChatonWidgetFrame(
                 date: date,
-                frame: mode == .session && !live ? Chaton.restFrame :
-                    ChatonAnimation.pose(at: date).frame,
+                frame: mode == .session && !live ? pet.restFrame :
+                    PetAnimation.pose(at: date, pet: pet).frame,
                 active: live)
         }
         return Self(entries: entries,

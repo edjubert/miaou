@@ -10,14 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Desktop widget **Chaton** (small and medium): shows only the animated cat,
-  with a configuration parameter to animate always or only while a Vibe
-  session is active; brand colors while active, grayscale otherwise.
+  with a choice of **Chaton** or **Le Chonk** and a parameter to animate always
+  or only while a Vibe session is active; brand colors while active, grayscale
+  otherwise.
 
 ### Fixed
 
 - The Chaton widget shares the menu banner's 0.16 s animation steps and
   5–20 s sleeping pauses. Timeline refreshes preserve its pose and pause,
   and pose changes no longer use implicit crossfade transitions.
+- Widget configuration labels resolve the app's English and French
+  catalogs instead of displaying raw localization keys.
+- Chaton and Le Chonk fill more of their widget: automatic content
+  margins are disabled and internal padding is reduced.
+- The always-on animation uses compact vector paths so macOS can accept
+  its timeline archive instead of rejecting it as too large.
 
 ## [0.3.0] - 2026-11-05
 

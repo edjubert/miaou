@@ -6,10 +6,10 @@ import SwiftUI
 /// time the running cycle reaches the rest pose, it stays there for a
 /// while, like the original banner.
 final class PetAnimator: ObservableObject {
-    static let frameInterval: TimeInterval = Chaton.frameInterval
+    static let frameInterval = PetAnimation.frameInterval
 
     /// How long an in-loop rest lasts.
-    static let restDelay = ChatonAnimation.restDelay
+    static let restDelay = PetAnimation.restDelay
 
     /// When true, the running loop pauses on the rest pose each time it
     /// reaches it (the window banner). When false, the loop is
@@ -69,7 +69,7 @@ final class PetAnimator: ObservableObject {
     /// reopens or the run loop delays a tick. Neither restarts a cycle.
     private func updateRestingLoop() {
         let now = Date()
-        let pose = ChatonAnimation.pose(at: now, pet: pet)
+        let pose = PetAnimation.pose(at: now, pet: pet)
         frame = pose.frame
         timer = Timer.scheduledTimer(
             withTimeInterval: max(0.001, pose.nextChange.timeIntervalSince(now)),

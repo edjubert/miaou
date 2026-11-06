@@ -100,14 +100,6 @@ enum Chaton: PetGlyph {
         (remove: [(4, 1), (3, 2), (3, 3), (5, 3), (5, 7), (3, 8), (4, 9), (5, 9)], add: [(6, 1), (7, 1), (8, 2), (4, 3), (6, 3), (7, 3), (4, 8), (5, 8)]),
     ]
 
-    /// Shared timing and rest pose for the desktop widget.
-    static let frameInterval: TimeInterval = 0.16
-    static let restFrame = 14
-
-    static func nextFrame(after frame: Int) -> Int {
-        frame == transitions.count ? 1 : frame + 1
-    }
-
     /// The glyph lives in a square grid of 25x25 cells: the pose spans
     /// cols 3-21, plus three cells of margin on the left for the tail
     /// sweep of the animation.

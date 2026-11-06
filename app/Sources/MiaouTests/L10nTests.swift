@@ -48,4 +48,32 @@ final class L10nTests: XCTestCase {
         defaults.set("system", forKey: "language")
         XCTAssertEqual(L10n.locale, .current)
     }
+
+    func testWidgetConfigurationLabelsHaveReadableDefaultsAndTranslations() throws {
+        guard #available(macOS 14.0, *) else { return }
+        let configuration = ChatonWidgetConfiguration()
+        let labels: [(LocalizedStringResource, String, String)] = [
+            (configuration.$mode.title, "Animation", "Animation"),
+            (configuration.$pet.title, "Cat", "Chat"),
+            (try XCTUnwrap(ChatonAnimationMode.caseDisplayRepresentations[.always]).title,
+             "Always", "Toujours"),
+            (try XCTUnwrap(ChatonAnimationMode.caseDisplayRepresentations[.session]).title,
+             "When a session is active", "Quand une session est active"),
+            (try XCTUnwrap(BarPet.caseDisplayRepresentations[.chaton]).title, "Chaton", "Chaton"),
+            (try XCTUnwrap(BarPet.caseDisplayRepresentations[.chonk]).title, "Le Chonk", "Le Chonk"),
+        ]
+        let en = try catalog("en")
+        let fr = try catalog("fr")
+        for (resource, english, french) in labels {
+            // AppIntents requires Bundle.main. In SPM the catalogs live
+            // in Bundle.module, so a remote host must have a readable
+            // default, while the native bundle supplies translations.
+            let data = try JSONEncoder().encode(resource)
+            var restored = try JSONDecoder().decode(LocalizedStringResource.self, from: data)
+            restored.locale = Locale(identifier: "en_US")
+            XCTAssertEqual(String(localized: restored), english)
+            XCTAssertEqual(en[restored.key], english)
+            XCTAssertEqual(fr[restored.key], french)
+        }
+    }
 }

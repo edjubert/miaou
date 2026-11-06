@@ -117,8 +117,10 @@
 
 /* Chaton widget */
 "widget.chaton.name" = "Chaton";
-"widget.chaton.description" = "The animated Miaou cat.";
+"widget.chaton.description" = "The animated Chaton or Le Chonk.";
+"widget.chaton.pet" = "Cat";
 "widget.chaton.mode" = "Animation";
 "widget.chaton.mode.always" = "Always";
 "widget.chaton.mode.session" = "When a session is active";
 "widget.chaton.label" = "The animated Miaou cat";
+"widget.chonk.label" = "The animated Le Chonk";
