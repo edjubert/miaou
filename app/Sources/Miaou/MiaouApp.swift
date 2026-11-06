@@ -8,6 +8,21 @@ struct MiaouApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     var body: some Scene {
+        Window("Miaou", id: "main") {
+            MainWindow()
+                .environmentObject(AppModel.shared)
+                .onOpenURL { url in
+                    guard url.scheme == "miaou", url.host == "dashboard" else { return }
+                    MainWindowFocus.activate()
+                }
+        }
+        .defaultSize(width: 680, height: 640)
+        .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                OpenMainWindowCommand()
+            }
+        }
         MenuBarExtra {
             MenuContent()
                 .environmentObject(AppModel.shared)
@@ -15,6 +30,19 @@ struct MiaouApp: App {
             BarLabel()
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Cmd+0 / menu item that opens the main window, like kapitsa's desktop.
+struct OpenMainWindowCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(L10n.t("window.open")) {
+            openWindow(id: "main")
+            MainWindowFocus.activate()
+        }
+        .keyboardShortcut("0", modifiers: .command)
     }
 }
 
@@ -75,40 +103,15 @@ struct BarLabel: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Menu bar agent: no Dock icon, no main window.
-        NSApplication.shared.setActivationPolicy(.accessory)
+        // Regular app: the main window needs a Dock presence and normal
+        // activation, like kapitsa's desktop window.
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
         MiaouWidgetRefreshRouter.refresh = { AppModel.shared.refresh() }
         AppModel.shared.refresh()
     }
 
-    func application(_ application: NSApplication, open urls: [URL]) {
-        guard urls.contains(where: { $0.scheme == "miaou" && $0.host == "dashboard" }) else { return }
-        DashboardWindow.shared.show()
-    }
-}
-
-/// The widget opens the same dashboard in a scrollable, reusable window.
-final class DashboardWindow {
-    static let shared = DashboardWindow()
-    private var window: NSWindow?
-
-    func show() {
-        if window == nil {
-            let height = min(780, (NSScreen.main?.visibleFrame.height ?? 860) - 80)
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
-                                  styleMask: [.titled, .closable, .miniaturizable],
-                                  backing: .buffered, defer: false)
-            window.title = "Miaou"
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView:
-                ScrollView { MenuContent().environmentObject(AppModel.shared) })
-            window.center()
-            self.window = window
-        }
-        AppModel.shared.refresh()
-        window?.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
 /// The petit chat as a full-width banner at the top of the menu window,
@@ -162,20 +165,10 @@ extension ChatonColorMode {
 
 struct MenuContent: View {
     @EnvironmentObject private var model: AppModel
-    @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
-    @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
-    @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
-    @AppStorage("showIcon") private var showIcon: Bool = true
-    @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
-    @AppStorage("language") private var languageRaw: String = "system"
-    @State private var loginError: String?
+    @Environment(\.openWindow) private var openWindow
     @State private var anchorCostText: String = ""
     @State private var anchorError: String?
     @State private var isAddingAnchor: Bool = false
-
-    private var barMode: BarMode {
-        BarMode(rawValue: barModeRaw) ?? .percent
-    }
 
     /// App version from the bundle plist, stamped by `make app` from the
     /// CLI's Cargo.toml version. "dev" when run via `swift run`.
@@ -201,14 +194,6 @@ struct MenuContent: View {
                     Divider()
                     liveSection(dashboard)
                 }
-                Divider()
-                analyticsSection(dashboard)
-                if !dashboard.projects.isEmpty {
-                    Divider()
-                    projectsSection(dashboard)
-                }
-                Divider()
-                displaySection
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -228,6 +213,12 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                 Divider()
                     .frame(height: 12)
+                Button(L10n.t("window.open")) {
+                    openWindow(id: "main")
+                    MainWindowFocus.activate()
+                }
+                Divider()
+                    .frame(height: 12)
                 Button(L10n.t("quit.button")) {
                     NSApplication.shared.terminate(nil)
                 }
@@ -237,79 +228,6 @@ struct MenuContent: View {
         .padding(12)
         .frame(minWidth: 300)
         .onAppear { model.refresh() }
-        .onChange(of: languageRaw) { _ in model.publishWidget() }
-    }
-
-    private var displaySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.t("settings.headline")).font(.headline)
-            Picker(L10n.t("bar.picker"), selection: Binding(
-                get: { barModeRaw },
-                set: { raw in
-                    barModeRaw = raw
-                    // A bar without text needs its icon: turn it on.
-                    if BarMode(rawValue: raw) == BarMode.none { showIcon = true }
-                }
-            )) {
-                ForEach(BarMode.allCases) { mode in
-                    Text(mode.label).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            // Rebuild on language change: segmented pickers keep their
-            // initial segment titles otherwise, leaving stale labels.
-            .id(languageRaw)
-            Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
-                .font(.caption)
-                .disabled(barMode == .none)
-            Toggle(L10n.t("login.toggle"), isOn: Binding(
-                get: { SMAppService.mainApp.status == .enabled },
-                set: { enabled in
-                    do {
-                        if enabled {
-                            try SMAppService.mainApp.register()
-                        } else {
-                            try SMAppService.mainApp.unregister()
-                        }
-                        loginError = nil
-                    } catch {
-                        loginError = error.localizedDescription
-                    }
-                }
-            ))
-            .font(.caption)
-            Picker(L10n.t("settings.language"), selection: $languageRaw) {
-                Text(L10n.t("language.system")).tag("system")
-                Text(L10n.t("language.french")).tag("fr")
-                Text(L10n.t("language.english")).tag("en")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .font(.caption)
-            if let loginError {
-                Text(loginError)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
-            }
-            Text(L10n.t("icon.headline")).font(.headline)
-            Picker(L10n.t("icon.headline"), selection: $barIconRaw) {
-                ForEach(BarIconStyle.allCases) { style in
-                    Text(style.label).tag(style.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .id(languageRaw)
-            Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
-                ForEach(ChatonColorMode.allCases) { mode in
-                    Text(mode.label).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .id(languageRaw)
-        }
     }
 
     private func budgetSection(_ dashboard: DashboardReport) -> some View {
@@ -458,90 +376,6 @@ struct MenuContent: View {
 
     private func liveSection(_ dashboard: DashboardReport) -> some View {
         LiveSessionsFold(dashboard: dashboard)
-    }
-
-    private func dailyChart(_ dashboard: DashboardReport) -> some View {
-        DailyChartView(days: dashboard.daily.suffix(14))
-    }
-
-    private func projectsSection(_ dashboard: DashboardReport) -> some View {
-        let total = dashboard.projects.map { $0.totalTokens }.reduce(0, +)
-        let top = dashboard.projects.sorted { $0.totalTokens > $1.totalTokens }.prefix(5)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(L10n.t("projects.headline")).font(.headline)
-            ForEach(Array(top), id: \.key) { row in
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack {
-                        Text(row.key).font(.caption)
-                        Spacer()
-                        let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
-                        Text(String(format: "%.0f%%, %@ tok", share, formatTokens(Double(row.totalTokens))))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    ProgressView(value: Double(row.totalTokens), total: Double(max(total, 1)))
-                        .frame(height: 4)
-                }
-            }
-        }
-    }
-
-    private func analyticsSection(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                tabButton(L10n.t("tab.daily"), tab: "daily")
-                tabButton(L10n.t("tab.monthly"), tab: "monthly")
-                tabButton(L10n.t("tab.sessions"), tab: "sessions")
-            }
-            switch analyticsTab {
-            case "monthly":
-                monthlyTable(dashboard)
-            case "sessions":
-                sessionsTable(dashboard)
-            default:
-                dailyChart(dashboard)
-            }
-        }
-    }
-
-    private func tabButton(_ label: String, tab: String) -> some View {
-        Button {
-            analyticsTab = tab
-        } label: {
-            Text(label)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(analyticsTab == tab ? Color.accentColor.opacity(0.25) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func monthlyTable(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(dashboard.monthly, id: \.key) { row in
-                HStack {
-                    Text(row.key).font(.caption)
-                    Spacer()
-                    Text(L10n.t("row.req_tok", row.requests, formatTokens(Double(row.totalTokens))))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    if let cost = row.costUsd {
-                        Text(String(format: "%.2f %@", cost, dashboard.currency))
-                            .font(.caption2)
-                    }
-                }
-            }
-        }
-    }
-
-    private func sessionsTable(_ dashboard: DashboardReport) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(dashboard.sessions.prefix(8)) { s in
-                SessionFold(row: s, currency: dashboard.currency)
-            }
-        }
     }
 
     private func overTint(_ dashboard: DashboardReport) -> Color {
@@ -740,7 +574,7 @@ extension View {
     }
 }
 
-private func sessionDetail(_ key: String, _ value: String) -> some View {
+func sessionDetail(_ key: String, _ value: String) -> some View {
     HStack(spacing: 4) {
         Text(key)
             .font(.caption2)
@@ -751,7 +585,7 @@ private func sessionDetail(_ key: String, _ value: String) -> some View {
     }
 }
 
-private func sessionDateTime(_ ms: Int) -> String {
+func sessionDateTime(_ ms: Int) -> String {
     let formatter = DateFormatter()
     formatter.locale = L10n.locale
     formatter.setLocalizedDateFormatFromTemplate("d MMM HH:mm")
@@ -765,6 +599,8 @@ private func sessionDateTime(_ ms: Int) -> String {
 /// French) instead of scientific notation.
 struct DailyChartView: View {
     let days: ArraySlice<PeriodRow>
+    /// Chart height: compact in the menu bar, taller in the main window.
+    var height: CGFloat = 110
 
     @State private var hoveredKey: String?
 
@@ -853,7 +689,7 @@ struct DailyChartView: View {
                     }
                 }
             }
-            .frame(height: 110)
+            .frame(height: height)
         }
     }
 

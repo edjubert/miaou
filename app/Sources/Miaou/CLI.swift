@@ -13,8 +13,9 @@ struct TotalsReport: Codable, Equatable {
     let costUsd: Double?
 }
 
-struct PeriodRow: Codable, Equatable {
+struct PeriodRow: Codable, Equatable, Identifiable {
     let key: String
+    var id: String { key }
     let sessions: Int
     let requests: Int
     let inputTokens: Int
