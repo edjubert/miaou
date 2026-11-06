@@ -103,6 +103,22 @@ final class ChatonTests: XCTestCase {
         XCTAssertEqual(Chaton.silhouettes.count, Chaton.frames.count)
     }
 
+    func testWidgetDotSlotsKeepAllPosesInTheSameLayout() {
+        let size = CGSize(width: 230, height: 110)
+        let slots = Chaton.dotSlots(size: size)
+        let byID = Dictionary(uniqueKeysWithValues: slots.map { ($0.id, $0.rect) })
+        let allIDs = Set(Chaton.frames.flatMap { $0.map(Chaton.key) })
+        XCTAssertEqual(Set(byID.keys), allIDs)
+        XCTAssertEqual(slots.count, allIDs.count)
+        for (index, frame) in Chaton.frames.enumerated() {
+            for (cell, dot) in zip(frame, Chaton.dotRects(frame: index, size: size)) {
+                XCTAssertEqual(byID[Chaton.key(cell)], dot.rect,
+                               "A dot must not move when its visibility changes.")
+                XCTAssertTrue(CGRect(origin: .zero, size: size).contains(dot.rect))
+            }
+        }
+    }
+
     func testChatonColorModes() {
         // Always color.
         XCTAssertEqual(MistralIcon.palette(live: true, mode: .color), MistralLogo.brand)

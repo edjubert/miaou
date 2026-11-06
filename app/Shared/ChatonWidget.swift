@@ -89,27 +89,34 @@ struct ChatonWidgetProvider: AppIntentTimelineProvider {
     }
 }
 
-/// The chaton as a SwiftUI Canvas: WidgetKit does not reliably rasterize
-/// NSImages built from a raw CGContext bitmap (they show up as a gray
-/// placeholder), so the glyph is drawn natively. Brand colors while a
-/// session is active, grayscale otherwise, like the menu bar's session
-/// color mode.
+/// Each possible dot keeps the same view identity across all poses.
+/// WidgetKit crossfades Canvas snapshots even with an identity content
+/// transition, so animate visibility on native shapes with zero duration.
 @available(macOS 14.0, *)
 struct ChatonGlyphView: View {
     let frame: Int
     let live: Bool
 
     var body: some View {
-        Canvas { context, size in
+        GeometryReader { geometry in
             let palette: [Color] = (live ? MistralLogo.brand : MistralLogo.grayscale)
                 .map(Color.init(nsColor:))
-            for dot in Chaton.dotRects(frame: frame, size: size) {
-                context.fill(Path(dot.rect),
-                             with: .color(palette[min(4, dot.row * 5 / 12)]))
+            let index = min(max(frame, 0), Chaton.frames.count - 1)
+            let visible = Set(Chaton.frames[index].map(Chaton.key))
+            ZStack(alignment: .topLeading) {
+                ForEach(Chaton.dotSlots(size: geometry.size), id: \.id) { dot in
+                    let opacity = visible.contains(dot.id) ? 1.0 : 0.0
+                    Rectangle()
+                        .fill(palette[min(4, dot.row * 5 / 12)])
+                        .frame(width: dot.rect.width, height: dot.rect.height)
+                        .position(x: dot.rect.midX, y: dot.rect.midY)
+                        .opacity(opacity)
+                        .animation(.linear(duration: 0), value: opacity)
+                }
             }
         }
-        .contentTransition(.identity)
         .transition(.identity)
+        .animation(.linear(duration: 0), value: frame)
     }
 }
 
@@ -123,12 +130,6 @@ struct MiaouChatonWidgetView: View {
         ChatonGlyphView(frame: entry.frame, live: entry.active)
             .padding(family == .systemSmall ? 16 : 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Each pose is already an animation frame. WidgetKit's
-            // implicit interpolation must not blend adjacent dot grids.
-            .transaction {
-                $0.animation = nil
-                $0.disablesAnimations = true
-            }
             .containerBackground(for: .widget) {
                 Color(nsColor: .windowBackgroundColor)
             }

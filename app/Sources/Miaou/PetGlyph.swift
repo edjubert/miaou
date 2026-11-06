@@ -147,6 +147,22 @@ extension PetGlyph {
     /// fixed crop as the banner so changing poses never shifts the pet.
     static func dotRects(frame: Int, size: CGSize) -> [(rect: CGRect, row: Int)] {
         let index = min(max(frame, 0), frames.count - 1)
+        return dotRects(cells: frames[index], size: size)
+    }
+
+    /// All possible dots have stable identities and positions; only
+    /// their opacity changes when WidgetKit advances to another pose.
+    static func dotSlots(size: CGSize) -> [(id: Int, rect: CGRect, row: Int)] {
+        let animationCells = Set(frames.flatMap { $0.map(key) }).sorted().map {
+            (col: $0 / 32, row: $0 % 32)
+        }
+        return zip(animationCells, dotRects(cells: animationCells, size: size)).map {
+            (key($0.0), $0.1.rect, $0.1.row)
+        }
+    }
+
+    private static func dotRects(cells: [(col: Int, row: Int)],
+                                 size: CGSize) -> [(rect: CGRect, row: Int)] {
         let window = barWindow
         let cell = min(size.width / window.width, size.height / window.height)
         let dot = cell * 0.85
@@ -155,7 +171,7 @@ extension PetGlyph {
         let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2
         let offsetX = (size.width - window.width * cell) / 2
         let offsetY = (size.height - window.height * cell) / 2
-        return frames[index].map { c in
+        return cells.map { c in
             let x = offsetX + (marginX + CGFloat(c.col - minCol) - window.minX) * cell + inset
             let y = offsetY + (marginY + CGFloat(c.row - minRow) - window.minY) * cell + inset
             return (CGRect(x: x, y: y, width: dot, height: dot), c.row)
