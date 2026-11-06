@@ -272,8 +272,8 @@ enum BarPet: String, CaseIterable, Identifiable {
 
     var frameCount: Int {
         switch self {
-        case .chaton: return Chaton.frames.count
-        case .chonk: return Chonk.frames.count
+        case .chaton: return Chaton.transitions.count + 1
+        case .chonk: return Chonk.transitions.count + 1
         }
     }
 
@@ -283,7 +283,7 @@ enum BarPet: String, CaseIterable, Identifiable {
     var restFrame: Int {
         switch self {
         case .chaton: return 14
-        case .chonk: return Chonk.frames.count - 1
+        case .chonk: return frameCount - 1
         }
     }
 

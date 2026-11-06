@@ -17,72 +17,62 @@ struct ChatonWidgetFrame: Equatable {
     let active: Bool
 }
 
-/// Pure timeline plan for the chaton widget, kept free of WidgetKit so
-/// the app target and the tests can exercise it. WidgetKit cannot run
-/// timers in an extension, so the animation is a timeline of entries
-/// spaced one `Chaton.frameInterval` apart over a full cycle, and the
-/// reload policy asks for the next cycle right after the last entry.
+/// WidgetKit receives several cycles ahead of time, with one entry per
+/// pose change and a single held entry for each sleeping pause. Every
+/// reload samples the shared clock rather than restarting at frame 1.
 struct ChatonWidgetPlan {
     /// Widget kind of the chaton widget, shared with the app-side
     /// publisher that reloads it.
     static let chatonKind = "MiaouChaton"
 
-    /// One full animation cycle: 26 transitions of `frameInterval`.
-    static let cycleDuration: TimeInterval = 26 * Chaton.frameInterval
+    static let timelineDuration: TimeInterval = 15 * 60
+    private static let reloadLead: TimeInterval = 60
 
     let entries: [ChatonWidgetFrame]
     let reloadAfter: Date
 
-    /// Plans the entries from `now`. In `.session` mode the animation
-    /// stops at the snapshot's activity expiration and freezes on the
-    /// rest pose; otherwise it loops cycle after cycle. When not
-    /// animating, the rest pose is shown and the widget wakes up at the
-    /// snapshot's own deadlines (activity expiration, staleness, day
-    /// and month boundaries) like the usage widget does.
     static func make(now: Date = Date(),
                      mode: ChatonAnimationMode,
                      snapshot: MiaouWidgetSnapshot?) -> Self {
         let active = snapshot?.isActive(at: now) ?? false
-        if mode == .always || active {
-            let cycleEnd = now.addingTimeInterval(cycleDuration)
-            let limit = if mode == .session, let expires = snapshot?.activityExpiresAt {
-                min(expires, cycleEnd)
-            } else {
-                cycleEnd
-            }
-            // Dates are computed by index, not accumulated: repeated
-            // += frameInterval drifts and can add a 27th entry.
-            var entries: [ChatonWidgetFrame] = []
-            var frame = 1
-            var index = 0
-            while now.addingTimeInterval(TimeInterval(index) * Chaton.frameInterval) < limit {
-                entries.append(ChatonWidgetFrame(
-                    date: now.addingTimeInterval(TimeInterval(index) * Chaton.frameInterval),
-                    frame: frame, active: active))
-                frame = Chaton.nextFrame(after: frame)
-                index += 1
-            }
-            if mode == .session, let expires = snapshot?.activityExpiresAt,
-               expires > now, expires <= cycleEnd {
-                entries.append(ChatonWidgetFrame(date: expires, frame: Chaton.restFrame,
-                                                 active: false))
-                return Self(entries: entries,
-                            reloadAfter: expires.addingTimeInterval(Chaton.frameInterval))
-            }
-            return Self(entries: entries,
-                        reloadAfter: now.addingTimeInterval(TimeInterval(entries.count) * Chaton.frameInterval))
+        guard mode == .always || active else {
+            return Self(entries: [ChatonWidgetFrame(date: now, frame: Chaton.restFrame,
+                                                    active: false)],
+                        reloadAfter: now.addingTimeInterval(60))
         }
+
+        let end = now.addingTimeInterval(timelineDuration)
+        // isActive also expires on stale data and a new calendar month.
+        let activityEnd: Date? = if active, let snapshot {
+            [snapshot.activityExpiresAt,
+             snapshot.updatedAt.addingTimeInterval(MiaouWidgetSnapshot.staleInterval),
+             Calendar.current.dateInterval(of: .month, for: now)?.end]
+                .compactMap { $0 }.min()
+        } else {
+            nil
+        }
+        let limit = mode == .session ? min(activityEnd ?? end, end) : end
         var dates = [now]
-        if let snapshot {
-            dates += [snapshot.activityExpiresAt,
-                      snapshot.updatedAt.addingTimeInterval(MiaouWidgetSnapshot.staleInterval),
-                      Calendar.current.dateInterval(of: .day, for: now)?.end,
-                      Calendar.current.dateInterval(of: .month, for: now)?.end]
-                .compactMap { $0 }
+        var next = ChatonAnimation.pose(at: now).nextChange
+        while next < limit {
+            dates.append(next)
+            next = ChatonAnimation.pose(at: next).nextChange
         }
-        let wakeups = Set(dates).filter { $0 > now }.sorted()
-        return Self(entries: ([now] + wakeups).map {
-            ChatonWidgetFrame(date: $0, frame: Chaton.restFrame, active: active)
-        }, reloadAfter: now.addingTimeInterval(60))
+        // Expiration can happen in the middle of a sleeping pause:
+        // update the palette (and freeze in session mode) immediately.
+        if let activityEnd, activityEnd <= end {
+            dates.append(activityEnd)
+        }
+        let entries = Set(dates).sorted().map { date in
+            let live = activityEnd.map { date < $0 } ?? false
+            return ChatonWidgetFrame(
+                date: date,
+                frame: mode == .session && !live ? Chaton.restFrame :
+                    ChatonAnimation.pose(at: date).frame,
+                active: live)
+        }
+        return Self(entries: entries,
+                    reloadAfter: min(end.addingTimeInterval(-reloadLead),
+                                     limit.addingTimeInterval(60)))
     }
 }

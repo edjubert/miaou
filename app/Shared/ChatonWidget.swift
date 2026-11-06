@@ -100,16 +100,16 @@ struct ChatonGlyphView: View {
     let live: Bool
 
     var body: some View {
-        GeometryReader { geometry in
+        Canvas { context, size in
             let palette: [Color] = (live ? MistralLogo.brand : MistralLogo.grayscale)
                 .map(Color.init(nsColor:))
-            Canvas { context, size in
-                for dot in Chaton.dotRects(frame: frame, size: size) {
-                    context.fill(Path(dot.rect),
-                                 with: .color(palette[min(4, dot.row * 5 / 12)]))
-                }
+            for dot in Chaton.dotRects(frame: frame, size: size) {
+                context.fill(Path(dot.rect),
+                             with: .color(palette[min(4, dot.row * 5 / 12)]))
             }
         }
+        .contentTransition(.identity)
+        .transition(.identity)
     }
 }
 
@@ -123,6 +123,12 @@ struct MiaouChatonWidgetView: View {
         ChatonGlyphView(frame: entry.frame, live: entry.active)
             .padding(family == .systemSmall ? 16 : 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Each pose is already an animation frame. WidgetKit's
+            // implicit interpolation must not blend adjacent dot grids.
+            .transaction {
+                $0.animation = nil
+                $0.disablesAnimations = true
+            }
             .containerBackground(for: .widget) {
                 Color(nsColor: .windowBackgroundColor)
             }

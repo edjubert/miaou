@@ -101,9 +101,11 @@ formats. Its configuration offers two animation modes: **Always** loops the
 animation forever, **When a session is active** animates while a Vibe session
 is live (same activity signal as the green dot above) and freezes the cat on
 its rest pose otherwise. The cat uses brand colors while active and turns
-grayscale when idle. WidgetKit has no timers, so the animation is a timeline
-of entries spaced 0.16 s apart over one cycle, reloaded right after the last
-entry.
+grayscale when idle. The widget shares the menu banner's animation clock:
+poses advance every 0.16 s and pause for 5–20 s on the sleeping pose. WidgetKit
+receives 15 minutes of pose changes ahead of time, without crossfades between
+poses. Refreshing the widget or reopening the menu preserves the current
+pose and the remaining pause.
 
 The app publishes display metrics to a private App Group after each refresh.
 The sandboxed widget reads that snapshot; it does not run the CLI or read Vibe

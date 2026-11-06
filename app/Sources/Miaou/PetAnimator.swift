@@ -9,7 +9,7 @@ final class PetAnimator: ObservableObject {
     static let frameInterval: TimeInterval = Chaton.frameInterval
 
     /// How long an in-loop rest lasts.
-    static let restDelay: ClosedRange<Double> = 5...20
+    static let restDelay = ChatonAnimation.restDelay
 
     /// When true, the running loop pauses on the rest pose each time it
     /// reaches it (the window banner). When false, the loop is
@@ -23,6 +23,10 @@ final class PetAnimator: ObservableObject {
 
     private var timer: Timer?
 
+    deinit {
+        timer?.invalidate()
+    }
+
     init(restsInLoop: Bool = false, pet: BarPet = .chaton) {
         self.restsInLoop = restsInLoop
         self.pet = pet
@@ -32,15 +36,23 @@ final class PetAnimator: ObservableObject {
     /// Switches the animated glyph, restarting on its rest pose.
     func setPet(_ newPet: BarPet) {
         guard newPet != pet else { return }
+        let wasActive = timer != nil
+        timer?.invalidate()
+        timer = nil
         pet = newPet
         frame = newPet.restFrame
+        setActive(wasActive)
     }
 
     /// Runs while active, freezes on the rest pose when not.
     func setActive(_ active: Bool) {
         if active {
             if timer == nil {
-                start()
+                if restsInLoop {
+                    updateRestingLoop()
+                } else {
+                    start()
+                }
             }
         } else {
             timer?.invalidate()
@@ -51,19 +63,19 @@ final class PetAnimator: ObservableObject {
 
     private func tick() {
         frame = pet.nextFrame(after: frame)
-        if restsInLoop && frame == pet.restFrame {
-            rest()
-        }
     }
 
-    /// Stays on the rest pose for a while, then runs again.
-    private func rest() {
-        timer?.invalidate()
+    /// Sample the same clock as the widget, including when the banner
+    /// reopens or the run loop delays a tick. Neither restarts a cycle.
+    private func updateRestingLoop() {
+        let now = Date()
+        let pose = ChatonAnimation.pose(at: now, pet: pet)
+        frame = pose.frame
         timer = Timer.scheduledTimer(
-            withTimeInterval: Double.random(in: Self.restDelay),
+            withTimeInterval: max(0.001, pose.nextChange.timeIntervalSince(now)),
             repeats: false
         ) { [weak self] _ in
-            self?.start()
+            self?.updateRestingLoop()
         }
     }
 
