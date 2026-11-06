@@ -10,7 +10,7 @@ final class WidgetTests: XCTestCase {
                             outputTokens: 100, cachedInputTokens: 800, totalTokens: 1000, costUsd: used)
         return DashboardReport(
             generatedAtMs: Int(date.timeIntervalSince1970 * 1000), today: day.key,
-            currentMonth: MiaouWidgetSnapshot.monthKey(date), currency: "€", plan: nil,
+            currentMonth: MiaouWidgetSnapshot.monthKey(date), activeModel: nil, currency: "€", plan: nil,
             totals: totals, todayTotals: totals, monthToDate: totals,
             budgetStatus: BudgetStatusReport(
                 month: MiaouWidgetSnapshot.monthKey(date), usedUsd: used, usedTokens: 1000,

@@ -43,6 +43,7 @@
 /* Icon settings */
 "iconStyle.logo" = "Logo";
 "iconStyle.chaton" = "Chaton";
+"iconStyle.chonk" = "Le Chonk";
 "colorMode.session" = "Session";
 "colorMode.color" = "Color";
 "colorMode.grayscale" = "Grayscale";

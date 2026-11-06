@@ -43,13 +43,13 @@ final class ChatonTests: XCTestCase {
 
     func testCycleWrapsAfterLastState() {
         // Periodic loop on states 1...26: state 0 is never revisited.
-        XCTAssertEqual(ChatonAnimator.nextFrame(after: 26), 1)
-        XCTAssertEqual(ChatonAnimator.nextFrame(after: 25), 26)
-        XCTAssertEqual(ChatonAnimator.nextFrame(after: 14), 15)
+        XCTAssertEqual(BarPet.chaton.nextFrame(after: 26), 1)
+        XCTAssertEqual(BarPet.chaton.nextFrame(after: 25), 26)
+        XCTAssertEqual(BarPet.chaton.nextFrame(after: 14), 15)
     }
 
     func testRestFrameIsValidCycleState() {
-        let rest = ChatonAnimator.restFrame
+        let rest = BarPet.chaton.restFrame
         XCTAssertGreaterThan(rest, 0)
         XCTAssertLessThan(rest, Chaton.frames.count - 1)
         XCTAssertFalse(Chaton.frames[rest].isEmpty)

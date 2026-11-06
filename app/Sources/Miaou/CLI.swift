@@ -98,10 +98,30 @@ struct ActiveSessionReport: Codable, Equatable {
     var titleSource: String? = nil
 }
 
+/// Vibe's active model, resolved from `config.toml` by the CLI.
+struct ModelRefReport: Codable, Equatable {
+    let name: String
+    let alias: String?
+
+    /// "Le Chonk" is the alias of mistral-large-4; a versioned runtime
+    /// name (`mistral-large-4-0-3`) resolves to the same base. Only
+    /// numeric version tails count, like the CLI's base-name matching.
+    var isChonk: Bool {
+        if alias == "Le Chonk" || name == "mistral-large-4" { return true }
+        let prefix = "mistral-large-4-"
+        guard name.hasPrefix(prefix) else { return false }
+        return name.dropFirst(prefix.count)
+            .split(separator: "-")
+            .allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isNumber) }
+    }
+}
+
 struct DashboardReport: Codable, Equatable {
     let generatedAtMs: Int
     let today: String
     let currentMonth: String
+    /// Vibe's active model, when the CLI can resolve it.
+    let activeModel: ModelRefReport?
     /// Cost display symbol, from the CLI's [display] currency setting.
     let currency: String
     let plan: PlanReport?

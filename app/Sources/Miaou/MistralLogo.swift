@@ -8,6 +8,8 @@ enum BarIconStyle: String, CaseIterable, Identifiable {
     case logo
     /// The Chaton glyph.
     case chaton
+    /// The Chonk glyph (the big cat Vibe shows for the "Le Chonk" model).
+    case chonk
 
     var id: String { rawValue }
 }
@@ -93,16 +95,32 @@ enum MistralLogo {
 enum MistralIcon {
     static let barSize: CGFloat = 16
 
-    /// The chaton is wide: its bar image is not square. The window crop
-    /// is 23 x 11 cells at 6 px each.
+    /// The pets are wide: their bar images are not square. The chaton
+    /// window crop is 23 x 11 cells, the chonk's is 25 x 11, at 6 px each.
     static let chatonBarPoints = NSSize(width: barSize * 23 / 11, height: barSize)
     private static let chatonBarPixels = CGSize(width: 138, height: 66)
+    static let chonkBarPoints = NSSize(
+        width: barSize * Chonk.barWindow.width / Chonk.barWindow.height,
+        height: barSize
+    )
+    private static let chonkBarPixels = CGSize(
+        width: Chonk.barWindow.width * 6,
+        height: Chonk.barWindow.height * 6
+    )
     private static let logoPixels: Int = 64
 
-    /// Full-width banner of the menu window header: the chaton at the
+    /// Full-width banner of the menu window header: the pet at the
     /// window width, with 2x backing to stay crisp.
     private static let bannerPoints = NSSize(width: 287.5, height: 137.5)
     private static let bannerPixels = CGSize(width: 575, height: 275)
+    private static let chonkBannerPoints = NSSize(
+        width: 287.5,
+        height: 287.5 * Chonk.barWindow.height / Chonk.barWindow.width
+    )
+    private static let chonkBannerPixels = CGSize(
+        width: chonkBannerPoints.width * 2,
+        height: chonkBannerPoints.height * 2
+    )
 
     private static var cache: [String: NSImage] = [:]
 
@@ -126,6 +144,12 @@ enum MistralIcon {
             image = rasterize(pixels: pixels, points: chatonBarPoints) { context in
                 Chaton.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
             }
+        case .chonk:
+            let palette = palette(live: live, mode: colorMode)
+            let pixels = chonkBarPixels
+            image = rasterize(pixels: pixels, points: chonkBarPoints) { context in
+                Chonk.drawBar(frame: frame, in: context, pixels: pixels, palette: palette)
+            }
         }
         cache[key] = image
         return image
@@ -141,13 +165,17 @@ enum MistralIcon {
     }
 
     /// The animated banner of the menu window header.
-    static func bannerImage(frame: Int, colorMode: ChatonColorMode = .session) -> NSImage {
-        let key = "banner-\(frame)-\(colorMode.rawValue)"
+    static func bannerImage(frame: Int, pet: BarPet = .chaton, colorMode: ChatonColorMode = .session) -> NSImage {
+        let key = "banner-\(pet.rawValue)-\(frame)-\(colorMode.rawValue)"
         if let cached = cache[key] { return cached }
-        let pixels = bannerPixels
+        let (points, pixels): (NSSize, CGSize)
+        switch pet {
+        case .chaton: (points, pixels) = (bannerPoints, bannerPixels)
+        case .chonk: (points, pixels) = (chonkBannerPoints, chonkBannerPixels)
+        }
         let palette = palette(live: true, mode: colorMode)
-        let image = rasterize(pixels: pixels, points: bannerPoints) { context in
-            Chaton.drawBanner(frame: frame, in: context, pixels: pixels, palette: palette)
+        let image = rasterize(pixels: pixels, points: points) { context in
+            pet.drawBanner(frame: frame, in: context, pixels: pixels, palette: palette)
         }
         cache[key] = image
         return image

@@ -11,7 +11,7 @@ build:
 
 icon:
 	mkdir -p .build
-	swiftc scripts/icon/main.swift Sources/Miaou/MistralLogo.swift Sources/Miaou/Chaton.swift -o .build/icongen
+	swiftc scripts/icon/main.swift Sources/Miaou/MistralLogo.swift Sources/Miaou/PetGlyph.swift Sources/Miaou/Chaton.swift Sources/Miaou/Chonk.swift -o .build/icongen
 	.build/icongen Resources/AppIcon.icns
 
 app:

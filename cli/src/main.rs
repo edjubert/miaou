@@ -328,6 +328,12 @@ fn main() {
                     "today": today,
                     "current_month": current_month,
                     "plan": plan,
+                    // Resolved active model, so the UI can show the chonk
+                    // when Vibe runs "Le Chonk".
+                    "active_model": vibe_config.resolve(None).map(|m| serde_json::json!({
+                        "name": m.name,
+                        "alias": m.alias,
+                    })),
                     "totals": grand,
                     "today_totals": today_totals,
                     "month_to_date": mtd,

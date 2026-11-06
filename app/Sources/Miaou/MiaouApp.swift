@@ -51,7 +51,7 @@ struct OpenMainWindowCommand: View {
 /// observed view does.
 struct BarLabel: View {
     @ObservedObject private var model = AppModel.shared
-    @StateObject private var animator = ChatonAnimator()
+    @StateObject private var animator = PetAnimator()
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
@@ -74,17 +74,33 @@ struct BarLabel: View {
         showIcon || mode == .none
     }
 
-    /// The chaton loops while a session is live, and rests on its
+    /// The glyph actually shown: the chonk when Vibe's active model is
+    /// Le Chonk (like the Vibe CLI banner), unless the logo is selected.
+    private var pet: BarPet? {
+        switch style {
+        case .logo: return nil
+        case .chonk: return .chonk
+        case .chaton: return model.isChonkModel ? .chonk : .chaton
+        }
+    }
+
+    /// The icon style matching the pet: a chonk model turns a chaton
+    /// selection into the chonk glyph.
+    private var effectiveStyle: BarIconStyle {
+        pet == .chonk ? .chonk : style
+    }
+
+    /// The pet loops while a session is live, and rests on its
     /// sleeping pose otherwise.
     private var animate: Bool {
-        style == .chaton && model.hasLiveSessions
+        pet != nil && model.hasLiveSessions
     }
 
     var body: some View {
         HStack(spacing: 4) {
             if showsIcon {
                 Image(nsImage: MistralIcon.image(
-                    style: style,
+                    style: effectiveStyle,
                     live: model.hasLiveSessions,
                     frame: animator.frame,
                     colorMode: colorMode
@@ -94,9 +110,15 @@ struct BarLabel: View {
                 Text(model.barTitle(mode: mode))
             }
         }
-        .onAppear { animator.setActive(animate) }
+        .onAppear {
+            if let pet { animator.setPet(pet) }
+            animator.setActive(animate)
+        }
         .onChange(of: animate) { active in
             animator.setActive(active)
+        }
+        .onChange(of: pet) { newPet in
+            if let newPet { animator.setPet(newPet) }
         }
     }
 }
@@ -114,15 +136,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
-/// The petit chat as a full-width banner at the top of the menu window,
+/// The pet as a full-width banner at the top of the menu window,
 /// looping like the Vibe CLI banner it comes from, resting a while on
-/// its sleeping pose each time the cycle reaches it.
-struct ChatonBanner: View {
-    @StateObject private var animator = ChatonAnimator(restsInLoop: true)
+/// its rest pose each time the cycle reaches it. Shows the chonk when
+/// Vibe's active model is Le Chonk, the petit chat otherwise.
+struct PetBanner: View {
+    @ObservedObject private var model = AppModel.shared
+    @StateObject private var animator = PetAnimator(restsInLoop: true)
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
 
     private var colorMode: ChatonColorMode {
         ChatonColorMode(rawValue: chatonColorRaw) ?? .session
+    }
+
+    private var pet: BarPet {
+        model.isChonkModel ? .chonk : .chaton
     }
 
     // Fixed height: a resizable image with aspectRatio fit has no
@@ -131,13 +159,19 @@ struct ChatonBanner: View {
     static let height: CGFloat = 132
 
     var body: some View {
-        Image(nsImage: MistralIcon.bannerImage(frame: animator.frame, colorMode: colorMode))
+        Image(nsImage: MistralIcon.bannerImage(frame: animator.frame, pet: pet, colorMode: colorMode))
             .resizable()
-            .aspectRatio(23.0 / 11.0, contentMode: .fit)
+            .aspectRatio(pet.barWindow.width / pet.barWindow.height, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .frame(height: Self.height)
-            .onAppear { animator.setActive(true) }
+            .onAppear {
+                animator.setPet(pet)
+                animator.setActive(true)
+            }
             .onDisappear { animator.setActive(false) }
+            .onChange(of: pet) { newPet in
+                animator.setPet(newPet)
+            }
     }
 }
 
@@ -149,6 +183,7 @@ extension BarIconStyle {
         switch self {
         case .logo: return L10n.t("iconStyle.logo")
         case .chaton: return L10n.t("iconStyle.chaton")
+        case .chonk: return L10n.t("iconStyle.chonk")
         }
     }
 }
@@ -178,7 +213,7 @@ struct MenuContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ChatonBanner()
+            PetBanner()
             if let error = model.lastError {
                 Text(error)
                     .font(.caption)

@@ -1,16 +1,12 @@
 import SwiftUI
 
-/// Drives the petit chat animation in the menu bar label. Advances one
-/// frame every 0.16 s like the Vibe CLI banner. When inactive, the
-/// chaton freezes on the rest pose. An animator can also rest in its
-/// loop: each time the running cycle reaches the rest pose, it stays
-/// there for a while, like the original banner.
-final class ChatonAnimator: ObservableObject {
+/// Drives a pet glyph animation in the menu bar label. Advances one
+/// frame every 0.16 s like the Vibe CLI banner. When inactive, the pet
+/// freezes on the rest pose. An animator can also rest in its loop: each
+/// time the running cycle reaches the rest pose, it stays there for a
+/// while, like the original banner.
+final class PetAnimator: ObservableObject {
     static let frameInterval: TimeInterval = 0.16
-
-    /// The pose the chaton freezes on when it does not move: head down,
-    /// eyes closed.
-    static let restFrame = 14
 
     /// How long an in-loop rest lasts.
     static let restDelay: ClosedRange<Double> = 5...20
@@ -20,19 +16,24 @@ final class ChatonAnimator: ObservableObject {
     /// uninterrupted (the bar, which freezes as a whole when inactive).
     let restsInLoop: Bool
 
-    @Published private(set) var frame = ChatonAnimator.restFrame
+    /// The glyph being animated.
+    private(set) var pet: BarPet
+
+    @Published private(set) var frame: Int
 
     private var timer: Timer?
 
-    init(restsInLoop: Bool = false) {
+    init(restsInLoop: Bool = false, pet: BarPet = .chaton) {
         self.restsInLoop = restsInLoop
+        self.pet = pet
+        self.frame = pet.restFrame
     }
 
-    /// Next state in the cycle. The animation is periodic on states
-    /// 1...26: after the last state, the first transition brings back
-    /// the second one. State 0 is only the departure pose.
-    static func nextFrame(after frame: Int) -> Int {
-        frame == Chaton.frames.count - 1 ? 1 : frame + 1
+    /// Switches the animated glyph, restarting on its rest pose.
+    func setPet(_ newPet: BarPet) {
+        guard newPet != pet else { return }
+        pet = newPet
+        frame = newPet.restFrame
     }
 
     /// Runs while active, freezes on the rest pose when not.
@@ -44,13 +45,13 @@ final class ChatonAnimator: ObservableObject {
         } else {
             timer?.invalidate()
             timer = nil
-            frame = Self.restFrame
+            frame = pet.restFrame
         }
     }
 
     private func tick() {
-        frame = Self.nextFrame(after: frame)
-        if restsInLoop && frame == Self.restFrame {
+        frame = pet.nextFrame(after: frame)
+        if restsInLoop && frame == pet.restFrame {
             rest()
         }
     }

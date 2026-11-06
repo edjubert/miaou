@@ -385,7 +385,7 @@ struct MainWindow: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .id(languageRaw)
+                .id("barMode-\(languageRaw)")
                 Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
                     .disabled(barMode == .none)
                 Toggle(L10n.t("login.toggle"), isOn: Binding(
@@ -420,14 +420,14 @@ struct MainWindow: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .id(languageRaw)
+                .id("iconStyle-\(languageRaw)")
                 Picker(L10n.t("colorMode.picker"), selection: $chatonColorRaw) {
                     ForEach(ChatonColorMode.allCases) { mode in
                         Text(mode.label).tag(mode.rawValue)
                     }
                 }
                 .pickerStyle(.segmented)
-                .id(languageRaw)
+                .id("colorMode-\(languageRaw)")
             }
             Section {
                 Button(L10n.t("settings.reset")) { resetSettings() }

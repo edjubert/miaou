@@ -132,6 +132,12 @@ final class AppModel: ObservableObject {
         dashboard?.liveSessions.isEmpty == false
     }
 
+    /// True when Vibe's active model is Le Chonk (mistral-large-4): the
+    /// pets then show the big cat, like the Vibe CLI banner.
+    var isChonkModel: Bool {
+        dashboard?.activeModel?.isChonk ?? false
+    }
+
     /// Watch `logs/session/active` for lock files appearing or going away.
     /// Mirrors the CLI's VIBE_HOME resolution. The directory is created by
     /// Vibe, so a failed open is retried on every refresh.

@@ -59,7 +59,8 @@ def project(identity, team):
     shared = sorted((APP / "Shared").glob("*.swift"))
     app_sources = sorted((APP / "Sources/Miaou").glob("*.swift")) + shared
     widget_sources = [APP / "Widget/MiaouWidget.swift"] + shared + [
-        APP / "Sources/Miaou" / name for name in ["L10n.swift", "MistralLogo.swift", "Chaton.swift"]]
+        APP / "Sources/Miaou" / name for name in [
+            "L10n.swift", "MistralLogo.swift", "PetGlyph.swift", "Chaton.swift", "Chonk.swift"]]
     references = {
         path: obj("PBXFileReference", lastKnownFileType="sourcecode.swift",
                   path=str(path), sourceTree="<absolute>")

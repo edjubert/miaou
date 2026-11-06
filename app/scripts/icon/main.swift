@@ -2,7 +2,7 @@
 // Draws the petit chat (the dotted cat of the Vibe CLI banner) on a
 // near-black rounded background. Run via `make icon`.
 //
-// swiftc scripts/icon/main.swift Sources/Miaou/MistralLogo.swift Sources/Miaou/Chaton.swift -o build/icongen
+// swiftc scripts/icon/main.swift Sources/Miaou/MistralLogo.swift Sources/Miaou/PetGlyph.swift Sources/Miaou/Chaton.swift Sources/Miaou/Chonk.swift -o build/icongen
 // ./build/icongen Resources/AppIcon.icns
 
 import AppKit

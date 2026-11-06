@@ -14,6 +14,7 @@ final class DecodeTests: XCTestCase {
         "today": "2026-09-28",
         "current_month": "2026-09",
         "plan": ["plan_type": "chat", "plan_name": "INDIVIDUAL", "organization_kind": "S"] as [String: Any],
+        "active_model": ["name": "mistral-large-4", "alias": "Le Chonk"] as [String: Any],
         "totals": ["requests": 100, "input_tokens": 1000, "output_tokens": 50,
                    "cached_input_tokens": 900, "total_tokens": 1050, "cost_usd": nil] as [String: Any?],
         "today_totals": ["requests": 10, "input_tokens": 100, "output_tokens": 5,
@@ -50,6 +51,8 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(report.today, "2026-09-28")
         XCTAssertEqual(report.currency, "€")
         XCTAssertEqual(report.plan?.planName, "INDIVIDUAL")
+        XCTAssertEqual(report.activeModel?.name, "mistral-large-4")
+        XCTAssertTrue(report.activeModel?.isChonk == true)
         XCTAssertNil(report.budgetStatus.usedUsd)
         XCTAssertEqual(report.budgetStatus.usedTokens, 945)
         XCTAssertEqual(report.budgetStatus.budget.monthlyUsd, 255.0)
@@ -95,6 +98,16 @@ final class DecodeTests: XCTestCase {
         XCTAssertNil(report.anchor)
     }
 
+    /// An older CLI does not emit `active_model`: decoding must stay
+    /// lenient and report a non-chonk model.
+    func testDashboardDecodesWithoutActiveModel() throws {
+        var legacy = sample
+        legacy.removeValue(forKey: "active_model")
+        let data = try JSONSerialization.data(withJSONObject: legacy)
+        let report = try decoder.decode(DashboardReport.self, from: data)
+        XCTAssertNil(report.activeModel)
+    }
+
     func testEffectiveUsdRespectsOverageFlag() throws {
         let withOverage = BudgetReport(monthlyUsd: 255.0, overageUsd: 50.0,
                                       overageAllowed: true, monthlyTokens: nil)
@@ -122,6 +135,7 @@ final class DecodeTests: XCTestCase {
             generatedAtMs: 1,
             today: "2026-09-29",
             currentMonth: "2026-09",
+            activeModel: nil,
             currency: currency,
             plan: nil,
             totals: TotalsReport(requests: 1, inputTokens: 1, outputTokens: 1,
