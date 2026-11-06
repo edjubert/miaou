@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
 ### Added
 
+- Native main window with a sidebar for graphs, projects and settings,
+  metric cards, tables, and a refresh action.
+- Le Chonk in the menu bar and banner, selected automatically when Vibe's
+  active model is Le Chonk or manually in the app's icon settings.
 - Desktop widget **Chaton** (small and medium): shows only the animated cat,
   with a choice of **Chaton** or **Le Chonk** and a parameter to animate always
   or only while a Vibe session is active; brand colors while active, grayscale
@@ -16,8 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The pet widget's **Colors** setting offers session-based colors, always
   in color, or grayscale, independently of the animation mode.
 
+### Changed
+
+- The menu bar focuses on budget, today's usage and active sessions;
+  per-session folds show metadata and unfold on hover.
+
 ### Fixed
 
+- Session activity requires both a held lease and recent metadata;
+  leases held by `vibe-app-server` no longer count as active sessions.
+- App settings use working native pickers and a grouped form.
 - The Chaton widget shares the menu banner's 0.16 s animation steps and
   5–20 s sleeping pauses. Timeline refreshes preserve its pose and pause,
   and pose changes no longer use implicit crossfade transitions.
