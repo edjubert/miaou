@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with a choice of **Chaton** or **Le Chonk** and a parameter to animate always
   or only while a Vibe session is active; brand colors while active, grayscale
   otherwise.
+- The pet widget's **Colors** setting offers session-based colors, always
+  in color, or grayscale, independently of the animation mode.
 
 ### Fixed
 

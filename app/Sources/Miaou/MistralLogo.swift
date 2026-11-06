@@ -37,7 +37,7 @@ func drawBlocks(_ blocks: [GlyphBlock], in context: CGContext, size: CGFloat, pa
 }
 
 /// Color mode shared by both glyphs and the banner.
-enum ChatonColorMode: String, CaseIterable, Identifiable {
+enum ChatonColorMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Brand colors while a session is live, grayscale otherwise.
     case session
     case color

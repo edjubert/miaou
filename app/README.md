@@ -101,8 +101,10 @@ formats. Choose **Chaton** or **Le Chonk** in its **Cat** setting. Existing
 widgets keep Chaton by default. Its configuration offers two animation modes:
 **Always** loops the animation forever, **When a session is active** animates
 while a Vibe session is live (same activity signal as the green dot above) and freezes the cat on
-its rest pose otherwise. The cat uses brand colors while active and turns
-grayscale when idle. The widget shares the menu banner's animation clock:
+its rest pose otherwise. The **Colors** setting offers **By session** (brand
+colors while active, grayscale when idle), **Always in color**, and
+**Grayscale**, independently of the animation mode. By session remains the
+default for existing widgets. The widget shares the menu banner's animation clock:
 poses advance every 0.16 s and pause for 5–20 s on each cat's rest pose
 (the sleeping Chaton or the lying Chonk). WidgetKit
 receives 15 minutes of pose changes ahead of time, without crossfades between

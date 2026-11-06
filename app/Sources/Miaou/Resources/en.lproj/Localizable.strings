@@ -119,6 +119,10 @@
 "widget.chaton.name" = "Chaton";
 "widget.chaton.description" = "The animated Chaton or Le Chonk.";
 "widget.chaton.pet" = "Cat";
+"widget.chaton.color" = "Colors";
+"widget.chaton.color.session" = "By session";
+"widget.chaton.color.color" = "Always in color";
+"widget.chaton.color.grayscale" = "Grayscale";
 "widget.chaton.mode" = "Animation";
 "widget.chaton.mode.always" = "Always";
 "widget.chaton.mode.session" = "When a session is active";

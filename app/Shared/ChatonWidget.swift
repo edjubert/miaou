@@ -41,7 +41,26 @@ extension BarPet: AppEnum {
     }
 }
 
-/// Choose the pet and when it animates in the macOS Edit Widgets panel.
+@available(macOS 14.0, *)
+extension ChatonColorMode: AppEnum {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: LocalizedStringResource(
+            "widget.chaton.color", defaultValue: "Colors"))
+    }
+
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] {
+        [
+            .session: DisplayRepresentation(title: LocalizedStringResource(
+                "widget.chaton.color.session", defaultValue: "By session")),
+            .color: DisplayRepresentation(title: LocalizedStringResource(
+                "widget.chaton.color.color", defaultValue: "Always in color")),
+            .grayscale: DisplayRepresentation(title: LocalizedStringResource(
+                "widget.chaton.color.grayscale", defaultValue: "Grayscale")),
+        ]
+    }
+}
+
+/// Choose the pet, animation and colors in the macOS Edit Widgets panel.
 @available(macOS 14.0, *)
 struct ChatonWidgetConfiguration: WidgetConfigurationIntent {
     static var title = LocalizedStringResource(
@@ -57,13 +76,19 @@ struct ChatonWidgetConfiguration: WidgetConfigurationIntent {
         default: .chaton)
     var pet: BarPet
 
+    @Parameter(title: LocalizedStringResource(
+        "widget.chaton.color", defaultValue: "Colors"),
+        default: .session)
+    var colorMode: ChatonColorMode
+
     init() {
         self.init(mode: .session)
     }
 
-    init(mode: ChatonAnimationMode, pet: BarPet = .chaton) {
+    init(mode: ChatonAnimationMode, pet: BarPet = .chaton, colorMode: ChatonColorMode = .session) {
         self.mode = mode
         self.pet = pet
+        self.colorMode = colorMode
     }
 }
 
@@ -74,6 +99,7 @@ struct ChatonWidgetEntry: TimelineEntry {
     let active: Bool
     let language: String
     let pet: BarPet
+    let colorMode: ChatonColorMode
 }
 
 @available(macOS 14.0, *)
@@ -83,20 +109,22 @@ struct ChatonWidgetProvider: AppIntentTimelineProvider {
 
     func placeholder(in context: Context) -> ChatonWidgetEntry {
         ChatonWidgetEntry(date: Date(), frame: BarPet.chaton.restFrame, active: false,
-                          language: "system", pet: .chaton)
+                          language: "system", pet: .chaton, colorMode: .session)
     }
 
     func snapshot(for configuration: ChatonWidgetConfiguration, in context: Context) async -> ChatonWidgetEntry {
         if context.isPreview {
             return ChatonWidgetEntry(date: Date(), frame: 1, active: true,
-                                     language: "system", pet: configuration.pet)
+                                     language: "system", pet: configuration.pet,
+                                     colorMode: configuration.colorMode)
         }
         let snapshot = MiaouWidgetStorage.shared?.read()
         let plan = ChatonWidgetPlan.make(mode: configuration.mode, snapshot: snapshot,
                                          pet: configuration.pet)
         let pose = plan.entries[0]
         return ChatonWidgetEntry(date: pose.date, frame: pose.frame, active: pose.active,
-                                 language: snapshot?.language ?? "system", pet: configuration.pet)
+                                 language: snapshot?.language ?? "system", pet: configuration.pet,
+                                 colorMode: configuration.colorMode)
     }
 
     func recommendations() -> [AppIntentRecommendation<ChatonWidgetConfiguration>] {
@@ -119,7 +147,8 @@ struct ChatonWidgetProvider: AppIntentTimelineProvider {
         let language = snapshot?.language ?? "system"
         return Timeline(entries: plan.entries.map {
             ChatonWidgetEntry(date: $0.date, frame: $0.frame, active: $0.active,
-                              language: language, pet: configuration.pet)
+                              language: language, pet: configuration.pet,
+                              colorMode: configuration.colorMode)
         }, policy: .after(plan.reloadAfter))
     }
 }
@@ -132,10 +161,11 @@ struct PetGlyphView: View {
     let frame: Int
     let live: Bool
     let pet: BarPet
+    let colorMode: ChatonColorMode
 
     var body: some View {
         GeometryReader { geometry in
-            let palette: [Color] = (live ? MistralLogo.brand : MistralLogo.grayscale)
+            let palette: [Color] = MistralIcon.palette(live: live, mode: colorMode)
                 .map(Color.init(nsColor:))
             let visible = pet.visibleDots(frame: frame)
             let dots = pet.dotSlots(size: geometry.size)
@@ -153,6 +183,7 @@ struct PetGlyphView: View {
         .transition(.identity)
         .animation(.linear(duration: 0), value: frame)
         .animation(.linear(duration: 0), value: pet)
+        .animation(.linear(duration: 0), value: colorMode)
     }
 }
 
@@ -175,7 +206,7 @@ struct MiaouChatonWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        PetGlyphView(frame: entry.frame, live: entry.active, pet: entry.pet)
+        PetGlyphView(frame: entry.frame, live: entry.active, pet: entry.pet, colorMode: entry.colorMode)
             .padding(family == .systemSmall ? 4 : 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .containerBackground(for: .widget) {
