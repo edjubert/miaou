@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Desktop widget **Chaton** (small and medium): shows only the animated cat,
+  with a configuration parameter to animate always or only while a Vibe
+  session is active. The animation is a WidgetKit timeline of entries spaced
+  0.16 s apart over one cycle; brand colors while active, grayscale on the
+  rest pose otherwise.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added

@@ -33,7 +33,6 @@ struct MiaouWidgetProvider: TimelineProvider {
     }
 }
 
-@main
 struct MiaouWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: MiaouWidgetStorage.kind, provider: MiaouWidgetProvider()) { entry in
@@ -42,5 +41,15 @@ struct MiaouWidget: Widget {
         .configurationDisplayName("Miaou")
         .description(LocalizedStringKey("widget.description"))
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+@main
+struct MiaouWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        MiaouWidget()
+        if #available(macOS 14.0, *) {
+            MiaouChatonWidget()
+        }
     }
 }

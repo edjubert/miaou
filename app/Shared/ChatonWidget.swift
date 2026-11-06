@@ -1,0 +1,124 @@
+import Foundation
+import SwiftUI
+import WidgetKit
+#if canImport(AppIntents)
+import AppIntents
+#endif
+
+@available(macOS 14.0, *)
+extension ChatonAnimationMode: AppEnum {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: LocalizedStringResource("widget.chaton.mode"))
+    }
+
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] {
+        [
+            .always: DisplayRepresentation(
+                title: LocalizedStringResource("widget.chaton.mode.always")),
+            .session: DisplayRepresentation(
+                title: LocalizedStringResource("widget.chaton.mode.session")),
+        ]
+    }
+}
+
+/// Widget configuration: how often the chaton animates. The parameter
+/// shows up in the macOS Edit Widgets panel.
+@available(macOS 14.0, *)
+struct ChatonWidgetConfiguration: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "widget.chaton.name"
+
+    @Parameter(title: "widget.chaton.mode", default: .session)
+    var mode: ChatonAnimationMode
+
+    init() {
+        self.init(mode: .session)
+    }
+
+    init(mode: ChatonAnimationMode) {
+        self.mode = mode
+    }
+}
+
+@available(macOS 14.0, *)
+struct ChatonWidgetEntry: TimelineEntry {
+    let date: Date
+    let frame: Int
+    let active: Bool
+    let language: String
+}
+
+@available(macOS 14.0, *)
+struct ChatonWidgetProvider: AppIntentTimelineProvider {
+    typealias Intent = ChatonWidgetConfiguration
+    typealias Entry = ChatonWidgetEntry
+
+    func placeholder(in context: Context) -> ChatonWidgetEntry {
+        ChatonWidgetEntry(date: Date(), frame: Chaton.restFrame, active: false, language: "system")
+    }
+
+    func snapshot(for configuration: ChatonWidgetConfiguration, in context: Context) async -> ChatonWidgetEntry {
+        if context.isPreview {
+            return ChatonWidgetEntry(date: Date(), frame: 1, active: true, language: "system")
+        }
+        let snapshot = MiaouWidgetStorage.shared?.read()
+        let plan = ChatonWidgetPlan.make(mode: configuration.mode, snapshot: snapshot)
+        return plan.entries.first.map {
+            ChatonWidgetEntry(date: $0.date, frame: $0.frame, active: $0.active,
+                              language: snapshot?.language ?? "system")
+        } ?? placeholder(in: context)
+    }
+
+    func recommendations() -> [AppIntentRecommendation<ChatonWidgetConfiguration>] {
+        ChatonAnimationMode.allCases.map { mode in
+            AppIntentRecommendation(
+                intent: ChatonWidgetConfiguration(mode: mode),
+                description: mode == .always
+                    ? LocalizedStringResource("widget.chaton.mode.always")
+                    : LocalizedStringResource("widget.chaton.mode.session"))
+        }
+    }
+
+    func timeline(for configuration: ChatonWidgetConfiguration, in context: Context) async -> Timeline<ChatonWidgetEntry> {
+        let now = Date()
+        let snapshot = MiaouWidgetStorage.shared?.read()
+        let plan = ChatonWidgetPlan.make(now: now, mode: configuration.mode, snapshot: snapshot)
+        let language = snapshot?.language ?? "system"
+        return Timeline(entries: plan.entries.map {
+            ChatonWidgetEntry(date: $0.date, frame: $0.frame, active: $0.active, language: language)
+        }, policy: .after(plan.reloadAfter))
+    }
+}
+
+/// Desktop widget that only shows the animated chaton. Brand colors
+/// while a session is active, grayscale on the rest pose, like the
+/// menu bar's session color mode.
+@available(macOS 14.0, *)
+struct MiaouChatonWidgetView: View {
+    let entry: ChatonWidgetEntry
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        Image(nsImage: MistralIcon.widgetImage(frame: entry.frame, live: entry.active))
+            .resizable()
+            .scaledToFit()
+            .padding(family == .systemSmall ? 16 : 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .containerBackground(for: .widget) {
+                Color(nsColor: .windowBackgroundColor)
+            }
+            .widgetURL(URL(string: "miaou://dashboard"))
+            .accessibilityLabel(L10n.t("widget.chaton.label", language: entry.language))
+    }
+}
+
+@available(macOS 14.0, *)
+struct MiaouChatonWidget: Widget {
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: ChatonWidgetPlan.chatonKind, provider: ChatonWidgetProvider()) { entry in
+            MiaouChatonWidgetView(entry: entry)
+        }
+        .configurationDisplayName(LocalizedStringResource("widget.chaton.name"))
+        .description(LocalizedStringResource("widget.chaton.description"))
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}

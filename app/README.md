@@ -96,6 +96,15 @@ Click the widget background to open the dashboard. The refresh button opens
 Miaou and refreshes its data. The widget follows the app's language setting
 and currency configuration.
 
+A second widget, **Chaton**, only shows the animated cat in small and medium
+formats. Its configuration offers two animation modes: **Always** loops the
+animation forever, **When a session is active** animates while a Vibe session
+is live (same activity signal as the green dot above) and freezes the cat on
+its rest pose otherwise. The cat uses brand colors while active and turns
+grayscale when idle. WidgetKit has no timers, so the animation is a timeline
+of entries spaced 0.16 s apart over one cycle, reloaded right after the last
+entry.
+
 The app publishes display metrics to a private App Group after each refresh.
 The sandboxed widget reads that snapshot; it does not run the CLI or read Vibe
 journals. Keep Miaou running for fresh figures. If it quits, the last snapshot

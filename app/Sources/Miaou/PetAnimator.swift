@@ -6,7 +6,7 @@ import SwiftUI
 /// time the running cycle reaches the rest pose, it stays there for a
 /// while, like the original banner.
 final class PetAnimator: ObservableObject {
-    static let frameInterval: TimeInterval = 0.16
+    static let frameInterval: TimeInterval = Chaton.frameInterval
 
     /// How long an in-loop rest lasts.
     static let restDelay: ClosedRange<Double> = 5...20

@@ -114,3 +114,11 @@
 "widget.budget_used" = "Budget utilisé";
 "widget.daily" = "Tokens par jour · 14 derniers jours";
 "widget.last_update" = "Dernière mise à jour";
+
+/* Chaton widget */
+"widget.chaton.name" = "Chaton";
+"widget.chaton.description" = "Le chat animé de Miaou.";
+"widget.chaton.mode" = "Animation";
+"widget.chaton.mode.always" = "Toujours";
+"widget.chaton.mode.session" = "Quand une session est active";
+"widget.chaton.label" = "Le chat animé de Miaou";

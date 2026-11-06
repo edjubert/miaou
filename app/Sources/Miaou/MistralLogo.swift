@@ -164,6 +164,20 @@ enum MistralIcon {
         }
     }
 
+    /// Desktop widget: the chaton at the bar crop (23x11 cells) without
+    /// the menu bar halo, on a transparent background, with 2x backing.
+    static func widgetImage(frame: Int, live: Bool) -> NSImage {
+        let key = "widget-\(live)-\(frame)"
+        if let cached = cache[key] { return cached }
+        let pixels = CGSize(width: 460, height: 220)
+        let image = rasterize(pixels: pixels, points: NSSize(width: 230, height: 110)) { context in
+            Chaton.drawBanner(frame: frame, in: context, pixels: pixels,
+                              palette: palette(live: live, mode: .session))
+        }
+        cache[key] = image
+        return image
+    }
+
     /// The animated banner of the menu window header.
     static func bannerImage(frame: Int, pet: BarPet = .chaton, colorMode: ChatonColorMode = .session) -> NSImage {
         let key = "banner-\(pet.rawValue)-\(frame)-\(colorMode.rawValue)"

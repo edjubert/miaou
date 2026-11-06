@@ -28,7 +28,11 @@ final class MiaouWidgetPublisher {
 
     init(storage: MiaouWidgetStorage? = .shared,
          reload: @escaping () -> Void = {
-             WidgetCenter.shared.reloadTimelines(ofKind: MiaouWidgetStorage.kind)
+             // The chaton widget animates only while a session is
+             // active, so it must reload on the same signature changes.
+             for kind in [MiaouWidgetStorage.kind, ChatonWidgetPlan.chatonKind] {
+                 WidgetCenter.shared.reloadTimelines(ofKind: kind)
+             }
          }) {
         self.storage = storage
         self.reload = reload
