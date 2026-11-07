@@ -95,6 +95,7 @@ struct MainWindow: View {
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
     // Keep the stored key so the previous color preference survives upgrades.
     @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringMovement = true
+    @AppStorage("desktopPetGlassTransparency") private var desktopPetGlassTransparency = 0.0
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -451,6 +452,27 @@ struct MainWindow: View {
                 Toggle(L10n.t("desktopPet.toggle"), isOn: $desktopPetEnabled)
                 Toggle(L10n.t("desktopPet.colorDuringMovement"), isOn: $desktopPetColorDuringMovement)
                     .disabled(!desktopPetEnabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(L10n.t("desktopPet.glassTransparency"))
+                        Spacer()
+                        Text(desktopPetGlassTransparency,
+                             format: .percent.precision(.fractionLength(0)).locale(L10n.locale))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $desktopPetGlassTransparency, in: 0...1, step: 0.01) {
+                        Text(L10n.t("desktopPet.glassTransparency"))
+                    }
+                    .labelsHidden()
+                    HStack {
+                        Text(L10n.t("desktopPet.glassMaximum"))
+                        Spacer()
+                        Text(L10n.t("desktopPet.glassHidden"))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .disabled(!desktopPetEnabled)
                 Text(L10n.t("desktopPet.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -471,6 +493,7 @@ struct MainWindow: View {
         showInDock = true
         desktopPetEnabled = false
         desktopPetColorDuringMovement = true
+        desktopPetGlassTransparency = 0
         languageRaw = "system"
     }
 }

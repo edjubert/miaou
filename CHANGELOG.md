@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New **Glass transparency** slider for the desktop companion: fade the glass
+  effect live from its full native appearance to completely hidden, keeping the
+  dot outline visible. The setting persists and hovering still hides the glass.
 - Restore the desktop companion alongside the widget and menu bar settings.
   Its enablement persists across app upgrades.
 - New **Show in Dock** setting: turn it off to hide Miaou's Dock icon and

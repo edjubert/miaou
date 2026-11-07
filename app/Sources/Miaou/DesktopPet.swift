@@ -213,8 +213,9 @@ final class DesktopPetController {
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
         let colorDuringMovement = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
         let colored = colorDuringMovement && !motion.isResting
+        let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         artwork.show(frame: frame, mirrored: motion.direction < 0,
-                     transparent: hovered, colored: colored)
+                     transparent: hovered, colored: colored, glassTransparency: glassTransparency)
     }
 }
 
@@ -308,8 +309,12 @@ final class DesktopPetView: NSView {
         mask.path?.contains(point) ?? false
     }
 
-    func show(frame: Int, mirrored: Bool, transparent: Bool = false, colored: Bool = false) {
-        glass.isHidden = transparent
+    func show(frame: Int, mirrored: Bool, transparent: Bool = false, colored: Bool = false,
+              glassTransparency: Double = 0) {
+        let transparency = glassTransparency.isFinite ? min(max(glassTransparency, 0), 1) : 0
+        let alpha = CGFloat(1 - transparency)
+        if glass.alphaValue != alpha { glass.alphaValue = alpha }
+        glass.isHidden = transparent || transparency == 1
         dots.colored = colored
         guard frame != shownFrame || mirrored != shownMirrored else { return }
         shownFrame = frame

@@ -54,6 +54,9 @@
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Afficher le chat au bas de l'écran";
 "desktopPet.colorDuringMovement" = "Colorer pendant ses déplacements";
+"desktopPet.glassTransparency" = "Transparence du verre";
+"desktopPet.glassMaximum" = "Verre maximal";
+"desktopPet.glassHidden" = "Sans verre";
 "desktopPet.description" = "Le chat reste immobile et gris au repos. Au survol, il bondit puis rejoint un bord de l'écran. En déplacement, il peut prendre des couleurs même sans session active, puis redevient gris en se recouchant. Les clics le traversent.";
 
 /* Budget section */
