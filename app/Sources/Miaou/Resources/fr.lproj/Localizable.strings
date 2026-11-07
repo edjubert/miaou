@@ -53,8 +53,8 @@
 /* Desktop companion */
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Afficher le chat au bas de l'écran";
-"desktopPet.colorDuringSession" = "Colorer ses déplacements pendant une session active";
-"desktopPet.description" = "Le chat reste immobile et gris au repos. Au survol, il bondit puis rejoint un coin de l'écran. En déplacement, il peut prendre des couleurs si une session est active. Les clics le traversent.";
+"desktopPet.colorDuringMovement" = "Colorer pendant ses déplacements";
+"desktopPet.description" = "Le chat reste immobile et gris au repos. Au survol, il bondit puis rejoint un bord de l'écran. En déplacement, il peut prendre des couleurs même sans session active, puis redevient gris en se recouchant. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

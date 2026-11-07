@@ -131,11 +131,19 @@ final class DesktopPetController {
         }
         let selection = selectedPet
         if panel != nil && pet == selection { return }
-        timer?.invalidate()
-        panel?.close()
         pet = selection
         let size = CGSize(width: 200, height: 200 * pet.barWindow.height / pet.barWindow.width)
         let view = DesktopPetView(pet: pet, size: size)
+        if let panel {
+            // A session ending can switch Chonk back to Chaton. Replace
+            // the artwork without interrupting the current trip to the edge.
+            panel.contentView = view
+            panel.setContentSize(size)
+            artwork = view
+            tick()
+            return
+        }
+        timer?.invalidate()
         let window = DesktopPetPanel(
             contentRect: CGRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
@@ -203,8 +211,8 @@ final class DesktopPetController {
         let scale = screen.backingScaleFactor
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
-        let colorDuringSession = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
-        let colored = colorDuringSession && AppModel.shared.hasLiveSessions && !motion.isResting
+        let colorDuringMovement = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
+        let colored = colorDuringMovement && !motion.isResting
         artwork.show(frame: frame, mirrored: motion.direction < 0,
                      transparent: hovered, colored: colored)
     }

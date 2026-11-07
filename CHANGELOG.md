@@ -19,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its previous behavior).
 - The desktop companion stays still and gray at rest. Hovering wakes it for a
   hop and a walk to a bottom corner, where it rests until the next hover.
-  A separate color setting allows brand colors during movement only when a
-  session is active; session activity never starts movement on its own.
+  A separate color setting allows brand colors during movement even without an
+  active session; session activity never starts movement on its own.
 
 ### Added
 
@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Switching the desktop pet between Chaton and Chonk when a session starts or
+  ends preserves its current trip to the screen edge instead of resetting it.
 - `miaou dashboard` no longer runs synchronously on the main thread. The
   lock watcher fires exactly when a session ends (when the pet freezes),
   and a slow CLI call was blocking the menu bar for the whole subprocess.

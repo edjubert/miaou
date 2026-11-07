@@ -76,10 +76,12 @@ screen bounds, and immediately starts walking to the corner in that direction.
 At the corner, it stays asleep until hovered again. A continuous hover
 triggers one hop; move away and hover again to trigger another.
 The dots remain visible and clicks still pass through it.
-**Color its movements during an active session** is enabled by default: dots
-use brand colors only while moving with a live session, and turn gray at rest
-or when the session ends. Turn this color option off to keep the pet gray.
-Session activity never starts a walk on its own.
+**Color while moving** is enabled by default: dots use brand colors during hops
+and walks, even without a live session, and turn gray when the pet reaches the
+edge and lies down. Turn this color option off to keep the pet gray.
+Session activity never starts a walk on its own. If the session ends and the
+automatic model selection switches Chonk back to Chaton, the pet continues its
+current trip to the edge.
 Turn **Show the cat along the bottom of the screen** off to hide the companion.
 
 ## Planned features
