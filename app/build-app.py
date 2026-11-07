@@ -238,6 +238,21 @@ def stop_old_app():
                 pass
 
 
+def verify_widget_entitlements(bundle):
+    extension = bundle / "Contents/PlugIns/MiaouWidget.appex"
+    result = run("codesign", "-d", "--entitlements", "-", "--xml", str(extension),
+                 capture_output=True)
+    entitlements = plistlib.loads(result.stdout)
+    # codesign --verify accepts this restricted entitlement without a
+    # matching profile, but AMFI then refuses to launch the widget. It is
+    # reserved for the WidgetKit host, not a third-party widget extension.
+    if "com.apple.private.chrono-extension-host" in entitlements:
+        raise SystemExit(
+            "The widget has the restricted chrono-extension-host entitlement. "
+            "Rebuild with standard Xcode signing before installing."
+        )
+
+
 def install():
     source = APP / "Miaou.app"
     destination = install_directory() / "Miaou.app"
@@ -254,6 +269,7 @@ def install():
     shutil.copytree(source, temporary)
     try:
         run("codesign", "--verify", "--deep", "--strict", str(temporary))
+        verify_widget_entitlements(temporary)
         if previous.exists():
             shutil.rmtree(previous)
         stop_old_app()
@@ -271,7 +287,8 @@ def install():
             shutil.rmtree(temporary)
     # Only the installed extension should remain a WidgetKit candidate.
     copies = [source, previous, BUILD / "Miaou.previous.app"]
-    registered = run("pluginkit", "-m", "-v", "-i", WIDGET_ID, capture_output=True, text=True).stdout
+    registered = run("pluginkit", "-m", "-A", "-D", "-v", "-i", WIDGET_ID,
+                     capture_output=True, text=True).stdout
     for line in registered.splitlines():
         match = re.search(r"(/[^\t]+\.appex)\s*$", line)
         if match:

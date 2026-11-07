@@ -25,13 +25,21 @@ final class ChatonWidgetTests: XCTestCase {
                 let duration = next.date.timeIntervalSince(current.date)
                 if current.frame == pet.restFrame {
                     pauses.append(duration - PetAnimation.frameInterval)
-                    XCTAssertGreaterThanOrEqual(duration, 5 + PetAnimation.frameInterval - 0.0001)
-                    XCTAssertLessThanOrEqual(duration, 20 + PetAnimation.frameInterval + 0.0001)
+                    XCTAssertGreaterThanOrEqual(duration,
+                        PetAnimation.restDelay.lowerBound + PetAnimation.frameInterval - 0.0001)
+                    XCTAssertLessThanOrEqual(duration,
+                        PetAnimation.restDelay.upperBound + PetAnimation.frameInterval + 0.0001)
                 } else {
                     XCTAssertEqual(duration, PetAnimation.frameInterval, accuracy: 0.0001)
                 }
             }
-            XCTAssertGreaterThan(Set(pauses.map { Int(($0 * 1_000).rounded()) }).count, 1)
+            // Pauses vary only when the rest range has a width.
+            if PetAnimation.restDelay.lowerBound < PetAnimation.restDelay.upperBound {
+                XCTAssertGreaterThan(Set(pauses.map { Int(($0 * 1_000).rounded()) }).count, 1)
+            } else {
+                XCTAssertFalse(pauses.isEmpty)
+                XCTAssertTrue(pauses.allSatisfy { abs($0 - PetAnimation.restDelay.lowerBound) < 0.0001 })
+            }
             XCTAssertGreaterThan(plan.reloadAfter.timeIntervalSince(t0), 10 * 60)
             XCTAssertLessThan(plan.reloadAfter, t0.addingTimeInterval(ChatonWidgetPlan.timelineDuration))
         }

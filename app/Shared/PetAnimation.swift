@@ -5,7 +5,9 @@ import Foundation
 /// agree on the animation without restarting it on a widget reload.
 enum PetAnimation {
     static let frameInterval: TimeInterval = 0.16
-    static let restDelay: ClosedRange<Double> = 5...20
+    /// How long the pet sleeps on its rest pose: 40 s to 2 min. The pauses
+    /// come from a seeded sequence, so every process agrees on them.
+    static let restDelay: ClosedRange<Double> = 40...120
 
     struct Pose {
         let frame: Int

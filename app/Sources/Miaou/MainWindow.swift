@@ -23,13 +23,15 @@ enum MainSection: String, CaseIterable, Identifiable {
 }
 
 /// Liquid glass card on macOS 26+, material fallback before (same pattern as
-/// kapitsa's NativeGlassCard).
+/// kapitsa's NativeGlassCard). `.clear` is the most transparent glass variant
+/// (Glass has no opacity knob in the macOS 26 SDK), so the card lets the
+/// wallpaper through; before macOS 26 the thinnest material does the same.
 struct GlassCard: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
+            content.glassEffect(.clear, in: RoundedRectangle(cornerRadius: 18))
         } else {
-            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
         }
     }
 }
@@ -87,7 +89,10 @@ struct MainWindow: View {
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
+    @AppStorage("barAnimation") private var barAnimationRaw: String = ChatonAnimationMode.session.rawValue
     @AppStorage("showIcon") private var showIcon: Bool = true
+    @AppStorage("showInDock") private var showInDock: Bool = true
+    @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -388,6 +393,7 @@ struct MainWindow: View {
                 .id("barMode-\(languageRaw)")
                 Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
                     .disabled(barMode == .none)
+                Toggle(L10n.t("dock.toggle"), isOn: $showInDock)
                 Toggle(L10n.t("login.toggle"), isOn: Binding(
                     get: { SMAppService.mainApp.status == .enabled },
                     set: { enabled in
@@ -428,6 +434,22 @@ struct MainWindow: View {
                 }
                 .pickerStyle(.segmented)
                 .id("colorMode-\(languageRaw)")
+                // When the menu bar pet animates: always, or only while a
+                // Vibe session is live. Only meaningful with a pet icon.
+                Picker(L10n.t("widget.chaton.mode"), selection: $barAnimationRaw) {
+                    ForEach(ChatonAnimationMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("barAnimation-\(languageRaw)")
+                .disabled(BarIconStyle(rawValue: barIconRaw) == .logo)
+            }
+            Section(L10n.t("desktopPet.headline")) {
+                Toggle(L10n.t("desktopPet.toggle"), isOn: $desktopPetEnabled)
+                Text(L10n.t("desktopPet.description"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 Button(L10n.t("settings.reset")) { resetSettings() }
@@ -440,7 +462,10 @@ struct MainWindow: View {
         barModeRaw = BarMode.percent.rawValue
         barIconRaw = BarIconStyle.logo.rawValue
         chatonColorRaw = ChatonColorMode.session.rawValue
+        barAnimationRaw = ChatonAnimationMode.session.rawValue
         showIcon = true
+        showInDock = true
+        desktopPetEnabled = false
         languageRaw = "system"
     }
 }

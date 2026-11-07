@@ -150,6 +150,12 @@ extension PetGlyph {
         return dotRects(cells: frames[index], size: size)
     }
 
+    /// The enclosed body uses the same geometry as its colored outline.
+    static func silhouetteRects(frame: Int, size: CGSize) -> [CGRect] {
+        let index = min(max(frame, 0), frames.count - 1)
+        return dotRects(cells: silhouettes[index], size: size).map(\.rect)
+    }
+
     /// All possible dots have stable identities and positions; only
     /// their opacity changes when WidgetKit advances to another pose.
     static func dotSlots(size: CGSize) -> [(id: Int, rect: CGRect, row: Int)] {

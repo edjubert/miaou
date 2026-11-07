@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The pets' sleeping pause on their rest pose lasts a random 40 s to 2 min
+  instead of a random 5–20 s.
+- The main window's liquid glass cards use the clearest glass variant
+  (`.clear` on macOS 26+, `.ultraThinMaterial` before), so the background
+  shows through more.
+- New **Animation** setting in the app's icon settings: the menu bar pet
+  animates **Always** or only **When a session is active** (the default,
+  its previous behavior).
+
+### Added
+
+- Restore the desktop companion alongside the widget and menu bar settings.
+  Its enablement persists across app upgrades.
+- New **Show in Dock** setting: turn it off to hide Miaou's Dock icon and
+  run as a menu-bar-only app (activation policy `.accessory`).
+- Hovering the desktop companion makes it run away from the pointer and
+  interrupts its sleep. Its glass body becomes transparent while hovered,
+  keeping the colored dots visible and letting clicks pass through.
+
+### Fixed
+
+- `miaou dashboard` no longer runs synchronously on the main thread. The
+  lock watcher fires exactly when a session ends (when the pet freezes),
+  and a slow CLI call was blocking the menu bar for the whole subprocess.
+- Installation unregisters all older widget copies, including superseded
+  or disabled entries, before registering the installed extension.
+- Installation rejects a widget signed with the restricted host entitlement
+  `com.apple.private.chrono-extension-host`: static signature verification
+  accepts it, but macOS refuses to launch it without an Apple provisioning profile.
+
 ## [0.4.0] - 2026-11-06
 
 ### Added

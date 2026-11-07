@@ -55,6 +55,7 @@ struct BarLabel: View {
     @AppStorage("barMode") private var barModeRaw: String = BarMode.percent.rawValue
     @AppStorage("barIcon") private var barIconRaw: String = BarIconStyle.logo.rawValue
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
+    @AppStorage("barAnimation") private var barAnimationRaw: String = ChatonAnimationMode.session.rawValue
     @AppStorage("showIcon") private var showIcon: Bool = true
 
     private var style: BarIconStyle {
@@ -63,6 +64,10 @@ struct BarLabel: View {
 
     private var colorMode: ChatonColorMode {
         ChatonColorMode(rawValue: chatonColorRaw) ?? .session
+    }
+
+    private var animationMode: ChatonAnimationMode {
+        ChatonAnimationMode(rawValue: barAnimationRaw) ?? .session
     }
 
     private var mode: BarMode {
@@ -90,10 +95,10 @@ struct BarLabel: View {
         pet == .chonk ? .chonk : style
     }
 
-    /// The pet loops while a session is live, and rests on its
-    /// sleeping pose otherwise.
+    /// The pet loops according to the animation setting: always, or only
+    /// while a session is live, resting on its sleeping pose otherwise.
     private var animate: Bool {
-        pet != nil && model.hasLiveSessions
+        pet != nil && (animationMode == .always || model.hasLiveSessions)
     }
 
     var body: some View {
@@ -124,13 +129,41 @@ struct BarLabel: View {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let desktopPet = DesktopPetController()
+
+    deinit {
+        UserDefaults.standard.removeObserver(self, forKeyPath: "showInDock")
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Regular app: the main window needs a Dock presence and normal
-        // activation, like kapitsa's desktop window.
-        NSApplication.shared.setActivationPolicy(.regular)
+        // Regular app by default: the main window needs a Dock presence
+        // and normal activation, like kapitsa's desktop window. The
+        // "showInDock" setting turns Miaou into a menu-bar-only
+        // (accessory) app, hiding its Dock icon.
+        applyDockPolicy()
+        UserDefaults.standard.addObserver(self, forKeyPath: "showInDock",
+                                          options: [.new], context: nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         MiaouWidgetRefreshRouter.refresh = { AppModel.shared.refresh() }
         AppModel.shared.refresh()
+        desktopPet.start()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        desktopPet.stop()
+    }
+
+    /// Dock presence follows the "showInDock" user default, applied live.
+    private func applyDockPolicy() {
+        let show = UserDefaults.standard.object(forKey: "showInDock") as? Bool ?? true
+        NSApplication.shared.setActivationPolicy(show ? .regular : .accessory)
+    }
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?,
+                               change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "showInDock" {
+            DispatchQueue.main.async { self.applyDockPolicy() }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -194,6 +227,15 @@ extension ChatonColorMode {
         case .session: return L10n.t("colorMode.session")
         case .color: return L10n.t("colorMode.color")
         case .grayscale: return L10n.t("colorMode.grayscale")
+        }
+    }
+}
+
+extension ChatonAnimationMode {
+    var label: String {
+        switch self {
+        case .always: return L10n.t("widget.chaton.mode.always")
+        case .session: return L10n.t("widget.chaton.mode.session")
         }
     }
 }

@@ -2,6 +2,7 @@
 "settings.headline" = "Réglages";
 "bar.picker" = "Barre de menu";
 "icon.toggle" = "Icone";
+"dock.toggle" = "Afficher dans le Dock";
 "icon.headline" = "Icone";
 "login.toggle" = "Lancer au démarrage";
 "refresh.button" = "Rafraîchir";
@@ -48,6 +49,11 @@
 "colorMode.color" = "Couleur";
 "colorMode.grayscale" = "Gris";
 "colorMode.picker" = "Couleur";
+
+/* Desktop companion */
+"desktopPet.headline" = "Chat sur le bureau";
+"desktopPet.toggle" = "Se promener au bas de l'écran";
+"desktopPet.description" = "Le chat suit le style d'icône choisi, se promène puis se repose. Au survol, il s'éloigne et son corps en verre disparaît. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

@@ -101,17 +101,24 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         watchSessionLocks()
-        do {
-            let dashboard = try MiaouCLI.dashboard()
-            DispatchQueue.main.async {
-                self.dashboard = dashboard
-                self.lastError = nil
-                self.lastRefresh = Date()
-                self.publishWidget()
-            }
-        } catch {
-            DispatchQueue.main.async {
-                self.lastError = Self.describe(error)
+        // The CLI subprocess blocks for its whole run. Never run it on the
+        // main thread: the lock watcher fires exactly when a session ends
+        // (when the pet freezes), and a slow `miaou dashboard` would hang
+        // the menu bar for the duration of the call.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                let dashboard = try MiaouCLI.dashboard()
+                DispatchQueue.main.async {
+                    self.dashboard = dashboard
+                    self.lastError = nil
+                    self.lastRefresh = Date()
+                    self.publishWidget()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.lastError = Self.describe(error)
+                }
             }
         }
     }

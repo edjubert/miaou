@@ -2,6 +2,7 @@
 "settings.headline" = "Settings";
 "bar.picker" = "Menu bar";
 "icon.toggle" = "Icon";
+"dock.toggle" = "Show in Dock";
 "icon.headline" = "Icon";
 "login.toggle" = "Launch at startup";
 "refresh.button" = "Refresh";
@@ -48,6 +49,11 @@
 "colorMode.color" = "Color";
 "colorMode.grayscale" = "Grayscale";
 "colorMode.picker" = "Color";
+
+/* Desktop companion */
+"desktopPet.headline" = "Desktop cat";
+"desktopPet.toggle" = "Walk along the bottom of the screen";
+"desktopPet.description" = "The cat follows the selected icon style, roams and rests. Hover to make it run away and hide its glass body. Clicks pass through it.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";

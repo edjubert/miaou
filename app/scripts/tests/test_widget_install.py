@@ -34,6 +34,7 @@ class WidgetInstallTests(unittest.TestCase):
             patch.object(builder, "BUILD", self.build),
             patch.dict(os.environ, environment, clear=True),
             patch.object(builder, "stop_old_widget"),
+            patch.object(builder, "verify_widget_entitlements"),
             self.stop_old_app_patch,
             patch.object(builder.subprocess, "run",
                          return_value=subprocess.CompletedProcess([], 0, stdout="", stderr="")),
@@ -84,11 +85,35 @@ class WidgetInstallTests(unittest.TestCase):
         self.assertEqual(self.number(self.destination), "1")
         self.assertFalse((self.install_root / ".Miaou.installing.app").exists())
 
+    def test_install_unregisters_superseded_widget_from_another_worktree(self):
+        stale = self.root / "old worktree/Miaou.app"
+        self.bundle(stale, "1")
+        extension = stale / "Contents/PlugIns/MiaouWidget.appex"
+        listing = ("pluginkit", "-m", "-A", "-D", "-v", "-i", builder.WIDGET_ID)
+
+        def run(*args, **kwargs):
+            output = f"  {builder.WIDGET_ID}(0.3.0)\told-uuid\t{extension}\n" if args == listing else ""
+            return subprocess.CompletedProcess(args, 0, stdout=output, stderr="")
+
+        with patch.object(builder, "run", side_effect=run) as checked:
+            builder.install()
+        self.assertIn(listing, [call.args for call in checked.call_args_list])
+        removed = [call.args[0] for call in builder.subprocess.run.call_args_list
+                   if call.args[0][:2] == ["pluginkit", "-r"]]
+        self.assertIn(["pluginkit", "-r", str(extension)], removed)
+
     def test_unrelated_app_is_never_replaced(self):
         self.bundle(self.destination, "99", identifier="another.app")
         with self.assertRaises(SystemExit):
             builder.install()
         self.assertEqual(self.number(self.destination), "99")
+
+    def test_restricted_widget_failure_keeps_the_installed_app(self):
+        with patch.object(builder, "verify_widget_entitlements", side_effect=SystemExit("restricted")):
+            with self.assertRaises(SystemExit):
+                builder.install()
+        self.assertEqual(self.number(self.destination), "1")
+        self.assertFalse((self.install_root / ".Miaou.installing.app").exists())
 
     def test_build_number_advances_past_installed_version_and_local_counter(self):
         self.bundle(self.destination, "8")
@@ -116,6 +141,23 @@ class WidgetInstallTests(unittest.TestCase):
                              side_effect=lambda pid, sig: killed.append((pid, sig))):
             builder.stop_old_app()
         self.assertEqual(killed, [(111, signal.SIGTERM)])
+
+
+class WidgetSignatureTests(unittest.TestCase):
+    def verify(self, entitlements):
+        result = subprocess.CompletedProcess([], 0, stdout=plistlib.dumps(entitlements), stderr=b"")
+        with patch.object(builder, "run", return_value=result):
+            builder.verify_widget_entitlements(Path("/Miaou.app"))
+
+    def test_native_development_entitlements_are_accepted(self):
+        self.verify({"com.apple.security.app-sandbox": True,
+                     "com.apple.security.get-task-allow": True,
+                     "com.apple.security.application-groups": ["TEAM.com.edjubert.miaou"]})
+
+    def test_restricted_host_entitlement_is_rejected_even_if_false(self):
+        for value in [True, False]:
+            with self.subTest(value=value), self.assertRaises(SystemExit):
+                self.verify({"com.apple.private.chrono-extension-host": value})
 
 
 if __name__ == "__main__":

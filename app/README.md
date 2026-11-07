@@ -61,6 +61,19 @@ the installed .app, not `swift run`).
 Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
 `/opt/homebrew/bin`, not the embedded copy).
 
+## Desktop cat (experimental)
+
+Enable **Settings → Desktop cat → Walk along the bottom of the screen**.
+The companion follows the selected Chaton/Le Chonk icon style, roams above
+the Dock on the primary screen, and sleeps for 40 s to 2 min at the edges. It stays
+visible when the main window closes, and clicks pass through it.
+
+Colored dots surround a transparent glass body: Liquid Glass on macOS 26,
+with a native blur fallback on earlier versions. Hovering the cat makes
+its glass body transparent and it runs away, even while sleeping.
+The colored dots remain visible and clicks still pass through it.
+Turn the option off to hide the companion.
+
 ## Planned features
 
 | Area | Feature |
@@ -105,7 +118,7 @@ its rest pose otherwise. The **Colors** setting offers **By session** (brand
 colors while active, grayscale when idle), **Always in color**, and
 **Grayscale**, independently of the animation mode. By session remains the
 default for existing widgets. The widget shares the menu banner's animation clock:
-poses advance every 0.16 s and pause for 5–20 s on each cat's rest pose
+poses advance every 0.16 s and pause for 40 s to 2 min on each cat's rest pose
 (the sleeping Chaton or the lying Chonk). WidgetKit
 receives 15 minutes of pose changes ahead of time, without crossfades between
 poses. Refreshing the widget or reopening the menu preserves the current
