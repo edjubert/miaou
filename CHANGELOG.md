@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
 ### Changed
 
 - The menu bar and widget pets' sleeping pause lasts a random 40 s to 2 min
@@ -17,13 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New **Animation** setting in the app's icon settings: the menu bar pet
   animates **Always** or only **When a session is active** (the default,
   its previous behavior).
-- The desktop companion stays still and gray at rest. Hovering wakes it for a
-  hop and a walk to a bottom corner, where it rests until the next hover.
+- The desktop companion stays gray at rest. Hovering wakes it for a
+  hop and a walk to a bottom corner.
   A separate color setting allows brand colors during movement even without an
-  active session; session activity never starts movement on its own.
+  active session.
 
 ### Added
 
+- New **Show in menu bar** setting hides the entire menu bar item, independently
+  of Dock visibility, without stopping the desktop companion or widgets.
+- Independent **Animation** setting for the desktop companion: automatic walks
+  always or only during active sessions (default), with 40–120 second pauses at
+  screen edges. Hover stays responsive in both modes. When the last session
+  ends, session mode finishes the current walk and then stays asleep.
 - New **Glass intensity** slider for the desktop companion: fade the glass
   effect live from its full native appearance to completely hidden, keeping the
   dot outline visible. The setting persists and hovering still hides the glass.
