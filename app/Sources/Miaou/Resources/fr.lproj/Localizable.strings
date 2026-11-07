@@ -53,7 +53,7 @@
 /* Desktop companion */
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Se promener au bas de l'écran";
-"desktopPet.description" = "Le chat suit le style d'icône choisi, se promène puis se repose. Au survol, il s'éloigne et son corps en verre disparaît. Les clics le traversent.";
+"desktopPet.description" = "Le chat suit le style d'icône choisi et se promène. Au survol, il bondit à côté, son corps en verre disparaît, puis il se repose 300 ms après l'atterrissage. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

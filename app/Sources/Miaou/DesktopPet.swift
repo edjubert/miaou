@@ -4,55 +4,79 @@ import Combine
 /// Movement uses a monotonic clock, independently of drawing and mouse events.
 struct DesktopPetMotion {
     static let walkingSpeed: CGFloat = 42
-    static let fleeingSpeed: CGFloat = 180
+    static let hopDuration: TimeInterval = 0.3
+    static let landingRestDelay: TimeInterval = 0.3
+
+    private struct Hop {
+        let startedAt: TimeInterval
+        let startX: CGFloat
+        let endX: CGFloat
+        let height: CGFloat
+    }
+
     private(set) var x: CGFloat = 0
     private(set) var direction: CGFloat = 1
+    private(set) var verticalOffset: CGFloat = 0
     private(set) var restingSince: TimeInterval?
     private(set) var sleepDuration: TimeInterval = 0
-    private var fleeingUntil: TimeInterval = -.infinity
+    private var hop: Hop?
+    private var wasHovered = false
+
+    var isReactingToHover: Bool { hop != nil }
 
     mutating func place(at x: CGFloat) {
         self.x = x
-    }
-
-    func isFleeing(at time: TimeInterval) -> Bool {
-        time < fleeingUntil
+        hop = nil
+        verticalOffset = 0
+        wasHovered = false
     }
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
                           within limits: ClosedRange<CGFloat>, pointerOnLeft: Bool?,
+                          petSize: CGSize,
                           wakeDuration: TimeInterval,
                           chooseSleep: () -> TimeInterval = {
                               Double.random(in: PetAnimation.restDelay)
                           }) {
         x = min(max(x, limits.lowerBound), limits.upperBound)
-        if let pointerOnLeft {
-            // Keep the escape direction until clear of the pointer, rather
-            // than turning back and forth as the outline changes pose.
-            if !isFleeing(at: time) {
-                direction = pointerOnLeft ? 1 : -1
-            }
-            if x == limits.lowerBound { direction = 1 }
-            if x == limits.upperBound { direction = -1 }
+        let hovered = pointerOnLeft != nil
+        let entered = hovered && !wasHovered
+        defer { wasHovered = hovered }
+        if entered, hop == nil, let pointerOnLeft {
+            direction = pointerOnLeft ? 1 : -1
+            let room = direction > 0 ? limits.upperBound - x : x - limits.lowerBound
+            let otherRoom = limits.upperBound - limits.lowerBound - room
+            // Near an edge, land inward instead of attempting a hop off-screen.
+            if room < petSize.width && otherRoom > room { direction *= -1 }
+            let target = min(max(x + direction * petSize.width, limits.lowerBound),
+                             limits.upperBound)
             restingSince = nil
-            fleeingUntil = time + 1
+            hop = Hop(startedAt: time, startX: x, endX: target, height: petSize.height * 0.5)
+        }
+        if let hop {
+            let progress = CGFloat(min(max((time - hop.startedAt) / Self.hopDuration, 0), 1))
+            x = min(max(hop.startX + (hop.endX - hop.startX) * progress,
+                        limits.lowerBound), limits.upperBound)
+            verticalOffset = 4 * hop.height * progress * (1 - progress)
+            let restAt = hop.startedAt + Self.hopDuration + Self.landingRestDelay
+            guard time >= restAt else { return }
+            self.hop = nil
+            verticalOffset = 0
+            restingSince = restAt
+            sleepDuration = chooseSleep()
         }
         if let start = restingSince {
             guard time - start >= sleepDuration + wakeDuration else { return }
             restingSince = nil
         }
         guard limits.lowerBound < limits.upperBound else { return }
-        let fleeing = isFleeing(at: time)
-        let speed = fleeing ? Self.fleeingSpeed : Self.walkingSpeed
-        let next = x + direction * speed * min(max(elapsed, 0), 0.1)
+        let next = x + direction * Self.walkingSpeed * min(max(elapsed, 0), 0.1)
         x = min(max(next, limits.lowerBound), limits.upperBound)
         if (direction < 0 && next <= limits.lowerBound) ||
             (direction > 0 && next >= limits.upperBound) {
             direction *= -1
-            if !fleeing {
-                restingSince = time
-                sleepDuration = chooseSleep()
-            }
+            restingSince = time
+            sleepDuration = chooseSleep()
         }
     }
 }
@@ -172,17 +196,21 @@ final class DesktopPetController {
         let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
+                       petSize: panel.frame.size,
                        wakeDuration: Double(pet.frameCount - 1) * PetAnimation.frameInterval)
         let frame: Int
-        var bob: CGFloat = 0
+        var elevation = motion.verticalOffset
         if let start = motion.restingSince {
             frame = artwork.restFrame(after: now - start, sleepDuration: motion.sleepDuration)
         } else {
-            frame = artwork.walkFrame(at: now, fleeing: motion.isFleeing(at: now))
-            bob = CGFloat(abs(sin(now * .pi / 0.48))) * 1.5
+            frame = artwork.walkFrame(at: now)
+            if !motion.isReactingToHover {
+                elevation += CGFloat(abs(sin(now * .pi / 0.48))) * 1.5
+            }
         }
         let scale = screen.backingScaleFactor
-        panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale, y: area.minY + 4 + bob))
+        panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
+                                     y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
         artwork.show(frame: frame, mirrored: motion.direction < 0, transparent: hovered)
     }
 }
@@ -276,10 +304,9 @@ final class DesktopPetView: NSView {
 
     required init?(coder: NSCoder) { return nil }
 
-    func walkFrame(at time: TimeInterval, fleeing: Bool = false) -> Int {
+    func walkFrame(at time: TimeInterval) -> Int {
         guard !walking.isEmpty else { return pet.restFrame }
-        let interval = PetAnimation.frameInterval / (fleeing ? 2 : 1)
-        return walking[Int(time / interval) % walking.count]
+        return walking[Int(time / PetAnimation.frameInterval) % walking.count]
     }
 
     func restFrame(after elapsed: TimeInterval, sleepDuration: TimeInterval) -> Int {

@@ -70,7 +70,10 @@ visible when the main window closes, and clicks pass through it.
 
 Colored dots surround a transparent glass body: Liquid Glass on macOS 26,
 with a native blur fallback on earlier versions. Hovering the cat makes
-its glass body transparent and it runs away, even while sleeping.
+its glass body transparent and triggers a sideways hop, even while sleeping.
+The hop rises by half the cat's height, lands one cat-width away within the
+screen bounds, and returns to rest 300 ms after landing. A continuous hover
+triggers one hop; move away and hover again to trigger another.
 The colored dots remain visible and clicks still pass through it.
 Turn the option off to hide the companion.
 
