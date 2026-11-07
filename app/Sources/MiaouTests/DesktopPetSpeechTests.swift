@@ -180,16 +180,48 @@ final class DesktopPetSpeechTests: XCTestCase {
                                    text: "Le widget et le chat sont restaurés. Les tests passent ; le réglage du verre est prêt.",
                                    completedAt: 1, sequence: 1))
         view.layoutSubtreeIfNeeded()
-        for field in view.subviews {
+        for field in view.subviews.compactMap({ $0 as? NSTextField }) {
             XCTAssertTrue(view.bounds.contains(field.frame))
+            XCTAssertTrue(try XCTUnwrap(field.font).fontDescriptor.symbolicTraits.contains(.monoSpace))
         }
+        let glass = try XCTUnwrap(view.subviews.first)
+        if #available(macOS 26.0, *) {
+            XCTAssertTrue(glass is NSGlassEffectView)
+        } else {
+            XCTAssertTrue(glass is NSVisualEffectView)
+        }
+        let mask = try XCTUnwrap(glass.layer?.mask as? CAShapeLayer)
+        XCTAssertTrue(try XCTUnwrap(mask.path).contains(CGPoint(x: 160, y: 4)))
+        XCTAssertFalse(try XCTUnwrap(mask.path).contains(CGPoint(x: 4, y: 4)))
+        view.tailX = 32
+        view.layoutSubtreeIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(mask.path).contains(CGPoint(x: 36, y: 4)))
+        XCTAssertFalse(try XCTUnwrap(mask.path).contains(CGPoint(x: 160, y: 4)))
+        view.tailX = 160
+        view.layoutSubtreeIfNeeded()
+        view.show(message(), glassTransparency: 0.75)
+        XCTAssertEqual(glass.alphaValue, 0.25)
+        view.show(message(), glassTransparency: 1)
+        XCTAssertTrue(glass.isHidden)
+        XCTAssertFalse(view.subviews[1].isHidden)
+        view.show(DesktopPetMessage(sessionID: "a", title: "Correction du widget",
+                                   text: "Le widget et le chat sont restaurés. Les tests passent ; le réglage du verre est prêt.",
+                                   completedAt: 1, sequence: 1))
         let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.cacheDisplay(in: view.bounds, to: bitmap)
-        XCTAssertGreaterThan(try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: 20)).alphaComponent, 0.5)
         let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
+        let topPixel = try XCTUnwrap(bitmap.colorAt(x: Int(164 * scale), y: Int(5 * scale))?
+            .usingColorSpace(.deviceRGB))
+        let bottomPixel = try XCTUnwrap(bitmap.colorAt(x: Int(164 * scale), y: Int(137 * scale))?
+            .usingColorSpace(.deviceRGB))
+        XCTAssertGreaterThan(topPixel.alphaComponent, 0.9)
+        XCTAssertGreaterThan(bottomPixel.alphaComponent, 0.9)
+        XCTAssertGreaterThan(topPixel.greenComponent, 0.8)
+        XCTAssertGreaterThan(bottomPixel.redComponent, 0.8)
+        XCTAssertLessThan(bottomPixel.greenComponent, 0.3)
         var wrappedText = false
-        for y in Int(60 * scale)..<Int(120 * scale) {
-            for x in Int(16 * scale)..<Int((view.bounds.width - 16) * scale) {
+        for y in Int(60 * scale)..<Int(110 * scale) {
+            for x in Int(24 * scale)..<Int((view.bounds.width - 24) * scale) {
                 if let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
                    color.alphaComponent > 0.8 && color.redComponent < 0.6 {
                     wrappedText = true

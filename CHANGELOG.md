@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Desktop companion size selector: S, M (the current size, default), or L.
   Changes apply live, persist, and preserve the current walk.
 
+### Changed
+
+- Desktop speech bubbles match the cat with a Liquid Glass background,
+  a stepped square-dot border in brand colors and monospace text. The cat's
+  glass intensity slider also controls the bubble's background.
+
 ## [0.5.0] - 2026-11-07
 
 ### Changed

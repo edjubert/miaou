@@ -315,7 +315,8 @@ final class DesktopPetController {
         }
         speechPanel?.setFrame(frame, display: false)
         speechView?.tailX = panel.frame.midX - frame.minX
-        speechView?.show(message)
+        let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
+        speechView?.show(message, glassTransparency: glassTransparency)
         if speechPanel?.isVisible == false { speechPanel?.orderFrontRegardless() }
     }
 }
@@ -323,6 +324,31 @@ final class DesktopPetController {
 private final class DesktopPetPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+/// The companion and its speech bubble use the same native backdrop.
+enum DesktopPetGlass {
+    static func makeView() -> NSView {
+        if #available(macOS 26.0, *) {
+            let effect = NSGlassEffectView()
+            effect.style = .clear
+            effect.cornerRadius = 0
+            return effect
+        } else {
+            let effect = NSVisualEffectView()
+            effect.material = .hudWindow
+            effect.blendingMode = .behindWindow
+            effect.state = .active
+            return effect
+        }
+    }
+
+    static func apply(transparency: Double, hidden: Bool = false, to view: NSView) {
+        let value = transparency.isFinite ? min(max(transparency, 0), 1) : 0
+        let alpha = CGFloat(1 - value)
+        if view.alphaValue != alpha { view.alphaValue = alpha }
+        view.isHidden = hidden || value == 1
+    }
 }
 
 /// Cache every pose once. Only window position updates at 30 fps;
@@ -371,18 +397,7 @@ final class DesktopPetView: NSView {
         }
         let dotView = DesktopPetDots()
         dots = dotView
-        if #available(macOS 26.0, *) {
-            let effect = NSGlassEffectView()
-            effect.style = .clear
-            effect.cornerRadius = 0
-            glass = effect
-        } else {
-            let effect = NSVisualEffectView()
-            effect.material = .hudWindow
-            effect.blendingMode = .behindWindow
-            effect.state = .active
-            glass = effect
-        }
+        glass = DesktopPetGlass.makeView()
         super.init(frame: CGRect(origin: .zero, size: size))
         wantsLayer = true
         glass.frame = bounds
@@ -412,10 +427,7 @@ final class DesktopPetView: NSView {
 
     func show(frame: Int, mirrored: Bool, transparent: Bool = false, colored: Bool = false,
               glassTransparency: Double = 0) {
-        let transparency = glassTransparency.isFinite ? min(max(glassTransparency, 0), 1) : 0
-        let alpha = CGFloat(1 - transparency)
-        if glass.alphaValue != alpha { glass.alphaValue = alpha }
-        glass.isHidden = transparent || transparency == 1
+        DesktopPetGlass.apply(transparency: glassTransparency, hidden: transparent, to: glass)
         dots.colored = colored
         guard frame != shownFrame || mirrored != shownMirrored else { return }
         shownFrame = frame

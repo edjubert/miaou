@@ -104,6 +104,9 @@ for five seconds, and a new answer replaces the current bubble with a fresh
 five-second duration. The bubble follows the cat, points toward it, stays
 within the screen, and lets clicks pass through. It disappears when its
 session stops or the option is turned off.
+Its background uses the same Liquid Glass (or native blur fallback) and glass
+intensity as the cat. Small square dots in the cat's yellow-to-red palette form
+the stepped border and pointer; the title and message use a monospace font.
 Only completed text answers (`finish_reason: stop`) are used, excluding tool
 calls, streaming responses and failed completions. Active journals are checked
 every two seconds on a background queue and unchanged files are cached.

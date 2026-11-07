@@ -162,27 +162,43 @@ final class DesktopPetSpeechSource {
 
 final class DesktopPetSpeechView: NSView {
     static let height: CGFloat = 142
+    private let glass = DesktopPetGlass.makeView()
+    private let mask = CAShapeLayer()
+    private let outline = DesktopPetSpeechOutline()
     private let title = NSTextField(labelWithString: "")
     private let message = NSTextField(wrappingLabelWithString: "")
-    var tailX: CGFloat = 160 { didSet { if tailX != oldValue { needsDisplay = true } } }
+    private var shapeSize: CGSize = .zero
+    private var shapeTail = -1
+    var tailX: CGFloat = 160 { didSet { if tailX != oldValue { needsLayout = true } } }
 
     init() {
         super.init(frame: CGRect(x: 0, y: 0, width: 320, height: Self.height))
-        title.font = .systemFont(ofSize: 11, weight: .semibold)
+        wantsLayer = true
+        glass.frame = bounds
+        glass.autoresizingMask = [.width, .height]
+        glass.wantsLayer = true
+        glass.layer?.mask = mask
+        outline.frame = bounds
+        outline.autoresizingMask = [.width, .height]
+        title.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
         title.textColor = .secondaryLabelColor
         title.lineBreakMode = .byTruncatingTail
-        message.font = .systemFont(ofSize: 13)
+        message.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         message.textColor = .labelColor
         message.maximumNumberOfLines = 5
         message.lineBreakMode = .byWordWrapping
         message.cell?.truncatesLastVisibleLine = true
+        addSubview(glass)
+        // The outline and text stay visible even at zero glass intensity.
+        addSubview(outline)
         addSubview(title)
         addSubview(message)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func show(_ value: DesktopPetMessage) {
+    func show(_ value: DesktopPetMessage, glassTransparency: Double = 0) {
+        DesktopPetGlass.apply(transparency: glassTransparency, to: glass)
         let heading = value.title?.trimmingCharacters(in: .whitespacesAndNewlines)
         let text = heading?.isEmpty == false ? heading! : L10n.t("desktopPet.speech.session")
         if title.stringValue != text { title.stringValue = text }
@@ -191,8 +207,20 @@ final class DesktopPetSpeechView: NSView {
 
     override func layout() {
         super.layout()
-        title.frame = CGRect(x: 16, y: bounds.height - 33, width: bounds.width - 32, height: 17)
-        message.frame = CGRect(x: 16, y: 23, width: bounds.width - 32, height: bounds.height - 65)
+        title.frame = CGRect(x: 20, y: bounds.height - 33, width: bounds.width - 40, height: 17)
+        message.frame = CGRect(x: 20, y: 30, width: bounds.width - 40, height: bounds.height - 68)
+        let column = DesktopPetSpeechShape.tailColumn(for: bounds.size, at: tailX)
+        guard shapeSize != bounds.size || shapeTail != column else { return }
+        let shape = DesktopPetSpeechShape(size: bounds.size, tailX: tailX)
+        shapeSize = bounds.size
+        shapeTail = shape.tailColumn
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mask.frame = bounds
+        mask.path = shape.glass
+        CATransaction.commit()
+        outline.dots = shape.dots
+        outline.needsDisplay = true
     }
 
     static func frame(above cat: CGRect, within screen: CGRect) -> CGRect {
@@ -205,34 +233,65 @@ final class DesktopPetSpeechView: NSView {
             width: width, height: height
         )
     }
+}
+
+/// Square dots use the same 85%-filled cells and five color bands as the pet.
+private struct DesktopPetSpeechShape {
+    static let pitch: CGFloat = 8
+    let tailColumn: Int
+    let glass: CGPath
+    let dots: [(rect: CGRect, band: Int)]
+
+    static func tailColumn(for size: CGSize, at x: CGFloat) -> Int {
+        let columns = max(11, Int(size.width / pitch))
+        let originX = (size.width - CGFloat(columns) * pitch) / 2
+        return min(max(Int(((x - originX) / pitch - 0.5).rounded()), 4), columns - 5)
+    }
+
+    init(size: CGSize, tailX: CGFloat) {
+        let columns = max(11, Int(size.width / Self.pitch))
+        let rows = max(8, Int(size.height / Self.pitch))
+        let origin = CGPoint(x: (size.width - CGFloat(columns) * Self.pitch) / 2,
+                             y: (size.height - CGFloat(rows) * Self.pitch) / 2)
+        let tail = Self.tailColumn(for: size, at: tailX)
+        tailColumn = tail
+        let spans = (0..<rows).map { row -> ClosedRange<Int> in
+            if row < 2 { return (tail - row)...(tail + row) }
+            let inset = max(0, 2 - min(row - 2, rows - 1 - row))
+            return inset...(columns - 1 - inset)
+        }
+        let path = CGMutablePath()
+        var border: [(rect: CGRect, band: Int)] = []
+        for (row, span) in spans.enumerated() {
+            let y = origin.y + CGFloat(row) * Self.pitch
+            path.addRect(CGRect(x: origin.x + CGFloat(span.lowerBound) * Self.pitch,
+                                y: y, width: CGFloat(span.count) * Self.pitch,
+                                height: Self.pitch))
+            for col in span {
+                guard col == span.lowerBound || col == span.upperBound ||
+                        row == 0 || row == rows - 1 ||
+                        !spans[row - 1].contains(col) || !spans[row + 1].contains(col) else { continue }
+                let cell = CGRect(x: origin.x + CGFloat(col) * Self.pitch, y: y,
+                                  width: Self.pitch, height: Self.pitch)
+                border.append((cell.insetBy(dx: Self.pitch * 0.075, dy: Self.pitch * 0.075),
+                               min(4, (rows - 1 - row) * 5 / rows)))
+            }
+        }
+        glass = path
+        dots = border
+    }
+}
+
+private final class DesktopPetSpeechOutline: NSView {
+    var dots: [(rect: CGRect, band: Int)] = []
+    override var isOpaque: Bool { false }
 
     override func draw(_ dirtyRect: NSRect) {
-        let body = bounds.insetBy(dx: 1, dy: 1)
-        let bottom: CGFloat = 13
-        let radius: CGFloat = 14
-        let tail = min(max(tailX, body.minX + radius + 13), body.maxX - radius - 13)
-        let path = NSBezierPath()
-        path.move(to: CGPoint(x: body.minX + radius, y: bottom))
-        path.line(to: CGPoint(x: tail - 12, y: bottom))
-        path.line(to: CGPoint(x: tail, y: body.minY))
-        path.line(to: CGPoint(x: tail + 12, y: bottom))
-        path.line(to: CGPoint(x: body.maxX - radius, y: bottom))
-        path.appendArc(withCenter: CGPoint(x: body.maxX - radius, y: bottom + radius),
-                       radius: radius, startAngle: 270, endAngle: 360)
-        path.line(to: CGPoint(x: body.maxX, y: body.maxY - radius))
-        path.appendArc(withCenter: CGPoint(x: body.maxX - radius, y: body.maxY - radius),
-                       radius: radius, startAngle: 0, endAngle: 90)
-        path.line(to: CGPoint(x: body.minX + radius, y: body.maxY))
-        path.appendArc(withCenter: CGPoint(x: body.minX + radius, y: body.maxY - radius),
-                       radius: radius, startAngle: 90, endAngle: 180)
-        path.line(to: CGPoint(x: body.minX, y: bottom + radius))
-        path.appendArc(withCenter: CGPoint(x: body.minX + radius, y: bottom + radius),
-                       radius: radius, startAngle: 180, endAngle: 270)
-        path.close()
-        NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
-        path.fill()
-        NSColor.separatorColor.setStroke()
-        path.lineWidth = 1
-        path.stroke()
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.setShouldAntialias(false)
+        for dot in dots {
+            context.setFillColor(MistralLogo.brand[dot.band].cgColor)
+            context.fill(dot.rect)
+        }
     }
 }
