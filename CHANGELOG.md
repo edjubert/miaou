@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
 ### Added
 
 - Optional speech bubble above the desktop cat: show a short excerpt of the
-  newest completed answer among active Vibe sessions for five seconds, once per
-  message. The bubble follows the cat and stays within the screen. Journal
-  reads run in the background; unfinished and tool-call completions are ignored.
+  newest completed answer among active or just-closed Vibe sessions for five
+  seconds, once per message. The bubble follows the cat and stays within the
+  screen. Journal reads run in the background; unfinished and tool-call
+  completions are ignored.
 - Desktop companion size selector: S, M (the current size, default), or L.
   Changes apply live, persist, and preserve the current walk.
 
