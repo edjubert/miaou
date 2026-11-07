@@ -95,6 +95,7 @@ struct MainWindow: View {
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
     // Keep the stored key so the previous color preference survives upgrades.
     @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringMovement = true
+    // Store transparency to preserve the existing appearance; the slider shows glass intensity.
     @AppStorage("desktopPetGlassTransparency") private var desktopPetGlassTransparency = 0.0
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
@@ -454,9 +455,9 @@ struct MainWindow: View {
                     .disabled(!desktopPetEnabled)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text(L10n.t("desktopPet.glassTransparency"))
+                        Text(L10n.t("desktopPet.glassIntensity"))
                         Spacer()
-                        Text(desktopPetGlassTransparency,
+                        Text(1 - desktopPetGlassTransparency,
                              format: .percent.precision(.fractionLength(0)).locale(L10n.locale))
                             .monospacedDigit()
                     }
@@ -464,10 +465,10 @@ struct MainWindow: View {
                         get: { 1 - desktopPetGlassTransparency },
                         set: { desktopPetGlassTransparency = 1 - $0 }
                     ), in: 0...1, step: 0.01) {
-                        Text(L10n.t("desktopPet.glassTransparency"))
+                        Text(L10n.t("desktopPet.glassIntensity"))
                     }
                     .labelsHidden()
-                    .accessibilityValue(Text(desktopPetGlassTransparency,
+                    .accessibilityValue(Text(1 - desktopPetGlassTransparency,
                                              format: .percent.precision(.fractionLength(0)).locale(L10n.locale)))
                     HStack {
                         Text(L10n.t("desktopPet.glassHidden"))
