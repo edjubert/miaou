@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Desktop companion size selector: S, M (the current size, default), or L.
+  Changes apply live, persist, and preserve the current walk.
+
 ## [0.5.0] - 2026-11-07
 
 ### Changed

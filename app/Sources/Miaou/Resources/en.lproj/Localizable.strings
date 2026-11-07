@@ -54,6 +54,7 @@
 /* Desktop companion */
 "desktopPet.headline" = "Desktop cat";
 "desktopPet.toggle" = "Show the cat along the bottom of the screen";
+"desktopPet.size" = "Size";
 "desktopPet.colorDuringMovement" = "Color while moving";
 "desktopPet.glassIntensity" = "Glass intensity";
 "desktopPet.glassMaximum" = "Full glass";

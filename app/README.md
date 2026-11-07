@@ -68,6 +68,11 @@ The companion follows the selected Chaton/Le Chonk icon style and rests
 gray and asleep above the Dock on the primary screen. It stays visible when the
 main window closes, and clicks pass through it.
 
+**Size** offers S (140 points wide), M (200 points) and L (280 points).
+M is the default and preserves the original size. Height follows the selected
+pet's proportions. Changes apply live and persist without restarting the
+current walk; hops and screen bounds follow the chosen dimensions.
+
 The dot outline surrounds a transparent glass body: Liquid Glass on macOS 26,
 with a native blur fallback on earlier versions. **Glass intensity** adjusts
 the glass effect live, from no glass at 0% on the left to its full native

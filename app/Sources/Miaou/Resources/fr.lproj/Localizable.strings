@@ -54,6 +54,7 @@
 /* Desktop companion */
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Afficher le chat au bas de l'écran";
+"desktopPet.size" = "Taille";
 "desktopPet.colorDuringMovement" = "Colorer pendant ses déplacements";
 "desktopPet.glassIntensity" = "Intensité du verre";
 "desktopPet.glassMaximum" = "Verre maximal";

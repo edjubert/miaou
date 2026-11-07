@@ -1,6 +1,24 @@
 import AppKit
 import Combine
 
+enum DesktopPetSize: String, CaseIterable {
+    case small = "S"
+    case medium = "M"
+    case large = "L"
+
+    var width: CGFloat {
+        switch self {
+        case .small: return 140
+        case .medium: return 200
+        case .large: return 280
+        }
+    }
+
+    func dimensions(for pet: BarPet) -> CGSize {
+        CGSize(width: width, height: width * pet.barWindow.height / pet.barWindow.width)
+    }
+}
+
 /// Movement uses a monotonic clock, independently of drawing and mouse events.
 struct DesktopPetMotion {
     static let walkingSpeed: CGFloat = 42
@@ -93,6 +111,7 @@ final class DesktopPetController {
     private var artwork: DesktopPetView?
     private var timer: Timer?
     private var pet: BarPet = .chaton
+    private var sizeClass: DesktopPetSize = .medium
     private var motion = DesktopPetMotion()
     private var previousTime: TimeInterval = 0
 
@@ -140,13 +159,16 @@ final class DesktopPetController {
             return
         }
         let selection = selectedPet
-        if panel != nil && pet == selection { return }
+        let selectedSize = DesktopPetSize(
+            rawValue: defaults.string(forKey: "desktopPetSize") ?? ""
+        ) ?? .medium
+        if panel != nil && pet == selection && sizeClass == selectedSize { return }
         pet = selection
-        let size = CGSize(width: 200, height: 200 * pet.barWindow.height / pet.barWindow.width)
+        sizeClass = selectedSize
+        let size = sizeClass.dimensions(for: pet)
         let view = DesktopPetView(pet: pet, size: size)
         if let panel {
-            // A session ending can switch Chonk back to Chaton. Replace
-            // the artwork without interrupting the current trip to the edge.
+            // Model and size changes preserve the current trip to the edge.
             panel.contentView = view
             panel.setContentSize(size)
             artwork = view
