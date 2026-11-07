@@ -5,7 +5,6 @@ import Combine
 struct DesktopPetMotion {
     static let walkingSpeed: CGFloat = 42
     static let hopDuration: TimeInterval = 0.3
-    static let landingRestDelay: TimeInterval = 0.3
 
     private struct Hop {
         let startedAt: TimeInterval
@@ -22,7 +21,7 @@ struct DesktopPetMotion {
     private var hop: Hop?
     private var wasHovered = false
 
-    var isReactingToHover: Bool { hop != nil }
+    var isHopping: Bool { hop != nil }
 
     mutating func place(at x: CGFloat) {
         self.x = x
@@ -58,12 +57,11 @@ struct DesktopPetMotion {
             x = min(max(hop.startX + (hop.endX - hop.startX) * progress,
                         limits.lowerBound), limits.upperBound)
             verticalOffset = 4 * hop.height * progress * (1 - progress)
-            let restAt = hop.startedAt + Self.hopDuration + Self.landingRestDelay
-            guard time >= restAt else { return }
+            guard time >= hop.startedAt + Self.hopDuration else { return }
             self.hop = nil
             verticalOffset = 0
-            restingSince = restAt
-            sleepDuration = chooseSleep()
+            // Finish at the landing position, then resume walking on the next tick.
+            return
         }
         if let start = restingSince {
             guard time - start >= sleepDuration + wakeDuration else { return }
@@ -204,7 +202,7 @@ final class DesktopPetController {
             frame = artwork.restFrame(after: now - start, sleepDuration: motion.sleepDuration)
         } else {
             frame = artwork.walkFrame(at: now)
-            if !motion.isReactingToHover {
+            if !motion.isHopping {
                 elevation += CGFloat(abs(sin(now * .pi / 0.48))) * 1.5
             }
         }

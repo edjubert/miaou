@@ -53,7 +53,7 @@
 /* Desktop companion */
 "desktopPet.headline" = "Desktop cat";
 "desktopPet.toggle" = "Walk along the bottom of the screen";
-"desktopPet.description" = "The cat follows the selected icon style and roams. Hover to make it hop aside and hide its glass body, then rest 300 ms after landing. Clicks pass through it.";
+"desktopPet.description" = "The cat follows the selected icon style and roams. Hover to make it hop aside and hide its glass body, then resume walking as soon as it lands. Clicks pass through it.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";

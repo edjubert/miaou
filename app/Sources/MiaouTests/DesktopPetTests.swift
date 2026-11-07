@@ -57,12 +57,13 @@ final class DesktopPetTests: XCTestCase {
                        pointerOnLeft: false, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
         motion.advance(at: 2, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 200)
-        XCTAssertEqual(motion.restingSince ?? -1, 1.6, accuracy: 0.001)
-        XCTAssertFalse(motion.isReactingToHover)
+        XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
+        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isHopping)
+        XCTAssertEqual(motion.direction, 1)
     }
 
-    func testLandingHoldsPositionAndRestsAfter300Milliseconds() {
+    func testLandingResumesWalkingWithoutAnAutomaticRest() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
         motion.advance(at: 1, elapsed: 0.1, within: 0...400,
@@ -71,17 +72,17 @@ final class DesktopPetTests: XCTestCase {
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
         XCTAssertEqual(motion.x, 200)
         XCTAssertNil(motion.restingSince)
-        motion.advance(at: 1.599, elapsed: 0.1, within: 0...400,
+        XCTAssertFalse(motion.isHopping)
+        motion.advance(at: 1.4, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 200)
+        XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
         XCTAssertEqual(motion.verticalOffset, 0)
         XCTAssertNil(motion.restingSince)
-        motion.advance(at: 1.6, elapsed: 0.001, within: 0...400,
+        motion.advance(at: 1.6, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
-        XCTAssertEqual(motion.x, 200)
-        XCTAssertEqual(motion.restingSince ?? -1, 1.6, accuracy: 0.001)
-        XCTAssertEqual(motion.sleepDuration, 60)
-        XCTAssertFalse(motion.isReactingToHover)
+        XCTAssertEqual(motion.x, 208.4, accuracy: 0.001)
+        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isHopping)
     }
 
     func testLeavingAndReenteringAfterLandingStartsAnotherHop() {
@@ -89,14 +90,14 @@ final class DesktopPetTests: XCTestCase {
         motion.place(at: 100)
         motion.advance(at: 1, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 1.6, elapsed: 0.1, within: 0...400,
+        motion.advance(at: 1.3, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 2, elapsed: 0.1, within: 0...400,
+        motion.advance(at: 1.4, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: false, petSize: petSize, wakeDuration: 5)
         XCTAssertNil(motion.restingSince)
-        XCTAssertTrue(motion.isReactingToHover)
+        XCTAssertTrue(motion.isHopping)
         XCTAssertEqual(motion.direction, -1)
-        motion.advance(at: 2.3, elapsed: 0.1, within: 0...400,
+        motion.advance(at: 1.7, elapsed: 0.1, within: 0...400,
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
         XCTAssertEqual(motion.x, 100, accuracy: 0.001)
     }
@@ -119,7 +120,7 @@ final class DesktopPetTests: XCTestCase {
         }
     }
 
-    func testDelayedTickAfterAHopKeepsTheActualLandingRestTime() {
+    func testDelayedTickAfterAHopLandsBeforeResumingWalking() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
         motion.advance(at: 1, elapsed: 0.1, within: 0...400,
@@ -128,7 +129,12 @@ final class DesktopPetTests: XCTestCase {
                        pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
         XCTAssertEqual(motion.x, 200)
         XCTAssertEqual(motion.verticalOffset, 0)
-        XCTAssertEqual(motion.restingSince ?? -1, 1.6, accuracy: 0.001)
+        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isHopping)
+        motion.advance(at: 10.1, elapsed: 0.1, within: 0...400,
+                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+        XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
+        XCTAssertNil(motion.restingSince)
     }
 
     func testNormalRestHoldsPositionThroughSleepAndWakeAnimation() {

@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New **Show in Dock** setting: turn it off to hide Miaou's Dock icon and
   run as a menu-bar-only app (activation policy `.accessory`).
 - Hovering the desktop companion makes it hop aside, rising by half its height
-  and resting 300 ms after landing, even when it was sleeping. Its glass body
+  and resuming its walk after landing, even when it was sleeping. Its glass body
   becomes transparent while hovered, keeping the colored dots visible and
   letting clicks pass through.
 
