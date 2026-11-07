@@ -16,15 +16,24 @@ struct DesktopPetSpeechPresentation {
     private var expiresAt: TimeInterval = 0
 
     mutating func receive(_ value: DesktopPetMessage?, at time: TimeInterval) {
-        guard let value, value.sequence > (seen[value.sessionID] ?? -1) else { return }
-        seen[value.sessionID] = value.sequence
+        receive(value.map { [$0] } ?? [], at: time)
+    }
+
+    mutating func receive(_ values: [DesktopPetMessage], at time: TimeInterval) {
+        let fresh = values.filter { $0.sequence > (seen[$0.sessionID] ?? -1) }
+        guard let value = fresh.max(by: {
+            if $0.completedAt != $1.completedAt { return $0.completedAt < $1.completedAt }
+            return $0.sessionID < $1.sessionID
+        }) else { return }
+        // Consume the batch together so older answers cannot replay later.
+        for answer in fresh { seen[answer.sessionID] = max(seen[answer.sessionID] ?? -1, answer.sequence) }
         message = value
         expiresAt = time + Self.duration
     }
 
-    mutating func visibleMessage(at time: TimeInterval, activeIDs: Set<String>) -> DesktopPetMessage? {
+    mutating func visibleMessage(at time: TimeInterval) -> DesktopPetMessage? {
         guard let message else { return nil }
-        guard time < expiresAt, activeIDs.contains(message.sessionID) else {
+        guard time < expiresAt else {
             self.message = nil
             return nil
         }
@@ -34,7 +43,30 @@ struct DesktopPetSpeechPresentation {
     mutating func hide() { message = nil }
 }
 
-/// Reads only the active sessions' append-only journals. Content stays in memory.
+/// A closing session can flush its final answer just after releasing its lease.
+struct DesktopPetSpeechSessions {
+    static let closingGrace: TimeInterval = 10
+    private struct Entry {
+        let session: ActiveSessionReport
+        let lastSeen: TimeInterval
+    }
+    private var tracked: [String: Entry] = [:]
+
+    mutating func sessionsToRead(active: [ActiveSessionReport], at time: TimeInterval) -> [ActiveSessionReport] {
+        for session in active { tracked[session.id] = Entry(session: session, lastSeen: time) }
+        tracked = tracked.filter { time < $0.value.lastSeen + Self.closingGrace }
+        return tracked.values.map(\.session).sorted { $0.id < $1.id }
+    }
+
+    func contains(_ sessionID: String, at time: TimeInterval) -> Bool {
+        guard let entry = tracked[sessionID] else { return false }
+        return time < entry.lastSeen + Self.closingGrace
+    }
+
+    mutating func reset() { tracked.removeAll() }
+}
+
+/// Reads only active or just-closed sessions' append-only journals. Content stays in memory.
 struct DesktopPetMessageReader {
     private struct Completion {
         let sequence: Int
@@ -51,6 +83,13 @@ struct DesktopPetMessageReader {
     private var cache: [URL: Journal] = [:]
 
     mutating func latestMessage(sessions: [ActiveSessionReport], vibeHome: URL) -> DesktopPetMessage? {
+        messages(sessions: sessions, vibeHome: vibeHome).max {
+            if $0.completedAt != $1.completedAt { return $0.completedAt < $1.completedAt }
+            return $0.sessionID < $1.sessionID
+        }
+    }
+
+    mutating func messages(sessions: [ActiveSessionReport], vibeHome: URL) -> [DesktopPetMessage] {
         var usedFiles: Set<URL> = []
         var messages: [DesktopPetMessage] = []
         for session in sessions {
@@ -78,10 +117,7 @@ struct DesktopPetMessageReader {
             ))
         }
         cache = cache.filter { usedFiles.contains($0.key) }
-        return messages.max {
-            if $0.completedAt != $1.completedAt { return $0.completedAt < $1.completedAt }
-            return $0.sessionID < $1.sessionID
-        }
+        return messages
     }
 
     private mutating func read(_ file: URL) -> Journal? {
@@ -143,18 +179,18 @@ final class DesktopPetSpeechSource {
     private var reader = DesktopPetMessageReader()
     private var reading = false
 
-    func refresh(sessions: [ActiveSessionReport], receive: @escaping (DesktopPetMessage?) -> Void) {
-        guard !sessions.isEmpty else { receive(nil); return }
+    func refresh(sessions: [ActiveSessionReport], receive: @escaping ([DesktopPetMessage]) -> Void) {
+        guard !sessions.isEmpty else { receive([]); return }
         guard !reading else { return }
         reading = true
         let home = URL(fileURLWithPath: ProcessInfo.processInfo.environment["VIBE_HOME"]
                        ?? NSHomeDirectory() + "/.vibe")
         queue.async { [weak self] in
             guard let self else { return }
-            let message = self.reader.latestMessage(sessions: sessions, vibeHome: home)
+            let messages = self.reader.messages(sessions: sessions, vibeHome: home)
             DispatchQueue.main.async {
                 self.reading = false
-                receive(message)
+                receive(messages)
             }
         }
     }

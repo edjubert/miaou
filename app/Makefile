@@ -4,10 +4,11 @@ APP_DIR = $(HOME)/Applications
 CLI_NAME = miaou
 CLI_BIN ?= $(shell command -v $(CLI_NAME) 2>/dev/null || echo $(HOME)/.cargo/bin/$(CLI_NAME))
 
+# Package.swift enumerates sources; cached manifests can omit newly added files.
 .PHONY: build app install-app install-only icon clean test
 
 build:
-	swift build -c release
+	swift build --manifest-cache none -c release
 
 icon:
 	mkdir -p .build
@@ -23,7 +24,7 @@ install-only:
 install-app: app install-only
 
 test:
-	swift test
+	swift test --manifest-cache none
 	python3 -m unittest discover -s scripts/tests
 
 clean:

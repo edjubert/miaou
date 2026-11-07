@@ -56,8 +56,8 @@
 "desktopPet.toggle" = "Show the cat along the bottom of the screen";
 "desktopPet.size" = "Size";
 "desktopPet.speech" = "Show the last message in a speech bubble";
-"desktopPet.speech.description" = "A short excerpt of the latest completed answer from an active Vibe session appears above the cat for 5 seconds. Each new message appears once.";
-"desktopPet.speech.session" = "Active session";
+"desktopPet.speech.description" = "A short excerpt of the latest completed Vibe reply appears for 5 seconds, even if the session closes. Each new message appears once.";
+"desktopPet.speech.session" = "Vibe session";
 "desktopPet.colorDuringMovement" = "Color while moving";
 "desktopPet.glassIntensity" = "Glass intensity";
 "desktopPet.glassMaximum" = "Full glass";

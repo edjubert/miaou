@@ -127,32 +127,91 @@ final class DesktopPetSpeechTests: XCTestCase {
     func testMessageExpiresAtFiveSecondsAndRepeatedPollingDoesNotExtendIt() {
         var presentation = DesktopPetSpeechPresentation()
         presentation.receive(message(), at: 10)
-        XCTAssertNotNil(presentation.visibleMessage(at: 14.999, activeIDs: ["a"]))
+        XCTAssertNotNil(presentation.visibleMessage(at: 14.999))
         presentation.receive(message(), at: 14)
-        XCTAssertNil(presentation.visibleMessage(at: 15, activeIDs: ["a"]))
+        XCTAssertNil(presentation.visibleMessage(at: 15))
         presentation.receive(message(), at: 100)
-        XCTAssertNil(presentation.visibleMessage(at: 100, activeIDs: ["a"]))
+        XCTAssertNil(presentation.visibleMessage(at: 100))
     }
 
     func testNewCompletionReplacesTheBubbleForAnotherFiveSeconds() {
         var presentation = DesktopPetSpeechPresentation()
         presentation.receive(message(), at: 10)
         presentation.receive(message(sequence: 2), at: 14)
-        XCTAssertEqual(presentation.visibleMessage(at: 18.999, activeIDs: ["a"])?.sequence, 2)
-        XCTAssertNil(presentation.visibleMessage(at: 19, activeIDs: ["a"]))
+        XCTAssertEqual(presentation.visibleMessage(at: 18.999)?.sequence, 2)
+        XCTAssertNil(presentation.visibleMessage(at: 19))
     }
 
-    func testClosedSessionsAndDisablingTheOptionHideWithoutReplayingOlderMessages() {
+    func testEndingTheSessionDoesNotShortenTheFiveSecondBubble() {
+        var sessions = DesktopPetSpeechSessions()
+        var presentation = DesktopPetSpeechPresentation()
+        _ = sessions.sessionsToRead(active: [ActiveSessionReport(id: "a", ageMs: 0)], at: 10)
+        presentation.receive(message(), at: 10)
+        _ = sessions.sessionsToRead(active: [], at: 12)
+        XCTAssertNotNil(presentation.visibleMessage(at: 12))
+        XCTAssertNotNil(presentation.visibleMessage(at: 14.999))
+        XCTAssertNil(presentation.visibleMessage(at: 15))
+    }
+
+    func testDisablingTheOptionHidesWithoutReplayingOlderMessages() {
         var presentation = DesktopPetSpeechPresentation()
         presentation.receive(message(), at: 1)
-        XCTAssertNil(presentation.visibleMessage(at: 2, activeIDs: []))
-        XCTAssertNil(presentation.visibleMessage(at: 2.1, activeIDs: ["a"]))
+        presentation.hide()
+        presentation.receive(message(), at: 2)
+        XCTAssertNil(presentation.visibleMessage(at: 2.1))
         presentation.receive(message("b"), at: 2)
         presentation.receive(message(), at: 3)
-        XCTAssertNil(presentation.visibleMessage(at: 3, activeIDs: ["a"]))
+        XCTAssertEqual(presentation.visibleMessage(at: 3)?.sessionID, "b")
         presentation.hide()
         presentation.receive(message("b"), at: 4)
-        XCTAssertNil(presentation.visibleMessage(at: 4, activeIDs: ["b"]))
+        XCTAssertNil(presentation.visibleMessage(at: 4))
+    }
+
+    func testFinalAnswerFlushedAfterSessionClosureIsStillShownForFiveSeconds() throws {
+        let root = try home()
+        try write(root, session: "a", lines: [anchor(1, 1_000)])
+        var sessions = DesktopPetSpeechSessions()
+        var reader = DesktopPetMessageReader()
+        var presentation = DesktopPetSpeechPresentation()
+        let active = [ActiveSessionReport(id: "a", ageMs: 0, title: "Ending Vibe")]
+        XCTAssertTrue(reader.messages(sessions: sessions.sessionsToRead(active: active, at: 10),
+                                      vibeHome: root).isEmpty)
+        // The lease disappears before the completed answer reaches the journal.
+        _ = sessions.sessionsToRead(active: [], at: 11)
+        try write(root, session: "a", lines: [anchor(1, 1_000), answer(2, "Final answer")])
+        let closing = sessions.sessionsToRead(active: [], at: 12)
+        presentation.receive(reader.messages(sessions: closing, vibeHome: root), at: 12)
+        XCTAssertEqual(presentation.visibleMessage(at: 16.999)?.text, "Final answer")
+        XCTAssertNil(presentation.visibleMessage(at: 17))
+    }
+
+    func testClosingJournalReadsExpireAndDisablingClearsTrackedSessions() {
+        var sessions = DesktopPetSpeechSessions()
+        let active = [ActiveSessionReport(id: "a", ageMs: 0)]
+        _ = sessions.sessionsToRead(active: active, at: 10)
+        XCTAssertEqual(sessions.sessionsToRead(active: [], at: 19.999).map(\.id), ["a"])
+        XCTAssertTrue(sessions.contains("a", at: 19.999))
+        XCTAssertTrue(sessions.sessionsToRead(active: [], at: 20).isEmpty)
+        XCTAssertFalse(sessions.contains("a", at: 20))
+        _ = sessions.sessionsToRead(active: active, at: 21)
+        sessions.reset()
+        XCTAssertFalse(sessions.contains("a", at: 21))
+    }
+
+    func testAnAlreadyShownAnswerFromAnotherSessionCannotHideANewCompletion() throws {
+        let root = try home()
+        try write(root, session: "a", lines: [anchor(1, 1_000), answer(2, "Earlier answer")])
+        try write(root, session: "b", lines: [anchor(1, 2_000), answer(2, "Other session")])
+        let sessions = [ActiveSessionReport(id: "a", ageMs: 0), ActiveSessionReport(id: "b", ageMs: 0)]
+        var reader = DesktopPetMessageReader()
+        var presentation = DesktopPetSpeechPresentation()
+        presentation.receive(reader.messages(sessions: sessions, vibeHome: root), at: 10)
+        XCTAssertEqual(presentation.visibleMessage(at: 10)?.sessionID, "b")
+        try write(root, session: "a", lines: [anchor(1, 1_000), answer(3, "New final answer")])
+        presentation.receive(reader.messages(sessions: sessions, vibeHome: root), at: 12)
+        XCTAssertEqual(presentation.visibleMessage(at: 12)?.text, "New final answer")
+        presentation.receive(reader.messages(sessions: sessions, vibeHome: root), at: 16)
+        XCTAssertNil(presentation.visibleMessage(at: 17))
     }
 
     func testBubbleStaysAboveAllPetSizesAndInsideBothScreenEdges() {

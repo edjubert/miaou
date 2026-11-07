@@ -58,7 +58,8 @@ binaries for macOS ARM and Linux.
 "Lancer au démarrage" in its settings (uses SMAppService and requires
 the installed .app, not `swift run`).
 
-Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
+Dev: `swift build --manifest-cache none && swift run --manifest-cache none`
+(uses the CLI from `~/.cargo/bin` or
 `/opt/homebrew/bin`, not the embedded copy).
 
 ## Desktop cat (experimental)
@@ -102,14 +103,17 @@ It shows a short plain-text excerpt (up to 280 characters) of the latest
 completed answer among active Vibe sessions. Each new completion appears once
 for five seconds, and a new answer replaces the current bubble with a fresh
 five-second duration. The bubble follows the cat, points toward it, stays
-within the screen, and lets clicks pass through. It disappears when its
-session stops or the option is turned off.
+within the screen, and lets clicks pass through. Closing a session does not
+shorten the five-second display; turning the option off hides it immediately.
 Its background uses the same Liquid Glass (or native blur fallback) and glass
 intensity as the cat. Small square dots in the cat's yellow-to-red palette form
 the stepped border and pointer; the title and message use a monospace font.
 Only completed text answers (`finish_reason: stop`) are used, excluding tool
 calls, streaming responses and failed completions. Active journals are checked
 every two seconds on a background queue and unchanged files are cached.
+Previously active sessions remain readable for ten seconds after closing, to
+catch a final answer flushed just after the lease disappears. Already displayed
+answers from other sessions never block a new completion.
 Text stays in memory; no model call, archive or widget export is involved.
 Turn **Show the cat along the bottom of the screen** off to hide the companion.
 

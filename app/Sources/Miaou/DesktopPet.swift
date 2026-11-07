@@ -113,6 +113,7 @@ final class DesktopPetController {
     private var speechView: DesktopPetSpeechView?
     private let speechSource = DesktopPetSpeechSource()
     private var speechPresentation = DesktopPetSpeechPresentation()
+    private var speechSessions = DesktopPetSpeechSessions()
     private var nextSpeechPoll: TimeInterval = 0
     private var timer: Timer?
     private var pet: BarPet = .chaton
@@ -146,6 +147,7 @@ final class DesktopPetController {
         speechPanel = nil
         speechView = nil
         speechPresentation.hide()
+        speechSessions.reset()
         observations.removeAll()
     }
 
@@ -167,6 +169,7 @@ final class DesktopPetController {
             artwork = nil
             speechPanel?.orderOut(nil)
             speechPresentation.hide()
+            speechSessions.reset()
             nextSpeechPoll = 0
             return
         }
@@ -272,22 +275,23 @@ final class DesktopPetController {
         guard defaults.bool(forKey: "desktopPetSpeechEnabled") else {
             speechPanel?.orderOut(nil)
             speechPresentation.hide()
+            speechSessions.reset()
             nextSpeechPoll = 0
             return
         }
-        let sessions = AppModel.shared.dashboard?.liveSessions ?? []
+        let sessions = speechSessions.sessionsToRead(
+            active: AppModel.shared.dashboard?.liveSessions ?? [], at: now
+        )
         if now >= nextSpeechPoll {
             nextSpeechPoll = now + 2
-            speechSource.refresh(sessions: sessions) { [weak self] message in
-                guard let self, self.defaults.bool(forKey: "desktopPetSpeechEnabled"),
-                      let message,
-                      AppModel.shared.dashboard?.liveSessions.contains(where: { $0.id == message.sessionID }) == true
-                else { return }
-                self.speechPresentation.receive(message, at: ProcessInfo.processInfo.systemUptime)
+            speechSource.refresh(sessions: sessions) { [weak self] messages in
+                guard let self, self.defaults.bool(forKey: "desktopPetSpeechEnabled") else { return }
+                let time = ProcessInfo.processInfo.systemUptime
+                let eligible = messages.filter { self.speechSessions.contains($0.sessionID, at: time) }
+                self.speechPresentation.receive(eligible, at: time)
             }
         }
-        let activeIDs = Set(sessions.map(\.id))
-        guard let message = speechPresentation.visibleMessage(at: now, activeIDs: activeIDs),
+        guard let message = speechPresentation.visibleMessage(at: now),
               let panel, let screen = NSScreen.screens.first else {
             speechPanel?.orderOut(nil)
             return

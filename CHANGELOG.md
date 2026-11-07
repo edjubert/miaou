@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a stepped square-dot border in brand colors and monospace text. The cat's
   glass intensity slider also controls the bubble's background.
 
+### Fixed
+
+- Closing a Vibe session no longer hides its final speech bubble early or
+  drops an answer flushed just after the session closes. Bubbles remain visible
+  for their full five seconds, and already shown replies from other sessions
+  cannot hide a new completion.
+
 ## [0.5.0] - 2026-11-07
 
 ### Changed
