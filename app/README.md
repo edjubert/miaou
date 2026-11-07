@@ -70,7 +70,8 @@ main window closes, and clicks pass through it.
 
 The dot outline surrounds a transparent glass body: Liquid Glass on macOS 26,
 with a native blur fallback on earlier versions. **Glass transparency** adjusts
-the glass effect live, from its full native appearance at 0% to no glass at 100%.
+the glass effect live, from no glass at 100% on the left to its full native
+appearance at 0% on the right.
 The slider fades only the glass, keeping the dot outline visible, and its value
 persists across launches. It defaults to 0% to preserve the current appearance.
 The native material still controls its own blur and refraction.

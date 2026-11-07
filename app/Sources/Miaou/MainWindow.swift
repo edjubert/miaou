@@ -460,14 +460,19 @@ struct MainWindow: View {
                              format: .percent.precision(.fractionLength(0)).locale(L10n.locale))
                             .monospacedDigit()
                     }
-                    Slider(value: $desktopPetGlassTransparency, in: 0...1, step: 0.01) {
+                    Slider(value: Binding(
+                        get: { 1 - desktopPetGlassTransparency },
+                        set: { desktopPetGlassTransparency = 1 - $0 }
+                    ), in: 0...1, step: 0.01) {
                         Text(L10n.t("desktopPet.glassTransparency"))
                     }
                     .labelsHidden()
+                    .accessibilityValue(Text(desktopPetGlassTransparency,
+                                             format: .percent.precision(.fractionLength(0)).locale(L10n.locale)))
                     HStack {
-                        Text(L10n.t("desktopPet.glassMaximum"))
-                        Spacer()
                         Text(L10n.t("desktopPet.glassHidden"))
+                        Spacer()
+                        Text(L10n.t("desktopPet.glassMaximum"))
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
