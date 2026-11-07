@@ -64,7 +64,7 @@ Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
 ## Desktop cat (experimental)
 
 Enable **Settings → Desktop cat → Show the cat along the bottom of the screen**.
-The companion follows the selected Chaton/Le Chonk icon style and stays still,
+The companion follows the selected Chaton/Le Chonk icon style and rests
 gray and asleep above the Dock on the primary screen. It stays visible when the
 main window closes, and clicks pass through it.
 
@@ -79,15 +79,19 @@ Hovering the cat makes
 its glass body transparent and triggers a sideways hop, even while sleeping.
 The hop rises by half the cat's height, lands one cat-width away within the
 screen bounds, and immediately starts walking to the corner in that direction.
-At the corner, it stays asleep until hovered again. A continuous hover
+At the corner, it lies down. A continuous hover
 triggers one hop; move away and hover again to trigger another.
 The dots remain visible and clicks still pass through it.
 **Color while moving** is enabled by default: dots use brand colors during hops
 and walks, even without a live session, and turn gray when the pet reaches the
 edge and lies down. Turn this color option off to keep the pet gray.
-Session activity never starts a walk on its own. If the session ends and the
-automatic model selection switches Chonk back to Chaton, the pet continues its
-current trip to the edge.
+The desktop cat has its own **Animation** setting, independent of the menu bar:
+**Always** walks automatically even without a session; **When a session is
+active** (the default) only starts automatic walks during live sessions.
+Automatic walks pause for 40–120 seconds at each edge. When session mode loses
+its last session, the pet finishes its current trip to the edge and stays
+asleep until another session or hover. Hover remains responsive in both modes.
+Switching Chonk back to Chaton when a session ends preserves the current trip.
 Turn **Show the cat along the bottom of the screen** off to hide the companion.
 
 ## Planned features
@@ -169,6 +173,11 @@ build numbers, and installation unregisters older widget copies before
 registering the installed extension.
 
 ## Settings
+
+**Show in menu bar** controls the entire menu bar item, independently of
+**Show in Dock**. Turn it off to hide both the icon and text while the desktop
+cat and widgets keep working. The choice persists across launches; reopen
+Miaou's main window to enable it again.
 
 The menu window has a "Barre de menu" section with a segmented picker:
 **Coût** (month-to-date cost), **Pourcentage** (share of the effective

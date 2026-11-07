@@ -6,6 +6,7 @@ import ServiceManagement
 @main
 struct MiaouApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    @AppStorage("showInMenuBar") private var showInMenuBar = true
 
     var body: some Scene {
         Window("Miaou", id: "main") {
@@ -23,7 +24,7 @@ struct MiaouApp: App {
                 OpenMainWindowCommand()
             }
         }
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $showInMenuBar) {
             MenuContent()
                 .environmentObject(AppModel.shared)
         } label: {

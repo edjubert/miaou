@@ -7,9 +7,11 @@ final class DesktopPetTests: XCTestCase {
 
     private func advance(_ motion: inout DesktopPetMotion, at time: TimeInterval,
                          elapsed: TimeInterval = 0.1, limits: ClosedRange<CGFloat> = 0...400,
-                         pointerOnLeft: Bool? = nil) {
+                         pointerOnLeft: Bool? = nil, autonomous: Bool = false,
+                         restDuration: TimeInterval = 40) {
         motion.advance(at: time, elapsed: elapsed, within: limits,
-                       pointerOnLeft: pointerOnLeft, petSize: petSize)
+                       pointerOnLeft: pointerOnLeft, petSize: petSize,
+                       autonomous: autonomous, restDuration: restDuration)
     }
 
     func testIdleCatNeverStartsWalkingOnItsOwn() {
@@ -21,6 +23,74 @@ final class DesktopPetTests: XCTestCase {
             XCTAssertTrue(motion.isResting)
             XCTAssertFalse(motion.isHopping)
             XCTAssertEqual(motion.verticalOffset, 0)
+        }
+    }
+
+    func testAutonomousWalksPauseAtTheEdgeThenResumeInward() {
+        for duration in [40.0, 120] {
+            var motion = DesktopPetMotion()
+            motion.place(at: 196)
+            advance(&motion, at: 1, limits: 0...200, autonomous: true, restDuration: duration)
+            XCTAssertEqual(motion.x, 200)
+            XCTAssertTrue(motion.isResting)
+            XCTAssertEqual(motion.direction, -1)
+            advance(&motion, at: 1 + duration - 0.01, limits: 0...200, autonomous: true)
+            XCTAssertEqual(motion.x, 200)
+            XCTAssertTrue(motion.isResting)
+            advance(&motion, at: 1 + duration, limits: 0...200, autonomous: true)
+            XCTAssertEqual(motion.x, 195.8, accuracy: 0.001)
+            XCTAssertFalse(motion.isResting)
+        }
+    }
+
+    func testDisablingAutonomousWalkingFinishesTheTripThenStaysAsleep() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 190)
+        advance(&motion, at: 1, limits: 0...200, autonomous: true)
+        XCTAssertFalse(motion.isResting)
+        advance(&motion, at: 1.1, limits: 0...200)
+        XCTAssertEqual(motion.x, 198.4, accuracy: 0.001)
+        advance(&motion, at: 1.2, limits: 0...200)
+        XCTAssertTrue(motion.isResting)
+        advance(&motion, at: 3600, limits: 0...200)
+        XCTAssertEqual(motion.x, 200)
+        XCTAssertTrue(motion.isResting)
+    }
+
+    func testReenablingAutonomousWalkingWakesTheCatWithoutAnOldDeadline() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 196)
+        advance(&motion, at: 1, limits: 0...200, autonomous: true)
+        advance(&motion, at: 2, limits: 0...200)
+        XCTAssertTrue(motion.isResting)
+        advance(&motion, at: 3, limits: 0...200, autonomous: true)
+        XCTAssertEqual(motion.x, 195.8, accuracy: 0.001)
+        XCTAssertFalse(motion.isResting)
+    }
+
+    func testHoverInterruptsAnAutonomousPauseAndFinishesAfterAnimationIsDisabled() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 396)
+        advance(&motion, at: 1, autonomous: true)
+        XCTAssertTrue(motion.isResting)
+        advance(&motion, at: 2, pointerOnLeft: true, autonomous: true)
+        XCTAssertTrue(motion.isHopping)
+        advance(&motion, at: 2.15)
+        XCTAssertEqual(motion.verticalOffset, petSize.height * 0.5, accuracy: 0.001)
+        advance(&motion, at: 2.3)
+        XCTAssertEqual(motion.x, 300, accuracy: 0.001)
+        XCTAssertFalse(motion.isHopping)
+        advance(&motion, at: 2.4)
+        XCTAssertEqual(motion.x, 295.8, accuracy: 0.001)
+        XCTAssertFalse(motion.isResting)
+    }
+
+    func testAutonomousWalkingStaysAtRestWhenTheScreenHasNoRoom() {
+        var motion = DesktopPetMotion()
+        for time in [1.0, 60, 3600] {
+            advance(&motion, at: time, limits: 0...0, autonomous: true)
+            XCTAssertEqual(motion.x, 0)
+            XCTAssertTrue(motion.isResting)
         }
     }
 

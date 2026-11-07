@@ -26,6 +26,7 @@
 "col.share" = "Share";
 "settings.tagline" = "Mistral Vibe usage, on your Mac.";
 "settings.section.bar" = "Menu bar";
+"bar.toggle" = "Show in menu bar";
 "settings.reset" = "Reset to defaults";
 "icon.style" = "Icon style";
 "installed.question" = "Is miaou installed and up to date?";
@@ -57,7 +58,7 @@
 "desktopPet.glassIntensity" = "Glass intensity";
 "desktopPet.glassMaximum" = "Full glass";
 "desktopPet.glassHidden" = "No glass";
-"desktopPet.description" = "The cat stays still and gray at rest. Hover to make it hop, then walk to a screen edge. While moving, it can show colors even without an active session, then turns gray when it lies down. Clicks pass through it.";
+"desktopPet.description" = "The cat walks automatically in the selected animation mode, with pauses at the edges. Without an active session, session mode keeps it asleep after its current walk. Hover always makes it hop and walk to an edge. Movement can be colored; rest is gray. Clicks pass through it.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";

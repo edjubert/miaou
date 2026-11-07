@@ -26,6 +26,7 @@
 "col.share" = "Part";
 "settings.tagline" = "L'usage de Mistral Vibe, sur ton Mac.";
 "settings.section.bar" = "Barre de menu";
+"bar.toggle" = "Afficher dans la barre des menus";
 "settings.reset" = "Valeurs d'origine";
 "icon.style" = "Style d'icône";
 "installed.question" = "miaou est-il installé et à jour ?";
@@ -57,7 +58,7 @@
 "desktopPet.glassIntensity" = "Intensité du verre";
 "desktopPet.glassMaximum" = "Verre maximal";
 "desktopPet.glassHidden" = "Sans verre";
-"desktopPet.description" = "Le chat reste immobile et gris au repos. Au survol, il bondit puis rejoint un bord de l'écran. En déplacement, il peut prendre des couleurs même sans session active, puis redevient gris en se recouchant. Les clics le traversent.";
+"desktopPet.description" = "Le chat marche automatiquement selon le mode d'animation, avec des pauses aux bords. Sans session active, le mode session le laisse dormir après son trajet. Le survol le fait toujours bondir puis rejoindre un bord. Ses déplacements peuvent être colorés ; le repos est gris. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

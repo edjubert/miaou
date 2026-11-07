@@ -91,8 +91,10 @@ struct MainWindow: View {
     @AppStorage("chatonColor") private var chatonColorRaw: String = ChatonColorMode.session.rawValue
     @AppStorage("barAnimation") private var barAnimationRaw: String = ChatonAnimationMode.session.rawValue
     @AppStorage("showIcon") private var showIcon: Bool = true
+    @AppStorage("showInMenuBar") private var showInMenuBar = true
     @AppStorage("showInDock") private var showInDock: Bool = true
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
+    @AppStorage("desktopPetAnimation") private var desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
     // Keep the stored key so the previous color preference survives upgrades.
     @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringMovement = true
     // Store transparency to preserve the existing appearance; the slider shows glass intensity.
@@ -381,6 +383,7 @@ struct MainWindow: View {
                 Text(L10n.t("settings.tagline")).foregroundStyle(.secondary)
             }
             Section(L10n.t("settings.section.bar")) {
+                Toggle(L10n.t("bar.toggle"), isOn: $showInMenuBar)
                 Picker(L10n.t("bar.picker"), selection: Binding(
                     get: { barModeRaw },
                     set: { raw in
@@ -395,8 +398,9 @@ struct MainWindow: View {
                 }
                 .pickerStyle(.segmented)
                 .id("barMode-\(languageRaw)")
+                .disabled(!showInMenuBar)
                 Toggle(L10n.t("icon.toggle"), isOn: $showIcon)
-                    .disabled(barMode == .none)
+                    .disabled(!showInMenuBar || barMode == .none)
                 Toggle(L10n.t("dock.toggle"), isOn: $showInDock)
                 Toggle(L10n.t("login.toggle"), isOn: Binding(
                     get: { SMAppService.mainApp.status == .enabled },
@@ -451,6 +455,14 @@ struct MainWindow: View {
             }
             Section(L10n.t("desktopPet.headline")) {
                 Toggle(L10n.t("desktopPet.toggle"), isOn: $desktopPetEnabled)
+                Picker(L10n.t("widget.chaton.mode"), selection: $desktopPetAnimationRaw) {
+                    ForEach(ChatonAnimationMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("desktopPetAnimation-\(languageRaw)")
+                .disabled(!desktopPetEnabled)
                 Toggle(L10n.t("desktopPet.colorDuringMovement"), isOn: $desktopPetColorDuringMovement)
                     .disabled(!desktopPetEnabled)
                 VStack(alignment: .leading, spacing: 6) {
@@ -496,8 +508,10 @@ struct MainWindow: View {
         chatonColorRaw = ChatonColorMode.session.rawValue
         barAnimationRaw = ChatonAnimationMode.session.rawValue
         showIcon = true
+        showInMenuBar = true
         showInDock = true
         desktopPetEnabled = false
+        desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
         desktopPetColorDuringMovement = true
         desktopPetGlassTransparency = 0
         languageRaw = "system"

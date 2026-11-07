@@ -19,6 +19,7 @@ struct DesktopPetMotion {
     private(set) var isResting = true
     private var hop: Hop?
     private var wasHovered = false
+    private var nextAutomaticWalk: TimeInterval?
 
     var isHopping: Bool { hop != nil }
 
@@ -28,12 +29,15 @@ struct DesktopPetMotion {
         verticalOffset = 0
         isResting = true
         wasHovered = false
+        nextAutomaticWalk = nil
     }
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
                           within limits: ClosedRange<CGFloat>, pointerOnLeft: Bool?,
-                          petSize: CGSize) {
+                          petSize: CGSize, autonomous: Bool = false,
+                          restDuration: TimeInterval = PetAnimation.restDelay.lowerBound) {
         x = min(max(x, limits.lowerBound), limits.upperBound)
+        if !autonomous { nextAutomaticWalk = nil }
         let hovered = pointerOnLeft != nil
         let entered = hovered && !wasHovered
         defer { wasHovered = hovered }
@@ -46,6 +50,7 @@ struct DesktopPetMotion {
             let target = min(max(x + direction * petSize.width, limits.lowerBound),
                              limits.upperBound)
             isResting = false
+            nextAutomaticWalk = nil
             hop = Hop(startedAt: time, startX: x, endX: target, height: petSize.height * 0.5)
         }
         if let hop {
@@ -59,6 +64,10 @@ struct DesktopPetMotion {
             // Finish at the landing position, then resume walking on the next tick.
             return
         }
+        if isResting && autonomous && time >= (nextAutomaticWalk ?? time) {
+            isResting = false
+            nextAutomaticWalk = nil
+        }
         guard !isResting else { return }
         guard limits.lowerBound < limits.upperBound else {
             isResting = true
@@ -70,6 +79,7 @@ struct DesktopPetMotion {
             (direction > 0 && next >= limits.upperBound) {
             direction *= -1
             isResting = true
+            nextAutomaticWalk = autonomous ? time + restDuration : nil
         }
     }
 }
@@ -195,9 +205,14 @@ final class DesktopPetController {
         let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
                                    y: pointer.y - panel.frame.minY)
         let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
+        let animationMode = ChatonAnimationMode(
+            rawValue: defaults.string(forKey: "desktopPetAnimation") ?? ""
+        ) ?? .session
+        let autonomous = animationMode == .always || AppModel.shared.hasLiveSessions
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
-                       petSize: panel.frame.size)
+                       petSize: panel.frame.size, autonomous: autonomous,
+                       restDuration: .random(in: PetAnimation.restDelay))
         let frame: Int
         var elevation = motion.verticalOffset
         if motion.isResting {
