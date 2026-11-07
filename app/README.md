@@ -63,19 +63,24 @@ Dev: `swift build && swift run` (uses the CLI from `~/.cargo/bin` or
 
 ## Desktop cat (experimental)
 
-Enable **Settings → Desktop cat → Walk along the bottom of the screen**.
-The companion follows the selected Chaton/Le Chonk icon style, roams above
-the Dock on the primary screen, and sleeps for 40 s to 2 min at the edges. It stays
-visible when the main window closes, and clicks pass through it.
+Enable **Settings → Desktop cat → Show the cat along the bottom of the screen**.
+The companion follows the selected Chaton/Le Chonk icon style and stays still,
+gray and asleep above the Dock on the primary screen. It stays visible when the
+main window closes, and clicks pass through it.
 
-Colored dots surround a transparent glass body: Liquid Glass on macOS 26,
+The dot outline surrounds a transparent glass body: Liquid Glass on macOS 26,
 with a native blur fallback on earlier versions. Hovering the cat makes
 its glass body transparent and triggers a sideways hop, even while sleeping.
 The hop rises by half the cat's height, lands one cat-width away within the
-screen bounds, and immediately resumes walking after landing. A continuous hover
+screen bounds, and immediately starts walking to the corner in that direction.
+At the corner, it stays asleep until hovered again. A continuous hover
 triggers one hop; move away and hover again to trigger another.
-The colored dots remain visible and clicks still pass through it.
-Turn the option off to hide the companion.
+The dots remain visible and clicks still pass through it.
+**Color its movements during an active session** is enabled by default: dots
+use brand colors only while moving with a live session, and turn gray at rest
+or when the session ends. Turn this color option off to keep the pet gray.
+Session activity never starts a walk on its own.
+Turn **Show the cat along the bottom of the screen** off to hide the companion.
 
 ## Planned features
 

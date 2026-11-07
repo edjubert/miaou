@@ -93,6 +93,7 @@ struct MainWindow: View {
     @AppStorage("showIcon") private var showIcon: Bool = true
     @AppStorage("showInDock") private var showInDock: Bool = true
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
+    @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringSession = true
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -447,6 +448,8 @@ struct MainWindow: View {
             }
             Section(L10n.t("desktopPet.headline")) {
                 Toggle(L10n.t("desktopPet.toggle"), isOn: $desktopPetEnabled)
+                Toggle(L10n.t("desktopPet.colorDuringSession"), isOn: $desktopPetColorDuringSession)
+                    .disabled(!desktopPetEnabled)
                 Text(L10n.t("desktopPet.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -466,6 +469,7 @@ struct MainWindow: View {
         showIcon = true
         showInDock = true
         desktopPetEnabled = false
+        desktopPetColorDuringSession = true
         languageRaw = "system"
     }
 }

@@ -5,100 +5,101 @@ import XCTest
 final class DesktopPetTests: XCTestCase {
     private let petSize = CGSize(width: 100, height: 80)
 
+    private func advance(_ motion: inout DesktopPetMotion, at time: TimeInterval,
+                         elapsed: TimeInterval = 0.1, limits: ClosedRange<CGFloat> = 0...400,
+                         pointerOnLeft: Bool? = nil) {
+        motion.advance(at: time, elapsed: elapsed, within: limits,
+                       pointerOnLeft: pointerOnLeft, petSize: petSize)
+    }
+
+    func testIdleCatNeverStartsWalkingOnItsOwn() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 100)
+        for time in [1.0, 60, 3600] {
+            advance(&motion, at: time)
+            XCTAssertEqual(motion.x, 100)
+            XCTAssertTrue(motion.isResting)
+            XCTAssertFalse(motion.isHopping)
+            XCTAssertEqual(motion.verticalOffset, 0)
+        }
+    }
+
     func testHoverHopsAsideAwayFromThePointerWithAHalfHeightPeak() {
         for pointerOnLeft in [true, false] {
             var motion = DesktopPetMotion()
             motion.place(at: 200)
-            motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                           pointerOnLeft: pointerOnLeft, petSize: petSize, wakeDuration: 5)
+            advance(&motion, at: 1, pointerOnLeft: pointerOnLeft)
             XCTAssertEqual(motion.direction, pointerOnLeft ? 1 : -1)
             XCTAssertEqual(motion.x, 200)
             XCTAssertEqual(motion.verticalOffset, 0)
-            motion.advance(at: 1.15, elapsed: 0.1, within: 0...400,
-                           pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+            XCTAssertFalse(motion.isResting)
+            advance(&motion, at: 1.15)
             XCTAssertEqual(motion.x, pointerOnLeft ? 250 : 150, accuracy: 0.001)
             XCTAssertEqual(motion.verticalOffset, petSize.height * 0.5, accuracy: 0.001)
-            motion.advance(at: 1.3, elapsed: 0.1, within: 0...400,
-                           pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+            advance(&motion, at: 1.3)
             XCTAssertEqual(motion.x, pointerOnLeft ? 300 : 100, accuracy: 0.001)
             XCTAssertEqual(motion.verticalOffset, 0, accuracy: 0.001)
-            XCTAssertNil(motion.restingSince)
+            XCTAssertFalse(motion.isResting)
         }
     }
 
-    func testHoverWakesASleepingCatAndHopsInwardAtTheScreenEdge() {
-        var motion = DesktopPetMotion()
-        motion.place(at: 399)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
-        XCTAssertEqual(motion.restingSince, 1)
-        motion.advance(at: 20, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 400)
-        motion.advance(at: 21, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        XCTAssertNil(motion.restingSince)
-        XCTAssertEqual(motion.direction, -1)
-        motion.advance(at: 21.3, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 300, accuracy: 0.001)
+    func testHoverWakesASleepingCatAndHopsInwardAtEitherScreenEdge() {
+        for start in [CGFloat(0), 400] {
+            var motion = DesktopPetMotion()
+            motion.place(at: start)
+            advance(&motion, at: 20)
+            XCTAssertTrue(motion.isResting)
+            XCTAssertEqual(motion.x, start)
+            advance(&motion, at: 21, pointerOnLeft: start == 400)
+            XCTAssertFalse(motion.isResting)
+            XCTAssertEqual(motion.direction, start == 400 ? -1 : 1)
+            advance(&motion, at: 21.3)
+            XCTAssertEqual(motion.x, start == 400 ? 300 : 100, accuracy: 0.001)
+        }
     }
 
     func testChangingPoseDoesNotReverseOrRepeatTheHopWhileStillHovered() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 1.1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: false, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 1, pointerOnLeft: true)
+        advance(&motion, at: 1.1, pointerOnLeft: false)
         XCTAssertEqual(motion.direction, 1)
         XCTAssertEqual(motion.x, 100 + 100 / 3, accuracy: 0.001)
-        motion.advance(at: 1.6, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: false, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
-        motion.advance(at: 2, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 1.3, pointerOnLeft: false)
+        advance(&motion, at: 1.4, pointerOnLeft: true)
         XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
-        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isResting)
         XCTAssertFalse(motion.isHopping)
         XCTAssertEqual(motion.direction, 1)
     }
 
-    func testLandingResumesWalkingWithoutAnAutomaticRest() {
+    func testLandingStartsWalkingUntilTheCornerThenRests() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 1.3, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 1, limits: 0...210, pointerOnLeft: true)
+        advance(&motion, at: 1.3, limits: 0...210)
         XCTAssertEqual(motion.x, 200)
-        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isResting)
         XCTAssertFalse(motion.isHopping)
-        motion.advance(at: 1.4, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 1.4, limits: 0...210)
         XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
-        XCTAssertEqual(motion.verticalOffset, 0)
-        XCTAssertNil(motion.restingSince)
-        motion.advance(at: 1.6, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
-        XCTAssertEqual(motion.x, 208.4, accuracy: 0.001)
-        XCTAssertNil(motion.restingSince)
-        XCTAssertFalse(motion.isHopping)
+        XCTAssertFalse(motion.isResting)
+        advance(&motion, at: 1.5, limits: 0...210)
+        advance(&motion, at: 1.6, limits: 0...210)
+        XCTAssertEqual(motion.x, 210)
+        XCTAssertTrue(motion.isResting)
     }
 
     func testLeavingAndReenteringAfterLandingStartsAnotherHop() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 1.3, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 1.4, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: false, petSize: petSize, wakeDuration: 5)
-        XCTAssertNil(motion.restingSince)
+        advance(&motion, at: 1, pointerOnLeft: true)
+        advance(&motion, at: 1.3)
+        advance(&motion, at: 1.4, pointerOnLeft: false)
+        XCTAssertFalse(motion.isResting)
         XCTAssertTrue(motion.isHopping)
         XCTAssertEqual(motion.direction, -1)
-        motion.advance(at: 1.7, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 1.7)
         XCTAssertEqual(motion.x, 100, accuracy: 0.001)
     }
 
@@ -107,56 +108,53 @@ final class DesktopPetTests: XCTestCase {
             for pointerOnLeft in [true, false] {
                 var motion = DesktopPetMotion()
                 motion.place(at: start)
-                motion.advance(at: 1, elapsed: 0.1, within: 0...60,
-                               pointerOnLeft: pointerOnLeft, petSize: petSize, wakeDuration: 5)
-                for time in [1.1, 1.2, 1.3] {
-                    motion.advance(at: time, elapsed: 0.1, within: 0...60,
-                                   pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+                advance(&motion, at: 1, limits: 0...60, pointerOnLeft: pointerOnLeft)
+                for time in [1.1, 1.2, 1.3, 1.4] {
+                    advance(&motion, at: time, limits: 0...60)
                     XCTAssertTrue((0...60).contains(motion.x))
                     XCTAssertGreaterThanOrEqual(motion.verticalOffset, 0)
                     XCTAssertLessThanOrEqual(motion.verticalOffset, petSize.height * 0.5)
                 }
+                XCTAssertTrue(motion.isResting)
             }
         }
+        var motion = DesktopPetMotion()
+        advance(&motion, at: 1, limits: 0...0, pointerOnLeft: true)
+        advance(&motion, at: 1.3, limits: 0...0)
+        advance(&motion, at: 1.4, limits: 0...0)
+        XCTAssertEqual(motion.x, 0)
+        XCTAssertTrue(motion.isResting)
     }
 
-    func testDelayedTickAfterAHopLandsBeforeResumingWalking() {
+    func testDelayedTicksLandAndResumeWithoutCrossingTheScreen() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: true, petSize: petSize, wakeDuration: 5)
-        motion.advance(at: 10, elapsed: 9, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
+        advance(&motion, at: 1, pointerOnLeft: true)
+        advance(&motion, at: 10, elapsed: 9)
         XCTAssertEqual(motion.x, 200)
         XCTAssertEqual(motion.verticalOffset, 0)
-        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isResting)
         XCTAssertFalse(motion.isHopping)
-        motion.advance(at: 10.1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
+        advance(&motion, at: 100, elapsed: 90)
         XCTAssertEqual(motion.x, 204.2, accuracy: 0.001)
-        XCTAssertNil(motion.restingSince)
+        XCTAssertFalse(motion.isResting)
     }
 
-    func testNormalRestHoldsPositionThroughSleepAndWakeAnimation() {
-        var motion = DesktopPetMotion()
-        motion.place(at: 399)
-        motion.advance(at: 1, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5, chooseSleep: { 60 })
-        motion.advance(at: 65.9, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 400)
-        motion.advance(at: 66, elapsed: 0.1, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertNil(motion.restingSince)
-        XCTAssertEqual(motion.x, 395.8, accuracy: 0.001)
-    }
-
-    func testDelayedTickCannotJumpAcrossTheScreen() {
+    func testCornerRestLastsUntilAnotherHover() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)
-        motion.advance(at: 100, elapsed: 90, within: 0...400,
-                       pointerOnLeft: nil, petSize: petSize, wakeDuration: 5)
-        XCTAssertEqual(motion.x, 104.2, accuracy: 0.001)
+        advance(&motion, at: 1, limits: 0...200, pointerOnLeft: true)
+        advance(&motion, at: 1.3, limits: 0...200)
+        advance(&motion, at: 1.4, limits: 0...200)
+        for time in [60.0, 3600] {
+            advance(&motion, at: time, limits: 0...200)
+            XCTAssertEqual(motion.x, 200)
+            XCTAssertTrue(motion.isResting)
+        }
+        advance(&motion, at: 3601, limits: 0...200, pointerOnLeft: true)
+        XCTAssertFalse(motion.isResting)
+        XCTAssertTrue(motion.isHopping)
+        XCTAssertEqual(motion.direction, -1)
     }
 
     func testHoverHidesOnlyTheGlassAndUsesTheMirroredPetSilhouette() {
@@ -165,7 +163,7 @@ final class DesktopPetTests: XCTestCase {
             let view = DesktopPetView(pet: pet, size: size)
             view.show(frame: pet.restFrame, mirrored: false, transparent: true)
             XCTAssertTrue(view.subviews[0].isHidden)
-            XCTAssertFalse(view.subviews[1].isHidden, "The colored outline must remain visible.")
+            XCTAssertFalse(view.subviews[1].isHidden, "The dot outline must remain visible.")
             XCTAssertFalse(view.containsPet(at: CGPoint(x: -10, y: -10)))
             let dots = pet == .chonk ? Chonk.dotRects(frame: pet.restFrame, size: size) :
                 Chaton.dotRects(frame: pet.restFrame, size: size)
@@ -176,5 +174,38 @@ final class DesktopPetTests: XCTestCase {
             XCTAssertFalse(view.subviews[0].isHidden, "The glass must return after hovering.")
             XCTAssertTrue(view.containsPet(at: CGPoint(x: size.width - point.x, y: point.y)))
         }
+    }
+
+    func testColorChangesRedrawTheDotsWithoutChangingThePose() throws {
+        for pet in BarPet.allCases {
+            let size = CGSize(width: 200, height: 200 * pet.barWindow.height / pet.barWindow.width)
+            let view = DesktopPetView(pet: pet, size: size)
+            let frame = view.walkFrame(at: 1)
+            view.show(frame: frame, mirrored: false, colored: false)
+            XCTAssertFalse(try hasColoredPixels(view.subviews[1]))
+            view.show(frame: frame, mirrored: false, colored: true)
+            XCTAssertTrue(try hasColoredPixels(view.subviews[1]))
+            view.show(frame: frame, mirrored: false, colored: false)
+            XCTAssertFalse(try hasColoredPixels(view.subviews[1]))
+        }
+    }
+
+    private func hasColoredPixels(_ view: NSView) throws -> Bool {
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        var hasOpaquePixels = false
+        for y in stride(from: 0, to: bitmap.pixelsHigh, by: 3) {
+            for x in stride(from: 0, to: bitmap.pixelsWide, by: 3) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
+                      color.alphaComponent > 0.5 else { continue }
+                hasOpaquePixels = true
+                if abs(color.redComponent - color.greenComponent) > 0.02 ||
+                   abs(color.greenComponent - color.blueComponent) > 0.02 {
+                    return true
+                }
+            }
+        }
+        XCTAssertTrue(hasOpaquePixels, "The dot outline must render in grayscale too.")
+        return false
     }
 }

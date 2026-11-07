@@ -52,8 +52,9 @@
 
 /* Desktop companion */
 "desktopPet.headline" = "Chat sur le bureau";
-"desktopPet.toggle" = "Se promener au bas de l'écran";
-"desktopPet.description" = "Le chat suit le style d'icône choisi et se promène. Au survol, il bondit à côté, son corps en verre disparaît, puis il reprend sa marche dès l'atterrissage. Les clics le traversent.";
+"desktopPet.toggle" = "Afficher le chat au bas de l'écran";
+"desktopPet.colorDuringSession" = "Colorer ses déplacements pendant une session active";
+"desktopPet.description" = "Le chat reste immobile et gris au repos. Au survol, il bondit puis rejoint un coin de l'écran. En déplacement, il peut prendre des couleurs si une session est active. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

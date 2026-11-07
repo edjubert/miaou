@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The pets' sleeping pause on their rest pose lasts a random 40 s to 2 min
+- The menu bar and widget pets' sleeping pause lasts a random 40 s to 2 min
   instead of a random 5–20 s.
 - The main window's liquid glass cards use the clearest glass variant
   (`.clear` on macOS 26+, `.ultraThinMaterial` before), so the background
@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New **Animation** setting in the app's icon settings: the menu bar pet
   animates **Always** or only **When a session is active** (the default,
   its previous behavior).
+- The desktop companion stays still and gray at rest. Hovering wakes it for a
+  hop and a walk to a bottom corner, where it rests until the next hover.
+  A separate color setting allows brand colors during movement only when a
+  session is active; session activity never starts movement on its own.
 
 ### Added
 
@@ -25,8 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New **Show in Dock** setting: turn it off to hide Miaou's Dock icon and
   run as a menu-bar-only app (activation policy `.accessory`).
 - Hovering the desktop companion makes it hop aside, rising by half its height
-  and resuming its walk after landing, even when it was sleeping. Its glass body
-  becomes transparent while hovered, keeping the colored dots visible and
+  and walking to a corner after landing, even when it was sleeping. Its glass body
+  becomes transparent while hovered, keeping the dots visible and
   letting clicks pass through.
 
 ### Fixed

@@ -16,8 +16,7 @@ struct DesktopPetMotion {
     private(set) var x: CGFloat = 0
     private(set) var direction: CGFloat = 1
     private(set) var verticalOffset: CGFloat = 0
-    private(set) var restingSince: TimeInterval?
-    private(set) var sleepDuration: TimeInterval = 0
+    private(set) var isResting = true
     private var hop: Hop?
     private var wasHovered = false
 
@@ -27,16 +26,13 @@ struct DesktopPetMotion {
         self.x = x
         hop = nil
         verticalOffset = 0
+        isResting = true
         wasHovered = false
     }
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
                           within limits: ClosedRange<CGFloat>, pointerOnLeft: Bool?,
-                          petSize: CGSize,
-                          wakeDuration: TimeInterval,
-                          chooseSleep: () -> TimeInterval = {
-                              Double.random(in: PetAnimation.restDelay)
-                          }) {
+                          petSize: CGSize) {
         x = min(max(x, limits.lowerBound), limits.upperBound)
         let hovered = pointerOnLeft != nil
         let entered = hovered && !wasHovered
@@ -49,7 +45,7 @@ struct DesktopPetMotion {
             if room < petSize.width && otherRoom > room { direction *= -1 }
             let target = min(max(x + direction * petSize.width, limits.lowerBound),
                              limits.upperBound)
-            restingSince = nil
+            isResting = false
             hop = Hop(startedAt: time, startX: x, endX: target, height: petSize.height * 0.5)
         }
         if let hop {
@@ -63,18 +59,17 @@ struct DesktopPetMotion {
             // Finish at the landing position, then resume walking on the next tick.
             return
         }
-        if let start = restingSince {
-            guard time - start >= sleepDuration + wakeDuration else { return }
-            restingSince = nil
+        guard !isResting else { return }
+        guard limits.lowerBound < limits.upperBound else {
+            isResting = true
+            return
         }
-        guard limits.lowerBound < limits.upperBound else { return }
         let next = x + direction * Self.walkingSpeed * min(max(elapsed, 0), 0.1)
         x = min(max(next, limits.lowerBound), limits.upperBound)
         if (direction < 0 && next <= limits.lowerBound) ||
             (direction > 0 && next >= limits.upperBound) {
             direction *= -1
-            restingSince = time
-            sleepDuration = chooseSleep()
+            isResting = true
         }
     }
 }
@@ -194,12 +189,11 @@ final class DesktopPetController {
         let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
-                       petSize: panel.frame.size,
-                       wakeDuration: Double(pet.frameCount - 1) * PetAnimation.frameInterval)
+                       petSize: panel.frame.size)
         let frame: Int
         var elevation = motion.verticalOffset
-        if let start = motion.restingSince {
-            frame = artwork.restFrame(after: now - start, sleepDuration: motion.sleepDuration)
+        if motion.isResting {
+            frame = pet.restFrame
         } else {
             frame = artwork.walkFrame(at: now)
             if !motion.isHopping {
@@ -209,7 +203,10 @@ final class DesktopPetController {
         let scale = screen.backingScaleFactor
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
-        artwork.show(frame: frame, mirrored: motion.direction < 0, transparent: hovered)
+        let colorDuringSession = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
+        let colored = colorDuringSession && AppModel.shared.hasLiveSessions && !motion.isResting
+        artwork.show(frame: frame, mirrored: motion.direction < 0,
+                     transparent: hovered, colored: colored)
     }
 }
 
@@ -229,7 +226,6 @@ final class DesktopPetView: NSView {
     private let pet: BarPet
     private let poses: [Pose]
     private let walking: [Int]
-    private let resting: [Int]
     private let dots: DesktopPetDots
     private let glass: NSView
     private let mask = CAShapeLayer()
@@ -263,13 +259,6 @@ final class DesktopPetView: NSView {
             let keys = Set(frames[index].map { $0.col * 32 + $0.row })
             return index > 0 && Set(ears).isSubset(of: keys)
         }
-        var cycle: [Int] = []
-        var frame = pet.restFrame
-        for _ in 1..<pet.frameCount {
-            frame = pet.nextFrame(after: frame)
-            cycle.append(frame)
-        }
-        resting = cycle
         let dotView = DesktopPetDots()
         dots = dotView
         if #available(macOS 26.0, *) {
@@ -307,18 +296,13 @@ final class DesktopPetView: NSView {
         return walking[Int(time / PetAnimation.frameInterval) % walking.count]
     }
 
-    func restFrame(after elapsed: TimeInterval, sleepDuration: TimeInterval) -> Int {
-        guard elapsed >= sleepDuration else { return pet.restFrame }
-        let index = min(Int((elapsed - sleepDuration) / PetAnimation.frameInterval), resting.count - 1)
-        return resting[index]
-    }
-
     func containsPet(at point: CGPoint) -> Bool {
         mask.path?.contains(point) ?? false
     }
 
-    func show(frame: Int, mirrored: Bool, transparent: Bool = false) {
+    func show(frame: Int, mirrored: Bool, transparent: Bool = false, colored: Bool = false) {
         glass.isHidden = transparent
+        dots.colored = colored
         guard frame != shownFrame || mirrored != shownMirrored else { return }
         shownFrame = frame
         shownMirrored = mirrored
@@ -338,6 +322,11 @@ private final class DesktopPetDots: NSView {
     var dots: [(rect: CGRect, row: Int)] = []
     var gridHeight = 10
     var mirrored = false
+    var colored = false {
+        didSet {
+            if colored != oldValue { needsDisplay = true }
+        }
+    }
     override var isOpaque: Bool { false }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -347,8 +336,9 @@ private final class DesktopPetDots: NSView {
             context.translateBy(x: bounds.width, y: 0)
             context.scaleBy(x: -1, y: 1)
         }
+        let palette = colored ? MistralLogo.brand : MistralLogo.grayscale
         for dot in dots {
-            context.setFillColor(MistralLogo.brand[min(4, dot.row * 5 / gridHeight)].cgColor)
+            context.setFillColor(palette[min(4, dot.row * 5 / gridHeight)].cgColor)
             context.fill(dot.rect)
         }
     }

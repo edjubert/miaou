@@ -52,8 +52,9 @@
 
 /* Desktop companion */
 "desktopPet.headline" = "Desktop cat";
-"desktopPet.toggle" = "Walk along the bottom of the screen";
-"desktopPet.description" = "The cat follows the selected icon style and roams. Hover to make it hop aside and hide its glass body, then resume walking as soon as it lands. Clicks pass through it.";
+"desktopPet.toggle" = "Show the cat along the bottom of the screen";
+"desktopPet.colorDuringSession" = "Color its movements during an active session";
+"desktopPet.description" = "The cat stays still and gray at rest. Hover to make it hop, then walk to a screen corner. While moving, it can show colors if a session is active. Clicks pass through it.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";
