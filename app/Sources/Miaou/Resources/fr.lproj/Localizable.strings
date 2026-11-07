@@ -55,6 +55,9 @@
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Afficher le chat au bas de l'écran";
 "desktopPet.size" = "Taille";
+"desktopPet.speech" = "Afficher le dernier message dans une bulle";
+"desktopPet.speech.description" = "Un extrait court de la dernière réponse terminée d'une session Vibe active apparaît au-dessus du chat pendant 5 secondes. Chaque nouveau message apparaît une seule fois.";
+"desktopPet.speech.session" = "Session active";
 "desktopPet.colorDuringMovement" = "Colorer pendant ses déplacements";
 "desktopPet.glassIntensity" = "Intensité du verre";
 "desktopPet.glassMaximum" = "Verre maximal";

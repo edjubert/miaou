@@ -97,6 +97,17 @@ Automatic walks pause for 40–120 seconds at each edge. When session mode loses
 its last session, the pet finishes its current trip to the edge and stays
 asleep until another session or hover. Hover remains responsive in both modes.
 Switching Chonk back to Chaton when a session ends preserves the current trip.
+**Show the last message in a speech bubble** is optional and off by default.
+It shows a short plain-text excerpt (up to 280 characters) of the latest
+completed answer among active Vibe sessions. Each new completion appears once
+for five seconds, and a new answer replaces the current bubble with a fresh
+five-second duration. The bubble follows the cat, points toward it, stays
+within the screen, and lets clicks pass through. It disappears when its
+session stops or the option is turned off.
+Only completed text answers (`finish_reason: stop`) are used, excluding tool
+calls, streaming responses and failed completions. Active journals are checked
+every two seconds on a background queue and unchanged files are cached.
+Text stays in memory; no model call, archive or widget export is involved.
 Turn **Show the cat along the bottom of the screen** off to hide the companion.
 
 ## Planned features

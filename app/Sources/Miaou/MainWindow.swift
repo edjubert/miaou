@@ -95,6 +95,7 @@ struct MainWindow: View {
     @AppStorage("showInDock") private var showInDock: Bool = true
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
     @AppStorage("desktopPetSize") private var desktopPetSizeRaw = DesktopPetSize.medium.rawValue
+    @AppStorage("desktopPetSpeechEnabled") private var desktopPetSpeechEnabled = false
     @AppStorage("desktopPetAnimation") private var desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
     // Keep the stored key so the previous color preference survives upgrades.
     @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringMovement = true
@@ -474,6 +475,11 @@ struct MainWindow: View {
                 .disabled(!desktopPetEnabled)
                 Toggle(L10n.t("desktopPet.colorDuringMovement"), isOn: $desktopPetColorDuringMovement)
                     .disabled(!desktopPetEnabled)
+                Toggle(L10n.t("desktopPet.speech"), isOn: $desktopPetSpeechEnabled)
+                    .disabled(!desktopPetEnabled)
+                Text(L10n.t("desktopPet.speech.description"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(L10n.t("desktopPet.glassIntensity"))
@@ -521,6 +527,7 @@ struct MainWindow: View {
         showInDock = true
         desktopPetEnabled = false
         desktopPetSizeRaw = DesktopPetSize.medium.rawValue
+        desktopPetSpeechEnabled = false
         desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
         desktopPetColorDuringMovement = true
         desktopPetGlassTransparency = 0

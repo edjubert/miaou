@@ -109,6 +109,11 @@ final class DesktopPetController {
     private var observations: Set<AnyCancellable> = []
     private var panel: DesktopPetPanel?
     private var artwork: DesktopPetView?
+    private var speechPanel: DesktopPetPanel?
+    private var speechView: DesktopPetSpeechView?
+    private let speechSource = DesktopPetSpeechSource()
+    private var speechPresentation = DesktopPetSpeechPresentation()
+    private var nextSpeechPoll: TimeInterval = 0
     private var timer: Timer?
     private var pet: BarPet = .chaton
     private var sizeClass: DesktopPetSize = .medium
@@ -137,6 +142,10 @@ final class DesktopPetController {
         panel?.close()
         panel = nil
         artwork = nil
+        speechPanel?.close()
+        speechPanel = nil
+        speechView = nil
+        speechPresentation.hide()
         observations.removeAll()
     }
 
@@ -156,6 +165,9 @@ final class DesktopPetController {
             panel?.close()
             panel = nil
             artwork = nil
+            speechPanel?.orderOut(nil)
+            speechPresentation.hide()
+            nextSpeechPoll = 0
             return
         }
         let selection = selectedPet
@@ -253,6 +265,58 @@ final class DesktopPetController {
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         artwork.show(frame: frame, mirrored: motion.direction < 0,
                      transparent: hovered, colored: colored, glassTransparency: glassTransparency)
+        updateSpeech(at: now)
+    }
+
+    private func updateSpeech(at now: TimeInterval) {
+        guard defaults.bool(forKey: "desktopPetSpeechEnabled") else {
+            speechPanel?.orderOut(nil)
+            speechPresentation.hide()
+            nextSpeechPoll = 0
+            return
+        }
+        let sessions = AppModel.shared.dashboard?.liveSessions ?? []
+        if now >= nextSpeechPoll {
+            nextSpeechPoll = now + 2
+            speechSource.refresh(sessions: sessions) { [weak self] message in
+                guard let self, self.defaults.bool(forKey: "desktopPetSpeechEnabled"),
+                      let message,
+                      AppModel.shared.dashboard?.liveSessions.contains(where: { $0.id == message.sessionID }) == true
+                else { return }
+                self.speechPresentation.receive(message, at: ProcessInfo.processInfo.systemUptime)
+            }
+        }
+        let activeIDs = Set(sessions.map(\.id))
+        guard let message = speechPresentation.visibleMessage(at: now, activeIDs: activeIDs),
+              let panel, let screen = NSScreen.screens.first else {
+            speechPanel?.orderOut(nil)
+            return
+        }
+        let frame = DesktopPetSpeechView.frame(above: panel.frame, within: screen.visibleFrame)
+        if speechPanel == nil {
+            let bubble = DesktopPetPanel(contentRect: frame,
+                                         styleMask: [.borderless, .nonactivatingPanel],
+                                         backing: .buffered, defer: false)
+            bubble.isReleasedWhenClosed = false
+            bubble.isOpaque = false
+            bubble.backgroundColor = .clear
+            bubble.hasShadow = true
+            bubble.ignoresMouseEvents = true
+            bubble.hidesOnDeactivate = false
+            bubble.level = .floating
+            bubble.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+            bubble.animationBehavior = .none
+            bubble.identifier = NSUserInterfaceItemIdentifier("miaou-desktop-speech")
+            bubble.title = L10n.t("desktopPet.speech")
+            let view = DesktopPetSpeechView()
+            bubble.contentView = view
+            speechPanel = bubble
+            speechView = view
+        }
+        speechPanel?.setFrame(frame, display: false)
+        speechView?.tailX = panel.frame.midX - frame.minX
+        speechView?.show(message)
+        if speechPanel?.isVisible == false { speechPanel?.orderFrontRegardless() }
     }
 }
 
