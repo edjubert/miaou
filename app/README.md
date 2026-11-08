@@ -92,8 +92,9 @@ appearance at 100% on the right.
 The slider fades only the glass, keeping the dot outline visible, and its value
 persists across launches. It defaults to 100% to preserve the current appearance.
 The native material still controls its own blur and refraction.
-Hovering the cat makes
-its glass body transparent and triggers a sideways hop, even while sleeping.
+Hovering the cat triggers a sideways hop, even while sleeping.
+Its glass body keeps the intensity selected in settings during hover,
+hops and walks.
 The hop rises by half the cat's height, lands one cat-width away within the
 screen bounds, and immediately starts walking to the corner in that direction.
 At the corner, it lies down. A continuous hover

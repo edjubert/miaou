@@ -372,7 +372,7 @@ private final class DesktopPetCompanion {
         let scale = display.backingScaleFactor
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
-        artwork.show(frame: frame, mirrored: motion.direction < 0, transparent: hovered,
+        artwork.show(frame: frame, mirrored: motion.direction < 0,
                      colored: colorDuringMovement && !motion.isResting,
                      glassTransparency: glassTransparency)
     }
@@ -438,11 +438,11 @@ enum DesktopPetGlass {
         }
     }
 
-    static func apply(transparency: Double, hidden: Bool = false, to view: NSView) {
+    static func apply(transparency: Double, to view: NSView) {
         let value = transparency.isFinite ? min(max(transparency, 0), 1) : 0
         let alpha = CGFloat(1 - value)
         if view.alphaValue != alpha { view.alphaValue = alpha }
-        view.isHidden = hidden || value == 1
+        view.isHidden = value == 1
     }
 }
 
@@ -520,9 +520,9 @@ final class DesktopPetView: NSView {
         mask.path?.contains(point) ?? false
     }
 
-    func show(frame: Int, mirrored: Bool, transparent: Bool = false, colored: Bool = false,
+    func show(frame: Int, mirrored: Bool, colored: Bool = false,
               glassTransparency: Double = 0) {
-        DesktopPetGlass.apply(transparency: glassTransparency, hidden: transparent, to: glass)
+        DesktopPetGlass.apply(transparency: glassTransparency, to: glass)
         dots.colored = colored
         guard frame != shownFrame || mirrored != shownMirrored else { return }
         shownFrame = frame

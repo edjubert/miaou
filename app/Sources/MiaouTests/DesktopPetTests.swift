@@ -304,12 +304,13 @@ final class DesktopPetTests: XCTestCase {
         XCTAssertEqual(motion.direction, -1)
     }
 
-    func testHoverHidesOnlyTheGlassAndUsesTheMirroredPetSilhouette() {
+    func testGlassKeepsItsIntensityAndUsesTheMirroredPetSilhouette() {
         for pet in BarPet.allCases {
             let size = CGSize(width: 200, height: 200 * pet.barWindow.height / pet.barWindow.width)
             let view = DesktopPetView(pet: pet, size: size)
-            view.show(frame: pet.restFrame, mirrored: false, transparent: true)
-            XCTAssertTrue(view.subviews[0].isHidden)
+            view.show(frame: pet.restFrame, mirrored: false, glassTransparency: 0.12)
+            XCTAssertFalse(view.subviews[0].isHidden)
+            XCTAssertEqual(view.subviews[0].alphaValue, 0.88, accuracy: 0.001)
             XCTAssertFalse(view.subviews[1].isHidden, "The dot outline must remain visible.")
             XCTAssertFalse(view.containsPet(at: CGPoint(x: -10, y: -10)))
             let dots = pet == .chonk ? Chonk.dotRects(frame: pet.restFrame, size: size) :
@@ -317,9 +318,16 @@ final class DesktopPetTests: XCTestCase {
             let dot = dots[dots.count / 2].rect
             let point = CGPoint(x: dot.midX, y: size.height - dot.midY)
             XCTAssertTrue(view.containsPet(at: point))
-            view.show(frame: pet.restFrame, mirrored: true, transparent: false)
-            XCTAssertFalse(view.subviews[0].isHidden, "The glass must return after hovering.")
+            view.show(frame: pet.restFrame, mirrored: true, glassTransparency: 0.12)
+            XCTAssertFalse(view.subviews[0].isHidden)
+            XCTAssertEqual(view.subviews[0].alphaValue, 0.88, accuracy: 0.001)
             XCTAssertTrue(view.containsPet(at: CGPoint(x: size.width - point.x, y: point.y)))
+            view.show(frame: view.walkFrame(at: 1), mirrored: true, colored: true,
+                      glassTransparency: 0.12)
+            XCTAssertFalse(view.subviews[0].isHidden)
+            XCTAssertEqual(view.subviews[0].alphaValue, 0.88, accuracy: 0.001)
+            view.show(frame: pet.restFrame, mirrored: false, glassTransparency: 1)
+            XCTAssertTrue(view.subviews[0].isHidden, "Only the glass intensity setting hides the glass.")
         }
     }
 
