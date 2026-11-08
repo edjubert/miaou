@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Desktop cat screen selector: Primary (default), Built-in, or Both, applied
+  live and remembered across launches. Each selected display has its own cat
+  and synchronized speech bubble. Display changes update placement automatically;
+  unavailable built-in displays fall back to the primary display, and selecting
+  Both never duplicates the cat when primary and built-in are the same display.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added

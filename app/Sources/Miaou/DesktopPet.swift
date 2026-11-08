@@ -1,6 +1,53 @@
 import AppKit
 import Combine
 
+enum DesktopPetScreenMode: String, CaseIterable {
+    case primary
+    case builtIn = "built-in"
+    case both
+
+    var label: String {
+        switch self {
+        case .primary: return L10n.t("desktopPet.screen.primary")
+        case .builtIn: return L10n.t("desktopPet.screen.builtIn")
+        case .both: return L10n.t("desktopPet.screen.both")
+        }
+    }
+
+    func displays(from available: [DesktopPetDisplay],
+                  primaryID: CGDirectDisplayID) -> [DesktopPetDisplay] {
+        guard let primary = available.first(where: { $0.id == primaryID }) ?? available.first else {
+            return []
+        }
+        let builtIn = available.first(where: \.isBuiltIn) ?? primary
+        switch self {
+        case .primary: return [primary]
+        case .builtIn: return [builtIn]
+        case .both: return primary.id == builtIn.id ? [primary] : [primary, builtIn]
+        }
+    }
+}
+
+/// Snapshot screen geometry so each companion keeps its own coordinate space.
+struct DesktopPetDisplay {
+    let id: CGDirectDisplayID
+    let isBuiltIn: Bool
+    let visibleFrame: CGRect
+    let backingScaleFactor: CGFloat
+
+    static var available: [Self] {
+        NSScreen.screens.compactMap { screen in
+            guard let number = screen.deviceDescription[
+                NSDeviceDescriptionKey("NSScreenNumber")
+            ] as? NSNumber else { return nil }
+            let id = number.uint32Value
+            return Self(id: id, isBuiltIn: CGDisplayIsBuiltin(id) != 0,
+                        visibleFrame: screen.visibleFrame,
+                        backingScaleFactor: screen.backingScaleFactor)
+        }
+    }
+}
+
 enum DesktopPetSize: String, CaseIterable {
     case small = "S"
     case medium = "M"
@@ -41,13 +88,22 @@ struct DesktopPetMotion {
 
     var isHopping: Bool { hop != nil }
 
-    mutating func place(at x: CGFloat) {
+    mutating func place(at x: CGFloat, direction: CGFloat = 1) {
         self.x = x
+        self.direction = direction
         hop = nil
         verticalOffset = 0
         isResting = true
         wasHovered = false
         nextAutomaticWalk = nil
+    }
+
+    mutating func translate(by offset: CGFloat) {
+        x += offset
+        if let hop {
+            self.hop = Hop(startedAt: hop.startedAt, startX: hop.startX + offset,
+                           endX: hop.endX + offset, height: hop.height)
+        }
     }
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
@@ -107,18 +163,12 @@ struct DesktopPetMotion {
 final class DesktopPetController {
     private let defaults = UserDefaults.standard
     private var observations: Set<AnyCancellable> = []
-    private var panel: DesktopPetPanel?
-    private var artwork: DesktopPetView?
-    private var speechPanel: DesktopPetPanel?
-    private var speechView: DesktopPetSpeechView?
+    private var companions: [CGDirectDisplayID: DesktopPetCompanion] = [:]
     private let speechSource = DesktopPetSpeechSource()
     private var speechPresentation = DesktopPetSpeechPresentation()
     private var speechSessions = DesktopPetSpeechSessions()
     private var nextSpeechPoll: TimeInterval = 0
     private var timer: Timer?
-    private var pet: BarPet = .chaton
-    private var sizeClass: DesktopPetSize = .medium
-    private var motion = DesktopPetMotion()
     private var previousTime: TimeInterval = 0
 
     func start() {
@@ -128,7 +178,7 @@ final class DesktopPetController {
             .store(in: &observations)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.placeOnScreen() }
+            .sink { [weak self] _ in self?.updateSettings() }
             .store(in: &observations)
         AppModel.shared.$dashboard
             .receive(on: RunLoop.main)
@@ -138,17 +188,18 @@ final class DesktopPetController {
     }
 
     func stop() {
+        removeCompanions()
+        observations.removeAll()
+    }
+
+    private func removeCompanions() {
         timer?.invalidate()
         timer = nil
-        panel?.close()
-        panel = nil
-        artwork = nil
-        speechPanel?.close()
-        speechPanel = nil
-        speechView = nil
+        companions.values.forEach { $0.close() }
+        companions.removeAll()
         speechPresentation.hide()
         speechSessions.reset()
-        observations.removeAll()
+        nextSpeechPoll = 0
     }
 
     private var selectedPet: BarPet {
@@ -162,90 +213,148 @@ final class DesktopPetController {
 
     private func updateSettings() {
         guard defaults.bool(forKey: "desktopPetEnabled") else {
-            timer?.invalidate()
-            timer = nil
-            panel?.close()
-            panel = nil
-            artwork = nil
-            speechPanel?.orderOut(nil)
-            speechPresentation.hide()
-            speechSessions.reset()
-            nextSpeechPoll = 0
+            removeCompanions()
             return
         }
         let selection = selectedPet
         let selectedSize = DesktopPetSize(
             rawValue: defaults.string(forKey: "desktopPetSize") ?? ""
         ) ?? .medium
-        if panel != nil && pet == selection && sizeClass == selectedSize { return }
-        pet = selection
-        sizeClass = selectedSize
-        let size = sizeClass.dimensions(for: pet)
-        let view = DesktopPetView(pet: pet, size: size)
-        if let panel {
-            // Model and size changes preserve the current trip to the edge.
-            panel.contentView = view
-            panel.setContentSize(size)
-            artwork = view
-            tick()
+        let mode = DesktopPetScreenMode(
+            rawValue: defaults.string(forKey: "desktopPetScreens") ?? ""
+        ) ?? .primary
+        // NSScreen.main follows keyboard focus; CGMainDisplayID identifies
+        // the primary display chosen in macOS display settings.
+        let displays = mode.displays(from: DesktopPetDisplay.available, primaryID: CGMainDisplayID())
+        guard !displays.isEmpty else {
+            removeCompanions()
             return
         }
-        timer?.invalidate()
-        let window = DesktopPetPanel(
-            contentRect: CGRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
-        )
-        window.identifier = NSUserInterfaceItemIdentifier("miaou-desktop-pet")
-        window.title = L10n.t("desktopPet.headline")
-        window.isReleasedWhenClosed = false
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
-        window.ignoresMouseEvents = true
-        window.hidesOnDeactivate = false
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        window.animationBehavior = .none
-        window.contentView = view
-        artwork = view
-        panel = window
-        motion = DesktopPetMotion()
-        previousTime = ProcessInfo.processInfo.systemUptime
-        placeOnScreen(reset: true)
+        let selectedIDs = Set(displays.map(\.id))
+        for id in Array(companions.keys) where !selectedIDs.contains(id) {
+            companions.removeValue(forKey: id)?.close()
+        }
+        for display in displays {
+            if let companion = companions[display.id] {
+                companion.configure(display: display, pet: selection, size: selectedSize)
+            } else {
+                companions[display.id] = DesktopPetCompanion(
+                    display: display, pet: selection, size: selectedSize,
+                    startingFraction: displays.count > 1 ? .random(in: 0.2...0.8) : 0.2,
+                    direction: displays.count > 1 && Bool.random() ? -1 : 1
+                )
+            }
+        }
+        if timer == nil { previousTime = ProcessInfo.processInfo.systemUptime }
         tick()
-        window.orderFrontRegardless()
+        guard timer == nil else { return }
         let animation = Timer(timeInterval: 1 / 30, repeats: true) { [weak self] _ in self?.tick() }
         timer = animation
         RunLoop.main.add(animation, forMode: .common)
     }
 
-    private func placeOnScreen(reset: Bool = false) {
-        guard let panel, let screen = NSScreen.screens.first else { return }
-        let area = screen.visibleFrame.insetBy(dx: 8, dy: 0)
-        let maxX = max(area.minX, area.maxX - panel.frame.width)
-        let x = reset ? area.minX + (maxX - area.minX) * 0.2 :
-            min(max(motion.x, area.minX), maxX)
-        motion.place(at: x)
-        panel.setFrameOrigin(CGPoint(x: motion.x, y: area.minY + 4))
-    }
-
     private func tick() {
-        guard let panel, let artwork, let screen = NSScreen.screens.first else { return }
+        guard !companions.isEmpty else { return }
         let now = ProcessInfo.processInfo.systemUptime
         let elapsed = min(max(now - previousTime, 0), 0.1)
         previousTime = now
-        let area = screen.visibleFrame.insetBy(dx: 8, dy: 0)
-        let maxX = max(area.minX, area.maxX - panel.frame.width)
         // Poll the pointer without capturing mouse events: clicks continue
         // to pass through the companion to the desktop or window below.
         let pointer = NSEvent.mouseLocation
-        let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
-                                   y: pointer.y - panel.frame.minY)
-        let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
         let animationMode = ChatonAnimationMode(
             rawValue: defaults.string(forKey: "desktopPetAnimation") ?? ""
         ) ?? .session
         let autonomous = animationMode == .always || AppModel.shared.hasLiveSessions
+        let colorDuringMovement = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
+        let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
+        let message = updateSpeech(at: now)
+        for companion in companions.values {
+            companion.tick(at: now, elapsed: elapsed, pointer: pointer,
+                           autonomous: autonomous, colorDuringMovement: colorDuringMovement,
+                           glassTransparency: glassTransparency)
+            companion.showSpeech(message, glassTransparency: glassTransparency)
+        }
+    }
+
+    private func updateSpeech(at now: TimeInterval) -> DesktopPetMessage? {
+        guard defaults.bool(forKey: "desktopPetSpeechEnabled") else {
+            speechPresentation.hide()
+            speechSessions.reset()
+            nextSpeechPoll = 0
+            return nil
+        }
+        let sessions = speechSessions.sessionsToRead(
+            active: AppModel.shared.dashboard?.liveSessions ?? [], at: now
+        )
+        if now >= nextSpeechPoll {
+            nextSpeechPoll = now + 2
+            speechSource.refresh(sessions: sessions) { [weak self] messages in
+                guard let self, !self.companions.isEmpty,
+                      self.defaults.bool(forKey: "desktopPetSpeechEnabled") else { return }
+                let time = ProcessInfo.processInfo.systemUptime
+                let eligible = messages.filter { self.speechSessions.contains($0.sessionID, at: time) }
+                self.speechPresentation.receive(eligible, at: time)
+            }
+        }
+        return speechPresentation.visibleMessage(at: now)
+    }
+}
+
+/// Each selected display has independent movement, hover detection and windows.
+private final class DesktopPetCompanion {
+    private var display: DesktopPetDisplay
+    private var pet: BarPet
+    private var sizeClass: DesktopPetSize
+    private let panel: DesktopPetPanel
+    private var artwork: DesktopPetView
+    private var motion = DesktopPetMotion()
+    private var speechPanel: DesktopPetPanel?
+    private var speechView: DesktopPetSpeechView?
+
+    init(display: DesktopPetDisplay, pet: BarPet, size: DesktopPetSize,
+         startingFraction: CGFloat, direction: CGFloat) {
+        self.display = display
+        self.pet = pet
+        sizeClass = size
+        let dimensions = size.dimensions(for: pet)
+        artwork = DesktopPetView(pet: pet, size: dimensions)
+        panel = DesktopPetPanel(contentRect: CGRect(origin: .zero, size: dimensions),
+                                identifier: "miaou-desktop-pet-\(display.id)",
+                                title: L10n.t("desktopPet.headline"))
+        panel.contentView = artwork
+        let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
+        let maxX = max(area.minX, area.maxX - dimensions.width)
+        motion.place(at: area.minX + (maxX - area.minX) * startingFraction, direction: direction)
+        panel.setFrameOrigin(CGPoint(x: motion.x, y: area.minY + 4))
+        panel.orderFrontRegardless()
+    }
+
+    func configure(display: DesktopPetDisplay, pet: BarPet, size: DesktopPetSize) {
+        // A display can move in global coordinates when another is connected.
+        // Preserve the current hop/walk and sleeping deadline on that display.
+        motion.translate(by: display.visibleFrame.minX - self.display.visibleFrame.minX)
+        self.display = display
+        guard self.pet != pet || sizeClass != size else { return }
+        self.pet = pet
+        sizeClass = size
+        let dimensions = size.dimensions(for: pet)
+        artwork = DesktopPetView(pet: pet, size: dimensions)
+        panel.contentView = artwork
+        panel.setContentSize(dimensions)
+    }
+
+    func close() {
+        panel.close()
+        speechPanel?.close()
+    }
+
+    func tick(at now: TimeInterval, elapsed: TimeInterval, pointer: CGPoint,
+              autonomous: Bool, colorDuringMovement: Bool, glassTransparency: Double) {
+        let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
+        let maxX = max(area.minX, area.maxX - panel.frame.width)
+        let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
+                                   y: pointer.y - panel.frame.minY)
+        let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
                        petSize: panel.frame.size, autonomous: autonomous,
@@ -260,58 +369,25 @@ final class DesktopPetController {
                 elevation += CGFloat(abs(sin(now * .pi / 0.48))) * 1.5
             }
         }
-        let scale = screen.backingScaleFactor
+        let scale = display.backingScaleFactor
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
-        let colorDuringMovement = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
-        let colored = colorDuringMovement && !motion.isResting
-        let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
-        artwork.show(frame: frame, mirrored: motion.direction < 0,
-                     transparent: hovered, colored: colored, glassTransparency: glassTransparency)
-        updateSpeech(at: now)
+        artwork.show(frame: frame, mirrored: motion.direction < 0, transparent: hovered,
+                     colored: colorDuringMovement && !motion.isResting,
+                     glassTransparency: glassTransparency)
     }
 
-    private func updateSpeech(at now: TimeInterval) {
-        guard defaults.bool(forKey: "desktopPetSpeechEnabled") else {
-            speechPanel?.orderOut(nil)
-            speechPresentation.hide()
-            speechSessions.reset()
-            nextSpeechPoll = 0
-            return
-        }
-        let sessions = speechSessions.sessionsToRead(
-            active: AppModel.shared.dashboard?.liveSessions ?? [], at: now
-        )
-        if now >= nextSpeechPoll {
-            nextSpeechPoll = now + 2
-            speechSource.refresh(sessions: sessions) { [weak self] messages in
-                guard let self, self.defaults.bool(forKey: "desktopPetSpeechEnabled") else { return }
-                let time = ProcessInfo.processInfo.systemUptime
-                let eligible = messages.filter { self.speechSessions.contains($0.sessionID, at: time) }
-                self.speechPresentation.receive(eligible, at: time)
-            }
-        }
-        guard let message = speechPresentation.visibleMessage(at: now),
-              let panel, let screen = NSScreen.screens.first else {
+    func showSpeech(_ message: DesktopPetMessage?, glassTransparency: Double) {
+        guard let message else {
             speechPanel?.orderOut(nil)
             return
         }
-        let frame = DesktopPetSpeechView.frame(above: panel.frame, within: screen.visibleFrame)
+        let frame = DesktopPetSpeechView.frame(above: panel.frame, within: display.visibleFrame)
         if speechPanel == nil {
             let bubble = DesktopPetPanel(contentRect: frame,
-                                         styleMask: [.borderless, .nonactivatingPanel],
-                                         backing: .buffered, defer: false)
-            bubble.isReleasedWhenClosed = false
-            bubble.isOpaque = false
-            bubble.backgroundColor = .clear
+                                         identifier: "miaou-desktop-speech-\(display.id)",
+                                         title: L10n.t("desktopPet.speech"))
             bubble.hasShadow = true
-            bubble.ignoresMouseEvents = true
-            bubble.hidesOnDeactivate = false
-            bubble.level = .floating
-            bubble.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-            bubble.animationBehavior = .none
-            bubble.identifier = NSUserInterfaceItemIdentifier("miaou-desktop-speech")
-            bubble.title = L10n.t("desktopPet.speech")
             let view = DesktopPetSpeechView()
             bubble.contentView = view
             speechPanel = bubble
@@ -319,13 +395,28 @@ final class DesktopPetController {
         }
         speechPanel?.setFrame(frame, display: false)
         speechView?.tailX = panel.frame.midX - frame.minX
-        let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         speechView?.show(message, glassTransparency: glassTransparency)
         if speechPanel?.isVisible == false { speechPanel?.orderFrontRegardless() }
     }
 }
 
 private final class DesktopPetPanel: NSPanel {
+    init(contentRect: CGRect, identifier: String, title: String) {
+        super.init(contentRect: contentRect, styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered, defer: false)
+        self.identifier = NSUserInterfaceItemIdentifier(identifier)
+        self.title = title
+        isReleasedWhenClosed = false
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        ignoresMouseEvents = true
+        hidesOnDeactivate = false
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        animationBehavior = .none
+    }
+
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }

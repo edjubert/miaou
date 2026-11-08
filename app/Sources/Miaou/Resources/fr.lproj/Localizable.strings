@@ -54,6 +54,10 @@
 /* Desktop companion */
 "desktopPet.headline" = "Chat sur le bureau";
 "desktopPet.toggle" = "Afficher le chat au bas de l'écran";
+"desktopPet.screen" = "Écran";
+"desktopPet.screen.primary" = "Principal";
+"desktopPet.screen.builtIn" = "Intégré";
+"desktopPet.screen.both" = "Les deux";
 "desktopPet.size" = "Taille";
 "desktopPet.speech" = "Afficher le dernier message dans une bulle";
 "desktopPet.speech.description" = "Un extrait court de la dernière réponse Vibe terminée apparaît pendant 5 secondes, même si la session se ferme. Chaque nouveau message apparaît une seule fois.";

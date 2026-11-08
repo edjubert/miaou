@@ -94,6 +94,7 @@ struct MainWindow: View {
     @AppStorage("showInMenuBar") private var showInMenuBar = true
     @AppStorage("showInDock") private var showInDock: Bool = true
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
+    @AppStorage("desktopPetScreens") private var desktopPetScreensRaw = DesktopPetScreenMode.primary.rawValue
     @AppStorage("desktopPetSize") private var desktopPetSizeRaw = DesktopPetSize.medium.rawValue
     @AppStorage("desktopPetSpeechEnabled") private var desktopPetSpeechEnabled = false
     @AppStorage("desktopPetAnimation") private var desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
@@ -457,6 +458,14 @@ struct MainWindow: View {
             }
             Section(L10n.t("desktopPet.headline")) {
                 Toggle(L10n.t("desktopPet.toggle"), isOn: $desktopPetEnabled)
+                Picker(L10n.t("desktopPet.screen"), selection: $desktopPetScreensRaw) {
+                    ForEach(DesktopPetScreenMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("desktopPetScreens-\(languageRaw)")
+                .disabled(!desktopPetEnabled)
                 Picker(L10n.t("desktopPet.size"), selection: $desktopPetSizeRaw) {
                     ForEach(DesktopPetSize.allCases, id: \.rawValue) { size in
                         Text(size.rawValue).tag(size.rawValue)
@@ -526,6 +535,7 @@ struct MainWindow: View {
         showInMenuBar = true
         showInDock = true
         desktopPetEnabled = false
+        desktopPetScreensRaw = DesktopPetScreenMode.primary.rawValue
         desktopPetSizeRaw = DesktopPetSize.medium.rawValue
         desktopPetSpeechEnabled = false
         desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue

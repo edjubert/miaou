@@ -26,6 +26,83 @@ final class DesktopPetTests: XCTestCase {
         }
     }
 
+    func testRearrangingADisplayPreservesTheHopAndItsLandingTime() {
+        for offset in [CGFloat(-1512), 2560] {
+            var motion = DesktopPetMotion()
+            motion.place(at: 100)
+            advance(&motion, at: 1, pointerOnLeft: true)
+            advance(&motion, at: 1.1)
+            let height = motion.verticalOffset
+            motion.translate(by: offset)
+            XCTAssertEqual(motion.x, offset + 100 + 100 / 3, accuracy: 0.001)
+            XCTAssertEqual(motion.verticalOffset, height)
+            XCTAssertTrue(motion.isHopping)
+            XCTAssertFalse(motion.isResting)
+            advance(&motion, at: 1.15, limits: offset...(offset + 400))
+            XCTAssertEqual(motion.x, offset + 150, accuracy: 0.001)
+            XCTAssertEqual(motion.verticalOffset, petSize.height * 0.5, accuracy: 0.001)
+            advance(&motion, at: 1.3, limits: offset...(offset + 400))
+            XCTAssertEqual(motion.x, offset + 200, accuracy: 0.001)
+            XCTAssertFalse(motion.isHopping)
+            advance(&motion, at: 1.4, limits: offset...(offset + 400))
+            XCTAssertEqual(motion.x, offset + 204.2, accuracy: 0.001)
+        }
+    }
+
+    func testRearrangingADisplayPreservesTheSleepingDeadline() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 396)
+        advance(&motion, at: 1, autonomous: true)
+        XCTAssertTrue(motion.isResting)
+        motion.translate(by: -1512)
+        advance(&motion, at: 40.999, limits: -1512 ... -1112, autonomous: true)
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.x, -1112)
+        advance(&motion, at: 41, limits: -1512 ... -1112, autonomous: true)
+        XCTAssertFalse(motion.isResting)
+        XCTAssertEqual(motion.x, -1116.2, accuracy: 0.001)
+    }
+
+    func testAResizedDisplayKeepsTheCurrentWalkWithinItsNewBounds() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 300)
+        advance(&motion, at: 1, autonomous: true)
+        motion.translate(by: -1512)
+        advance(&motion, at: 1.1, limits: -1512 ... -1312, autonomous: true)
+        XCTAssertEqual(motion.x, -1312)
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.direction, -1)
+    }
+
+    func testTwoDisplayPathsKeepIndependentHoverAndRestingState() {
+        var primary = DesktopPetMotion()
+        var builtIn = DesktopPetMotion()
+        primary.place(at: 196)
+        builtIn.place(at: -100, direction: -1)
+        advance(&primary, at: 1, limits: 0...200, autonomous: true, restDuration: 40)
+        advance(&builtIn, at: 1, limits: -400 ... -100, autonomous: true, restDuration: 120)
+        // Primary reaches its edge and sleeps, while the other walks left.
+        XCTAssertTrue(primary.isResting)
+        XCTAssertFalse(builtIn.isResting)
+        XCTAssertEqual(builtIn.x, -104.2, accuracy: 0.001)
+        advance(&builtIn, at: 2, limits: -400 ... -100,
+                pointerOnLeft: true, autonomous: true)
+        XCTAssertTrue(builtIn.isHopping)
+        advance(&primary, at: 2, limits: 0...200, autonomous: true)
+        XCTAssertTrue(primary.isResting)
+        XCTAssertFalse(primary.isHopping)
+        XCTAssertEqual(primary.x, 200)
+        advance(&builtIn, at: 2.3, limits: -400 ... -100, autonomous: true)
+        XCTAssertEqual(builtIn.x, -204.2, accuracy: 0.001)
+        // Each path continues from its own position after the primary wakes.
+        advance(&primary, at: 41, limits: 0...200, autonomous: true)
+        advance(&builtIn, at: 41, limits: -400 ... -100, autonomous: true)
+        XCTAssertFalse(primary.isResting)
+        XCTAssertEqual(primary.direction, -1)
+        XCTAssertEqual(primary.x, 195.8, accuracy: 0.001)
+        XCTAssertEqual(builtIn.x, -208.4, accuracy: 0.001)
+    }
+
     func testAutonomousWalksPauseAtTheEdgeThenResumeInward() {
         for duration in [40.0, 120] {
             var motion = DesktopPetMotion()

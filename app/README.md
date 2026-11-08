@@ -66,8 +66,19 @@ Dev: `swift build --manifest-cache none && swift run --manifest-cache none`
 
 Enable **Settings → Desktop cat → Show the cat along the bottom of the screen**.
 The companion follows the selected Chaton/Le Chonk icon style and rests
-gray and asleep above the Dock on the primary screen. It stays visible when the
+gray and asleep along the bottom of the selected screen. It stays visible when the
 main window closes, and clicks pass through it.
+
+**Screen** offers **Primary** (the macOS primary display, default), **Built-in**
+(the Mac's integrated display), and **Both**. Both shows one companion on each
+of those displays; if they are the same display, only one cat appears.
+When the built-in display is unavailable, the cat falls back to the primary
+display. Selection applies live and persists across launches. Connecting,
+disconnecting or rearranging displays updates the companions automatically.
+Each cat has its own path, direction and random resting pauses. With both
+displays selected, initial positions and directions are chosen independently.
+Hovering one cat does not affect the other. Speech
+bubbles appear together on the selected displays for the same five seconds.
 
 **Size** offers S (140 points wide), M (200 points) and L (280 points).
 M is the default and preserves the original size. Height follows the selected
