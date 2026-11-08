@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-08
+
 ### Added
 
 - Desktop cat screen selector: Primary (default), Built-in, or Both, applied
@@ -14,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and synchronized speech bubble. Display changes update placement automatically;
   unavailable built-in displays fall back to the primary display, and selecting
   Both never duplicates the cat when primary and built-in are the same display.
+
+### Changed
+
+- Hovering the desktop cat keeps its glass background at the selected intensity.
+  The hover still triggers a hop and an independent walk toward a screen edge.
 
 ## [0.6.0] - 2026-11-07
 
