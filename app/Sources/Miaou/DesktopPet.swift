@@ -84,7 +84,6 @@ struct DesktopPetMotion {
     private(set) var isResting = true
     private var hop: Hop?
     private var wasHovered = false
-    private var nextAutomaticWalk: TimeInterval?
 
     var isHopping: Bool { hop != nil }
 
@@ -95,7 +94,6 @@ struct DesktopPetMotion {
         verticalOffset = 0
         isResting = true
         wasHovered = false
-        nextAutomaticWalk = nil
     }
 
     mutating func translate(by offset: CGFloat) {
@@ -108,10 +106,8 @@ struct DesktopPetMotion {
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
                           within limits: ClosedRange<CGFloat>, pointerOnLeft: Bool?,
-                          petSize: CGSize, autonomous: Bool = false,
-                          restDuration: TimeInterval = PetAnimation.restDelay.lowerBound) {
+                          petSize: CGSize, autonomous: Bool = false) {
         x = min(max(x, limits.lowerBound), limits.upperBound)
-        if !autonomous { nextAutomaticWalk = nil }
         let hovered = pointerOnLeft != nil
         let entered = hovered && !wasHovered
         defer { wasHovered = hovered }
@@ -124,7 +120,6 @@ struct DesktopPetMotion {
             let target = min(max(x + direction * petSize.width, limits.lowerBound),
                              limits.upperBound)
             isResting = false
-            nextAutomaticWalk = nil
             hop = Hop(startedAt: time, startX: x, endX: target, height: petSize.height * 0.5)
         }
         if let hop {
@@ -138,9 +133,8 @@ struct DesktopPetMotion {
             // Finish at the landing position, then resume walking on the next tick.
             return
         }
-        if isResting && autonomous && time >= (nextAutomaticWalk ?? time) {
+        if isResting && autonomous {
             isResting = false
-            nextAutomaticWalk = nil
         }
         guard !isResting else { return }
         guard limits.lowerBound < limits.upperBound else {
@@ -152,8 +146,9 @@ struct DesktopPetMotion {
         if (direction < 0 && next <= limits.lowerBound) ||
             (direction > 0 && next >= limits.upperBound) {
             direction *= -1
-            isResting = true
-            nextAutomaticWalk = autonomous ? time + restDuration : nil
+            // Sleep at an edge only when no task is in progress; otherwise
+            // turn around and keep walking.
+            isResting = !autonomous
         }
     }
 }
@@ -331,7 +326,7 @@ private final class DesktopPetCompanion {
 
     func configure(display: DesktopPetDisplay, pet: BarPet, size: DesktopPetSize) {
         // A display can move in global coordinates when another is connected.
-        // Preserve the current hop/walk and sleeping deadline on that display.
+        // Preserve the current hop/walk on that display.
         motion.translate(by: display.visibleFrame.minX - self.display.visibleFrame.minX)
         self.display = display
         guard self.pet != pet || sizeClass != size else { return }
@@ -357,8 +352,7 @@ private final class DesktopPetCompanion {
         let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
-                       petSize: panel.frame.size, autonomous: autonomous,
-                       restDuration: .random(in: PetAnimation.restDelay))
+                       petSize: panel.frame.size, autonomous: autonomous)
         let frame: Int
         var elevation = motion.verticalOffset
         if motion.isResting {
