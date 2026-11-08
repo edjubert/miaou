@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-08
+
+### Fixed
+
+- The desktop cat no longer falls asleep when it reaches a screen edge while a
+  session is active or while animation is set to always. It only sleeps at an
+  edge when no task is in progress; otherwise it turns around and keeps walking.
+
 ## [0.6.1] - 2026-11-08
 
 ### Added
