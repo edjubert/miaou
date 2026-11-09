@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-09
+
+### Fixed
+
+- Desktop cat dots keep a visible margin at every size: the dot grid snaps to
+  whole device pixels with a gap of at least two device pixels, so the small
+  size no longer merges adjacent pixels.
+- The desktop cat's glass backdrop no longer sticks out past the pet: it is
+  clipped to the dot outline and only fills the gaps between dots.
+
 ## [0.6.2] - 2026-11-08
 
 ### Fixed
