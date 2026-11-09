@@ -30,9 +30,10 @@ pub fn session_is_active(bumped_at_ms: Option<u64>, now_ms: u64) -> bool {
     }
 }
 
-/// Holder process names whose leases never count as active sessions: the app
-/// server manages its own (API/ACP) sessions, they are not user-facing runs.
-const EXCLUDED_LEASE_HOLDERS: [&str; 1] = ["vibe-app-server"];
+/// Holder processes whose leases never count as active sessions: the app
+/// server and the ACP server manage their own (API/ACP) sessions, they are
+/// not user-facing runs.
+const EXCLUDED_LEASE_HOLDERS: [&str; 2] = ["vibe-app-server", "vibe-acp"];
 
 /// Process id recorded in the `<id>.lock.json` diagnostic beside a lease file.
 fn lease_holder_pid(lock_path: &Path) -> Option<u64> {
@@ -42,28 +43,34 @@ fn lease_holder_pid(lock_path: &Path) -> Option<u64> {
     value.get("process_id").and_then(|p| p.as_u64())
 }
 
-/// Name of the process `pid`, via `ps` (None when the pid is gone).
-fn process_name(pid: u64) -> Option<String> {
+/// Full command line of `pid`, via `ps` (None when the pid is gone). The
+/// Vibe tools are Python scripts, so their executable name (`comm`) is the
+/// interpreter; the tool name only appears in the command line.
+fn process_command(pid: u64) -> Option<String> {
     let output = std::process::Command::new("ps")
-        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .args(["-p", &pid.to_string(), "-o", "args="])
         .output()
         .ok()?;
-    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    (!name.is_empty()).then_some(name)
+    let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!command.is_empty()).then_some(command)
 }
 
-fn is_excluded_holder(name: &str) -> bool {
-    EXCLUDED_LEASE_HOLDERS
-        .iter()
-        .any(|excluded| name.ends_with(excluded))
+/// True when one of the command line's arguments is an excluded holder name,
+/// matched as a path component so "not-vibe-acp" does not match.
+fn is_excluded_holder(command: &str) -> bool {
+    EXCLUDED_LEASE_HOLDERS.iter().any(|excluded| {
+        command
+            .split_whitespace()
+            .any(|arg| arg.split('/').any(|component| component == *excluded))
+    })
 }
 
 /// True when the lease's recorded holder is an excluded process. A missing or
 /// unreadable diagnostic fails open: not excluded.
 fn lease_holder_excluded(lock_path: &Path) -> bool {
     lease_holder_pid(lock_path)
-        .and_then(process_name)
-        .is_some_and(|name| is_excluded_holder(&name))
+        .and_then(process_command)
+        .is_some_and(|command| is_excluded_holder(&command))
 }
 
 /// List sessions whose OS lock is still held, most recently touched first.
@@ -265,7 +272,20 @@ mod tests {
     fn excluded_holder_names() {
         assert!(is_excluded_holder("vibe-app-server"));
         assert!(is_excluded_holder("/usr/local/bin/vibe-app-server"));
-        assert!(!is_excluded_holder("vibe-acp"));
+        assert!(is_excluded_holder("vibe-acp"));
+        assert!(is_excluded_holder("/Users/x/.local/bin/vibe-acp"));
+        // Script-based tools show the interpreter as executable; the tool
+        // name is matched in the command line arguments.
+        assert!(is_excluded_holder(
+            "/opt/Python.app/Contents/MacOS/Python /Users/x/.local/bin/vibe-acp"
+        ));
+        assert!(is_excluded_holder(
+            "/opt/Python /Users/x/.local/bin/vibe-app-server --port 8080"
+        ));
+        // The user-facing CLI is not a server: never excluded.
+        assert!(!is_excluded_holder("vibe"));
+        assert!(!is_excluded_holder("/opt/Python /Users/x/.local/bin/vibe"));
+        assert!(!is_excluded_holder("not-vibe-acp"));
         assert!(!is_excluded_holder("Python"));
     }
 
