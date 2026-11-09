@@ -312,7 +312,8 @@ private final class DesktopPetCompanion {
         self.pet = pet
         sizeClass = size
         let dimensions = size.dimensions(for: pet)
-        artwork = DesktopPetView(pet: pet, size: dimensions)
+        artwork = DesktopPetView(pet: pet, size: dimensions,
+                                 backingScaleFactor: display.backingScaleFactor)
         panel = DesktopPetPanel(contentRect: CGRect(origin: .zero, size: dimensions),
                                 identifier: "miaou-desktop-pet-\(display.id)",
                                 title: L10n.t("desktopPet.headline"))
@@ -333,7 +334,8 @@ private final class DesktopPetCompanion {
         self.pet = pet
         sizeClass = size
         let dimensions = size.dimensions(for: pet)
-        artwork = DesktopPetView(pet: pet, size: dimensions)
+        artwork = DesktopPetView(pet: pet, size: dimensions,
+                                 backingScaleFactor: display.backingScaleFactor)
         panel.contentView = artwork
         panel.setContentSize(dimensions)
     }
@@ -457,23 +459,29 @@ final class DesktopPetView: NSView {
     private var shownFrame = -1
     private var shownMirrored = false
 
-    init(pet: BarPet, size: CGSize) {
+    init(pet: BarPet, size: CGSize, backingScaleFactor: CGFloat = 0) {
         self.pet = pet
         let frames = pet == .chonk ? Chonk.frames : Chaton.frames
-        let pitch = min(size.width / pet.barWindow.width, size.height / pet.barWindow.height)
+        // Snap the vertical flip to the device grid so dot rows land on
+        // whole device pixels like the columns do.
+        let pixelHeight = backingScaleFactor > 0
+            ? round(size.height * backingScaleFactor) / backingScaleFactor
+            : size.height
         func native(_ rect: CGRect) -> CGRect {
-            CGRect(x: rect.minX, y: size.height - rect.maxY, width: rect.width, height: rect.height)
+            CGRect(x: rect.minX, y: pixelHeight - rect.maxY, width: rect.width, height: rect.height)
         }
         poses = frames.indices.map { index in
             let geometry = pet == .chonk
-                ? Chonk.dotRects(frame: index, size: size)
-                : Chaton.dotRects(frame: index, size: size)
-            let silhouette = pet == .chonk
-                ? Chonk.silhouetteRects(frame: index, size: size)
-                : Chaton.silhouetteRects(frame: index, size: size)
+                ? Chonk.dotRects(frame: index, size: size, scale: backingScaleFactor)
+                : Chaton.dotRects(frame: index, size: size, scale: backingScaleFactor)
+            // Glass backdrop on the same snapped grid as the dots, clipped
+            // to the dot outline so it never sticks out past the pet.
+            let glass = pet == .chonk
+                ? Chonk.glassRects(frame: index, size: size, scale: backingScaleFactor)
+                : Chaton.glassRects(frame: index, size: size, scale: backingScaleFactor)
             let path = CGMutablePath()
-            for rect in silhouette {
-                path.addRect(native(rect.insetBy(dx: -pitch * 0.075, dy: -pitch * 0.075)))
+            for rect in glass {
+                path.addRect(native(rect))
             }
             return Pose(dots: geometry.map { (native($0.rect), $0.row) }, glass: path)
         }

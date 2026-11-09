@@ -76,6 +76,105 @@ final class ChatonTests: XCTestCase {
                        Chaton.frames[Chaton.frames.count - 1].count)
     }
 
+    func testSmallDotRectsKeepAVisibleGapBetweenDots() {
+        func dotRects(_ pet: BarPet, frame: Int, size: CGSize, scale: CGFloat)
+            -> [(rect: CGRect, row: Int)] {
+            pet == .chaton ? Chaton.dotRects(frame: frame, size: size, scale: scale)
+                           : Chonk.dotRects(frame: frame, size: size, scale: scale)
+        }
+        for pet in BarPet.allCases {
+            // Desktop cat size S: 140 pt wide.
+            let size = CGSize(width: 140,
+                              height: 140 * pet.barWindow.height / pet.barWindow.width)
+            let cell = min(size.width / pet.barWindow.width,
+                           size.height / pet.barWindow.height)
+            XCTAssertLessThan(cell * 0.15, 1,
+                              "premise: the 15% gap is sub-point at size S")
+            let frameCount = pet == .chaton ? Chaton.frames.count : Chonk.frames.count
+            // Without a backing scale, dots keep at least 1 pt; with one,
+            // the grid snaps to device pixels and the gap is at least two
+            // device pixels, so non-antialiased drawing never merges dots.
+            for scale in [CGFloat(0), 1, 2] {
+                let minimumGap = scale > 0 ? 2 / scale : 1
+                for frame in [0, pet.restFrame, frameCount - 1] {
+                    let dots = dotRects(pet, frame: frame, size: size, scale: scale)
+                    for dot in dots {
+                        XCTAssertTrue(CGRect(origin: .zero, size: size).contains(dot.rect))
+                    }
+                    for rowDots in Dictionary(grouping: dots, by: { $0.rect.minY }).values {
+                        let sorted = rowDots.sorted { $0.rect.minX < $1.rect.minX }
+                        for adjacent in zip(sorted, sorted.dropFirst()) {
+                            XCTAssertGreaterThanOrEqual(
+                                adjacent.1.rect.minX - adjacent.0.rect.maxX,
+                                minimumGap - 0.001,
+                                "dots merge horizontally at size S, scale \(scale)")
+                        }
+                    }
+                    for colDots in Dictionary(grouping: dots, by: { $0.rect.minX }).values {
+                        let sorted = colDots.sorted { $0.rect.minY < $1.rect.minY }
+                        for adjacent in zip(sorted, sorted.dropFirst()) {
+                            XCTAssertGreaterThanOrEqual(
+                                adjacent.1.rect.minY - adjacent.0.rect.maxY,
+                                minimumGap - 0.001,
+                                "dots merge vertically at size S, scale \(scale)")
+                        }
+                    }
+                }
+            }
+            // Widget slots keep the point-level minimum gap.
+            for slot in pet.dotSlots(size: size) {
+                XCTAssertLessThanOrEqual(slot.rect.width, cell - 1 + 0.001)
+            }
+        }
+    }
+
+    func testGlassRectsStayWithinTheDotOutlineAndFillTheGaps() {
+        for pet in BarPet.allCases {
+            for w in [CGFloat(140), 200, 280] {
+                let size = CGSize(width: w, height: w * pet.barWindow.height / pet.barWindow.width)
+                for scale in [CGFloat(0), 1, 2] {
+                    let frameCount = pet == .chaton ? Chaton.frames.count : Chonk.frames.count
+                    for frame in [0, pet.restFrame, frameCount - 1] {
+                        let dots = pet == .chaton
+                            ? Chaton.dotRects(frame: frame, size: size, scale: scale)
+                            : Chonk.dotRects(frame: frame, size: size, scale: scale)
+                        let glass = pet == .chaton
+                            ? Chaton.glassRects(frame: frame, size: size, scale: scale)
+                            : Chonk.glassRects(frame: frame, size: size, scale: scale)
+                        let dotBox = dots.reduce(CGRect.null) { $0.union($1.rect) }
+                        let glassBox = glass.reduce(CGRect.null) { $0.union($1) }
+                        XCTAssertTrue(glassBox.contains(dotBox),
+                                      "glass must cover the dots, w=\(w) scale=\(scale)")
+                        // The backdrop never sticks out past the outermost
+                        // dots: same bounding box on every side.
+                        XCTAssertEqual(glassBox.minX, dotBox.minX, accuracy: 0.001)
+                        XCTAssertEqual(glassBox.minY, dotBox.minY, accuracy: 0.001)
+                        XCTAssertEqual(glassBox.maxX, dotBox.maxX, accuracy: 0.001)
+                        XCTAssertEqual(glassBox.maxY, dotBox.maxY, accuracy: 0.001)
+                        // The gap between two horizontally adjacent cells is
+                        // filled with backdrop.
+                        let rawCell = min(size.width / pet.barWindow.width,
+                                          size.height / pet.barWindow.height)
+                        let cell = scale > 0 ? floor(rawCell * scale) / scale : rawCell
+                        let byRow = Dictionary(grouping: dots, by: { $0.row })
+                        for rowDots in byRow.values {
+                            let sorted = rowDots.sorted { $0.rect.minX < $1.rect.minX }
+                            for adjacent in zip(sorted, sorted.dropFirst()) {
+                                guard abs(adjacent.1.rect.minX - adjacent.0.rect.minX - cell) < 0.01
+                                else { continue }
+                                let gap = adjacent.1.rect.minX - adjacent.0.rect.maxX
+                                let gapPoint = CGPoint(x: adjacent.0.rect.maxX + gap / 4,
+                                                       y: adjacent.0.rect.midY)
+                                XCTAssertTrue(glass.contains { $0.contains(gapPoint) },
+                                              "gap not filled in row \(rowDots[0].row)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func testSilhouetteFillsEnclosedHolesOnly() {
         var ring: [(col: Int, row: Int)] = []
         for i in 4...10 {

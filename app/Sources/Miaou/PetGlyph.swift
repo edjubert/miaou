@@ -13,7 +13,9 @@ import CoreImage.CIFilterBuiltins
 /// Geometry: the pose is centered in a square of `square`x`square` cells
 /// fitted in the shared 24x24 viewBox, so the cell pitch is 24/square.
 /// Each cell renders as a centered square dot of 0.85 cell, leaving an
-/// even gap. Each glyph's grid height divides the rows into five palette
+/// even gap. The dot rects used by the desktop pet and the widget keep at
+/// least 1 pt of gap, so small renders never merge adjacent pixels.
+/// Each glyph's grid height divides the rows into five palette
 /// bands, from gold at the top to red at the bottom.
 protocol PetGlyph {
     static var gridW: Int { get }
@@ -145,15 +147,41 @@ extension PetGlyph {
 
     /// Dot geometry in a top-left-origin SwiftUI box, using the same
     /// fixed crop as the banner so changing poses never shifts the pet.
-    static func dotRects(frame: Int, size: CGSize) -> [(rect: CGRect, row: Int)] {
+    /// Dots keep at least 1 pt between them so small sizes stay readable.
+    /// With a backing `scale`, the grid snaps to whole device pixels and
+    /// the gap to an even number of device pixels (at least two), so
+    /// non-antialiased drawing never merges adjacent dots.
+    static func dotRects(frame: Int, size: CGSize, scale: CGFloat = 0) -> [(rect: CGRect, row: Int)] {
         let index = min(max(frame, 0), frames.count - 1)
-        return dotRects(cells: frames[index], size: size)
+        return dotRects(cells: frames[index], size: size, minimumGap: 1, scale: scale)
     }
 
-    /// The enclosed body uses the same geometry as its colored outline.
-    static func silhouetteRects(frame: Int, size: CGSize) -> [CGRect] {
+    /// The glass backdrop of the desktop pet: each silhouette cell shrunk
+    /// to its dot and extended into the gaps toward neighboring cells, so
+    /// the backdrop fills the body and the dot gaps without sticking out
+    /// past the outermost dots.
+    static func glassRects(frame: Int, size: CGSize, scale: CGFloat = 0) -> [CGRect] {
         let index = min(max(frame, 0), frames.count - 1)
-        return dotRects(cells: silhouettes[index], size: size).map(\.rect)
+        let (cell, offsetX, offsetY) = grid(size: size, scale: scale)
+        let inset = dotGap(cell: cell, minimumGap: 1, scale: scale) / 2
+        let cells = silhouettes[index]
+        let keys = Set(cells.map(key))
+        return cells.map { c in
+            var rect = cellRect(col: c.col, row: c.row, cell: cell,
+                                offsetX: offsetX, offsetY: offsetY)
+                .insetBy(dx: inset, dy: inset)
+            if keys.contains(key((c.col + 1, c.row))) { rect.size.width += inset }
+            if keys.contains(key((c.col - 1, c.row))) {
+                rect.origin.x -= inset
+                rect.size.width += inset
+            }
+            if keys.contains(key((c.col, c.row + 1))) { rect.size.height += inset }
+            if keys.contains(key((c.col, c.row - 1))) {
+                rect.origin.y -= inset
+                rect.size.height += inset
+            }
+            return rect
+        }
     }
 
     /// All possible dots have stable identities and positions; only
@@ -162,25 +190,65 @@ extension PetGlyph {
         let animationCells = Set(frames.flatMap { $0.map(key) }).sorted().map {
             (col: $0 / 32, row: $0 % 32)
         }
-        return zip(animationCells, dotRects(cells: animationCells, size: size)).map {
+        return zip(animationCells, dotRects(cells: animationCells, size: size, minimumGap: 1)).map {
             (key($0.0), $0.1.rect, $0.1.row)
         }
     }
 
-    private static func dotRects(cells: [(col: Int, row: Int)],
-                                 size: CGSize) -> [(rect: CGRect, row: Int)] {
+    /// The cell grid fitted in `size`: cell pitch and centering offsets.
+    /// With a backing `scale`, the grid snaps down to whole device pixels
+    /// so the pet still fits the view.
+    private static func grid(size: CGSize, scale: CGFloat)
+        -> (cell: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {
         let window = barWindow
-        let cell = min(size.width / window.width, size.height / window.height)
-        let dot = cell * 0.85
-        let inset = (cell - dot) / 2
+        var cell = min(size.width / window.width, size.height / window.height)
+        var offsetX = (size.width - window.width * cell) / 2
+        var offsetY = (size.height - window.height * cell) / 2
+        if scale > 0 {
+            cell = floor(cell * scale) / scale
+            offsetX = round(offsetX * scale) / scale
+            offsetY = round(offsetY * scale) / scale
+        }
+        return (cell, offsetX, offsetY)
+    }
+
+    /// The full cell of a grid position, in top-left-origin coordinates.
+    private static func cellRect(col: Int, row: Int,
+                                 cell: CGFloat, offsetX: CGFloat, offsetY: CGFloat) -> CGRect {
+        let window = barWindow
         let marginX = (square - CGFloat(maxCol - minCol + 1)) / 2
         let marginY = (square - CGFloat(maxRow - minRow + 1)) / 2
-        let offsetX = (size.width - window.width * cell) / 2
-        let offsetY = (size.height - window.height * cell) / 2
+        let x = offsetX + (marginX + CGFloat(col - minCol) - window.minX) * cell
+        let y = offsetY + (marginY + CGFloat(row - minRow) - window.minY) * cell
+        return CGRect(x: x, y: y, width: cell, height: cell)
+    }
+
+    /// The margin between dots: 15% of a cell, but never below
+    /// `minimumGap`. With a backing `scale`, snapped to an even number of
+    /// device pixels (at least two), so drawing without antialiasing keeps
+    /// a visible margin between dots.
+    private static func dotGap(cell: CGFloat, minimumGap: CGFloat, scale: CGFloat) -> CGFloat {
+        var gap = max(cell * 0.15, minimumGap)
+        if scale > 0 {
+            var gapPixels = Int(round(gap * scale))
+            if gapPixels < 2 { gapPixels = 2 }
+            if gapPixels % 2 == 1 { gapPixels += 1 }
+            gap = CGFloat(gapPixels) / scale
+        }
+        return gap
+    }
+
+    private static func dotRects(cells: [(col: Int, row: Int)],
+                                 size: CGSize,
+                                 minimumGap: CGFloat = 0,
+                                 scale: CGFloat = 0) -> [(rect: CGRect, row: Int)] {
+        let (cell, offsetX, offsetY) = grid(size: size, scale: scale)
+        let inset = dotGap(cell: cell, minimumGap: minimumGap, scale: scale) / 2
         return cells.map { c in
-            let x = offsetX + (marginX + CGFloat(c.col - minCol) - window.minX) * cell + inset
-            let y = offsetY + (marginY + CGFloat(c.row - minRow) - window.minY) * cell + inset
-            return (CGRect(x: x, y: y, width: dot, height: dot), c.row)
+            let rect = cellRect(col: c.col, row: c.row, cell: cell,
+                                offsetX: offsetX, offsetY: offsetY)
+                .insetBy(dx: inset, dy: inset)
+            return (rect, c.row)
         }
     }
 
