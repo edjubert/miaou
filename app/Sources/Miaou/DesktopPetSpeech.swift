@@ -205,6 +205,11 @@ final class DesktopPetSpeechView: NSView {
     private let message = NSTextField(wrappingLabelWithString: "")
     private var shapeSize: CGSize = .zero
     private var shapeTail = -1
+    private var shapePitch: CGFloat = -1
+    /// Dot grid of the bubble, matching the cat's pixels.
+    var dotPitch: CGFloat = 8 { didSet { if dotPitch != oldValue { needsLayout = true } } }
+    var dotGap: CGFloat = 1.2 { didSet { if dotGap != oldValue { needsLayout = true } } }
+    var backingScaleFactor: CGFloat = 0 { didSet { if backingScaleFactor != oldValue { needsLayout = true } } }
     var tailX: CGFloat = 160 { didSet { if tailX != oldValue { needsLayout = true } } }
 
     init() {
@@ -245,11 +250,15 @@ final class DesktopPetSpeechView: NSView {
         super.layout()
         title.frame = CGRect(x: 20, y: bounds.height - 33, width: bounds.width - 40, height: 17)
         message.frame = CGRect(x: 20, y: 30, width: bounds.width - 40, height: bounds.height - 68)
-        let column = DesktopPetSpeechShape.tailColumn(for: bounds.size, at: tailX)
-        guard shapeSize != bounds.size || shapeTail != column else { return }
-        let shape = DesktopPetSpeechShape(size: bounds.size, tailX: tailX)
+        let column = DesktopPetSpeechShape.tailColumn(for: bounds.size, at: tailX,
+                                                       pitch: dotPitch, scale: backingScaleFactor)
+        guard shapeSize != bounds.size || shapeTail != column || shapePitch != dotPitch else { return }
+        let shape = DesktopPetSpeechShape(size: bounds.size, tailX: tailX,
+                                          pitch: dotPitch, gap: dotGap,
+                                          scale: backingScaleFactor)
         shapeSize = bounds.size
         shapeTail = shape.tailColumn
+        shapePitch = dotPitch
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         mask.frame = bounds
@@ -271,25 +280,41 @@ final class DesktopPetSpeechView: NSView {
     }
 }
 
-/// Square dots use the same 85%-filled cells and five color bands as the pet.
-private struct DesktopPetSpeechShape {
-    static let pitch: CGFloat = 8
+/// Border dots use the same cell pitch and gap as the pet's dots, and the
+/// same five color bands.
+struct DesktopPetSpeechShape {
     let tailColumn: Int
     let glass: CGPath
     let dots: [(rect: CGRect, band: Int)]
 
-    static func tailColumn(for size: CGSize, at x: CGFloat) -> Int {
-        let columns = max(11, Int(size.width / pitch))
-        let originX = (size.width - CGFloat(columns) * pitch) / 2
+    private static func columns(in size: CGSize, pitch: CGFloat) -> Int {
+        max(11, Int(size.width / pitch))
+    }
+
+    private static func origin(of size: CGSize, columns: Int, rows: Int,
+                               pitch: CGFloat, scale: CGFloat) -> CGPoint {
+        var x = (size.width - CGFloat(columns) * pitch) / 2
+        var y = (size.height - CGFloat(rows) * pitch) / 2
+        if scale > 0 {
+            x = round(x * scale) / scale
+            y = round(y * scale) / scale
+        }
+        return CGPoint(x: x, y: y)
+    }
+
+    static func tailColumn(for size: CGSize, at x: CGFloat, pitch: CGFloat,
+                           scale: CGFloat = 0) -> Int {
+        let columns = columns(in: size, pitch: pitch)
+        let originX = origin(of: size, columns: columns, rows: 8, pitch: pitch, scale: scale).x
         return min(max(Int(((x - originX) / pitch - 0.5).rounded()), 4), columns - 5)
     }
 
-    init(size: CGSize, tailX: CGFloat) {
-        let columns = max(11, Int(size.width / Self.pitch))
-        let rows = max(8, Int(size.height / Self.pitch))
-        let origin = CGPoint(x: (size.width - CGFloat(columns) * Self.pitch) / 2,
-                             y: (size.height - CGFloat(rows) * Self.pitch) / 2)
-        let tail = Self.tailColumn(for: size, at: tailX)
+    init(size: CGSize, tailX: CGFloat, pitch: CGFloat, gap: CGFloat, scale: CGFloat = 0) {
+        let columns = Self.columns(in: size, pitch: pitch)
+        let rows = max(8, Int(size.height / pitch))
+        let origin = Self.origin(of: size, columns: columns, rows: rows,
+                                 pitch: pitch, scale: scale)
+        let tail = Self.tailColumn(for: size, at: tailX, pitch: pitch, scale: scale)
         tailColumn = tail
         let spans = (0..<rows).map { row -> ClosedRange<Int> in
             if row < 2 { return (tail - row)...(tail + row) }
@@ -299,17 +324,17 @@ private struct DesktopPetSpeechShape {
         let path = CGMutablePath()
         var border: [(rect: CGRect, band: Int)] = []
         for (row, span) in spans.enumerated() {
-            let y = origin.y + CGFloat(row) * Self.pitch
-            path.addRect(CGRect(x: origin.x + CGFloat(span.lowerBound) * Self.pitch,
-                                y: y, width: CGFloat(span.count) * Self.pitch,
-                                height: Self.pitch))
+            let y = origin.y + CGFloat(row) * pitch
+            path.addRect(CGRect(x: origin.x + CGFloat(span.lowerBound) * pitch,
+                                y: y, width: CGFloat(span.count) * pitch,
+                                height: pitch))
             for col in span {
                 guard col == span.lowerBound || col == span.upperBound ||
                         row == 0 || row == rows - 1 ||
                         !spans[row - 1].contains(col) || !spans[row + 1].contains(col) else { continue }
-                let cell = CGRect(x: origin.x + CGFloat(col) * Self.pitch, y: y,
-                                  width: Self.pitch, height: Self.pitch)
-                border.append((cell.insetBy(dx: Self.pitch * 0.075, dy: Self.pitch * 0.075),
+                let cell = CGRect(x: origin.x + CGFloat(col) * pitch, y: y,
+                                  width: pitch, height: pitch)
+                border.append((cell.insetBy(dx: gap / 2, dy: gap / 2),
                                min(4, (rows - 1 - row) * 5 / rows)))
             }
         }

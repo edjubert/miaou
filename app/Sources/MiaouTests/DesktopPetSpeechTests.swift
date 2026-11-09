@@ -293,4 +293,33 @@ final class DesktopPetSpeechTests: XCTestCase {
                 .write(to: URL(fileURLWithPath: path))
         }
     }
+
+    func testBubbleDotsMatchTheCatDotMetrics() {
+        let bubbleSize = CGSize(width: 320, height: DesktopPetSpeechView.height)
+        for size in DesktopPetSize.allCases {
+            for pet in BarPet.allCases {
+                let dimensions = size.dimensions(for: pet)
+                for scale in [CGFloat(0), 1, 2] {
+                    let metrics = pet.dotMetrics(size: dimensions, scale: scale)
+                    // The cat's own dots use the same cell and gap.
+                    let catDots = pet == .chaton
+                        ? Chaton.dotRects(frame: 0, size: dimensions, scale: scale)
+                        : Chonk.dotRects(frame: 0, size: dimensions, scale: scale)
+                    for dot in catDots {
+                        XCTAssertEqual(dot.rect.width, metrics.cell - metrics.gap, accuracy: 0.001)
+                    }
+                    // The bubble's border dots use the same pitch and gap.
+                    let shape = DesktopPetSpeechShape(size: bubbleSize, tailX: 160,
+                                                      pitch: metrics.cell, gap: metrics.gap,
+                                                      scale: scale)
+                    XCTAssertFalse(shape.dots.isEmpty)
+                    for dot in shape.dots {
+                        XCTAssertEqual(dot.rect.width, metrics.cell - metrics.gap, accuracy: 0.001)
+                        XCTAssertEqual(dot.rect.height, metrics.cell - metrics.gap, accuracy: 0.001)
+                        XCTAssertTrue(CGRect(origin: .zero, size: bubbleSize).contains(dot.rect))
+                    }
+                }
+            }
+        }
+    }
 }

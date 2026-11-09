@@ -96,12 +96,14 @@ struct MainWindow: View {
     @AppStorage("desktopPetEnabled") private var desktopPetEnabled = false
     @AppStorage("desktopPetScreens") private var desktopPetScreensRaw = DesktopPetScreenMode.primary.rawValue
     @AppStorage("desktopPetSize") private var desktopPetSizeRaw = DesktopPetSize.medium.rawValue
+    @AppStorage("desktopPetPet") private var desktopPetPetRaw = BarPet.chaton.rawValue
     @AppStorage("desktopPetSpeechEnabled") private var desktopPetSpeechEnabled = false
     @AppStorage("desktopPetAnimation") private var desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
-    // Keep the stored key so the previous color preference survives upgrades.
-    @AppStorage("desktopPetColorDuringSession") private var desktopPetColorDuringMovement = true
+    @AppStorage("desktopPetColorMode") private var desktopPetColorModeRaw = ChatonColorMode.session.rawValue
     // Store transparency to preserve the existing appearance; the slider shows glass intensity.
     @AppStorage("desktopPetGlassTransparency") private var desktopPetGlassTransparency = 0.0
+    // The speech bubble keeps its glass by default; this slider tunes it.
+    @AppStorage("desktopPetSpeechGlassTransparency") private var desktopPetSpeechGlassTransparency = 0.0
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -474,6 +476,14 @@ struct MainWindow: View {
                 .pickerStyle(.segmented)
                 .id("desktopPetSize-\(languageRaw)")
                 .disabled(!desktopPetEnabled)
+                Picker(L10n.t("desktopPet.pet"), selection: $desktopPetPetRaw) {
+                    ForEach(BarPet.allCases) { pet in
+                        Text(pet.label).tag(pet.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("desktopPetPet-\(languageRaw)")
+                .disabled(!desktopPetEnabled)
                 Picker(L10n.t("widget.chaton.mode"), selection: $desktopPetAnimationRaw) {
                     ForEach(ChatonAnimationMode.allCases, id: \.rawValue) { mode in
                         Text(mode.label).tag(mode.rawValue)
@@ -482,13 +492,45 @@ struct MainWindow: View {
                 .pickerStyle(.segmented)
                 .id("desktopPetAnimation-\(languageRaw)")
                 .disabled(!desktopPetEnabled)
-                Toggle(L10n.t("desktopPet.colorDuringMovement"), isOn: $desktopPetColorDuringMovement)
-                    .disabled(!desktopPetEnabled)
+                Picker(L10n.t("colorMode.picker"), selection: $desktopPetColorModeRaw) {
+                    ForEach(ChatonColorMode.allCases) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("desktopPetColorMode-\(languageRaw)")
+                .disabled(!desktopPetEnabled)
                 Toggle(L10n.t("desktopPet.speech"), isOn: $desktopPetSpeechEnabled)
                     .disabled(!desktopPetEnabled)
                 Text(L10n.t("desktopPet.speech.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(L10n.t("desktopPet.speechGlassIntensity"))
+                        Spacer()
+                        Text(1 - desktopPetSpeechGlassTransparency,
+                             format: .percent.precision(.fractionLength(0)).locale(L10n.locale))
+                            .monospacedDigit()
+                    }
+                    Slider(value: Binding(
+                        get: { 1 - desktopPetSpeechGlassTransparency },
+                        set: { desktopPetSpeechGlassTransparency = 1 - $0 }
+                    ), in: 0...1, step: 0.01) {
+                        Text(L10n.t("desktopPet.speechGlassIntensity"))
+                    }
+                    .labelsHidden()
+                    .accessibilityValue(Text(1 - desktopPetSpeechGlassTransparency,
+                                             format: .percent.precision(.fractionLength(0)).locale(L10n.locale)))
+                    HStack {
+                        Text(L10n.t("desktopPet.glassHidden"))
+                        Spacer()
+                        Text(L10n.t("desktopPet.glassMaximum"))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .disabled(!desktopPetEnabled || !desktopPetSpeechEnabled)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(L10n.t("desktopPet.glassIntensity"))
@@ -537,10 +579,13 @@ struct MainWindow: View {
         desktopPetEnabled = false
         desktopPetScreensRaw = DesktopPetScreenMode.primary.rawValue
         desktopPetSizeRaw = DesktopPetSize.medium.rawValue
+        desktopPetPetRaw = BarPet.chaton.rawValue
         desktopPetSpeechEnabled = false
         desktopPetAnimationRaw = ChatonAnimationMode.session.rawValue
-        desktopPetColorDuringMovement = true
+        desktopPetColorModeRaw = ChatonColorMode.session.rawValue
+        UserDefaults.standard.removeObject(forKey: "desktopPetColorDuringSession")
         desktopPetGlassTransparency = 0
+        desktopPetSpeechGlassTransparency = 0
         languageRaw = "system"
     }
 }

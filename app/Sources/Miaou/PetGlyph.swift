@@ -156,6 +156,14 @@ extension PetGlyph {
         return dotRects(cells: frames[index], size: size, minimumGap: 1, scale: scale)
     }
 
+    /// The dot grid metrics for a render of `size` at a backing `scale`:
+    /// cell pitch and margin between dots. Shared by the pet and its
+    /// speech bubble so their pixels match.
+    static func dotMetrics(size: CGSize, scale: CGFloat = 0) -> (cell: CGFloat, gap: CGFloat) {
+        let (cell, _, _) = grid(size: size, scale: scale)
+        return (cell, dotGap(cell: cell, minimumGap: 1, scale: scale))
+    }
+
     /// The glass backdrop of the desktop pet: each silhouette cell shrunk
     /// to its dot and extended into the gaps toward neighboring cells, so
     /// the backdrop fills the body and the dot gaps without sticking out
@@ -411,6 +419,13 @@ enum BarPet: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .chaton: return Chaton.dotSlots(size: size)
         case .chonk: return Chonk.dotSlots(size: size)
+        }
+    }
+
+    func dotMetrics(size: CGSize, scale: CGFloat = 0) -> (cell: CGFloat, gap: CGFloat) {
+        switch self {
+        case .chaton: return Chaton.dotMetrics(size: size, scale: scale)
+        case .chonk: return Chonk.dotMetrics(size: size, scale: scale)
         }
     }
 

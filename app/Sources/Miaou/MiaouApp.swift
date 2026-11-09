@@ -222,6 +222,15 @@ extension BarIconStyle {
     }
 }
 
+extension BarPet {
+    var label: String {
+        switch self {
+        case .chaton: return L10n.t("iconStyle.chaton")
+        case .chonk: return L10n.t("iconStyle.chonk")
+        }
+    }
+}
+
 extension ChatonColorMode {
     var label: String {
         switch self {

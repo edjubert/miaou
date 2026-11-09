@@ -47,7 +47,7 @@
 "iconStyle.chaton" = "Chaton";
 "iconStyle.chonk" = "Le Chonk";
 "colorMode.session" = "Session";
-"colorMode.color" = "Couleur";
+"colorMode.color" = "Toujours";
 "colorMode.grayscale" = "Gris";
 "colorMode.picker" = "Couleur";
 
@@ -59,14 +59,15 @@
 "desktopPet.screen.builtIn" = "Intégré";
 "desktopPet.screen.both" = "Les deux";
 "desktopPet.size" = "Taille";
+"desktopPet.pet" = "Chat";
 "desktopPet.speech" = "Afficher le dernier message dans une bulle";
 "desktopPet.speech.description" = "Un extrait court de la dernière réponse Vibe terminée apparaît pendant 5 secondes, même si la session se ferme. Chaque nouveau message apparaît une seule fois.";
 "desktopPet.speech.session" = "Session Vibe";
-"desktopPet.colorDuringMovement" = "Colorer pendant ses déplacements";
 "desktopPet.glassIntensity" = "Intensité du verre";
+"desktopPet.speechGlassIntensity" = "Intensité du verre de la bulle";
 "desktopPet.glassMaximum" = "Verre maximal";
 "desktopPet.glassHidden" = "Sans verre";
-"desktopPet.description" = "Le chat marche automatiquement selon le mode d'animation, avec des pauses aux bords. Sans session active, le mode session le laisse dormir après son trajet. Le survol le fait toujours bondir puis rejoindre un bord. Ses déplacements peuvent être colorés ; le repos est gris. Les clics le traversent.";
+"desktopPet.description" = "Le chat marche automatiquement selon le mode d'animation. Sans session active, le mode session le laisse dormir après son trajet. Le survol le fait toujours bondir puis rejoindre un bord. Sa couleur suit le mode de couleur choisi. Les clics le traversent.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ utilisés sur %.2f %@ (%.1f%%)";

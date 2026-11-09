@@ -13,6 +13,56 @@ final class DesktopPetTests: XCTestCase {
                        autonomous: autonomous)
     }
 
+    func testColorModeFollowsTheSelectedModeAndLiveSessions() {
+        for mode in ChatonColorMode.allCases {
+            for live in [false, true] {
+                let expected: Bool
+                switch mode {
+                case .color: expected = true
+                case .grayscale: expected = false
+                case .session: expected = live
+                }
+                XCTAssertEqual(DesktopPetController.colored(mode: mode, live: live), expected)
+            }
+        }
+    }
+
+    func testColorModeMigratesTheLegacyBooleanPreference() {
+        let defaults = UserDefaults(suiteName: "miaou-test-color-mode")!
+        defaults.removeObject(forKey: "desktopPetColorMode")
+        defaults.removeObject(forKey: "desktopPetColorDuringSession")
+        XCTAssertEqual(DesktopPetController.colorMode(defaults), .session)
+        defaults.set(false, forKey: "desktopPetColorDuringSession")
+        XCTAssertEqual(DesktopPetController.colorMode(defaults), .grayscale)
+        defaults.set(true, forKey: "desktopPetColorDuringSession")
+        XCTAssertEqual(DesktopPetController.colorMode(defaults), .color)
+        defaults.set("grayscale", forKey: "desktopPetColorMode")
+        XCTAssertEqual(DesktopPetController.colorMode(defaults), .grayscale)
+        defaults.set("bogus", forKey: "desktopPetColorMode")
+        XCTAssertEqual(DesktopPetController.colorMode(defaults), .session)
+        defaults.removeObject(forKey: "desktopPetColorMode")
+        defaults.removeObject(forKey: "desktopPetColorDuringSession")
+    }
+
+    func testDesktopPetChoiceIsIndependentOfTheBarIcon() {
+        let defaults = UserDefaults(suiteName: "miaou-test-pet-choice")!
+        defaults.removeObject(forKey: "desktopPetPet")
+        defaults.removeObject(forKey: "barIcon")
+        XCTAssertEqual(DesktopPetController.pet(defaults), .chaton)
+        defaults.set("chonk", forKey: "desktopPetPet")
+        XCTAssertEqual(DesktopPetController.pet(defaults), .chonk)
+        // The bar icon no longer drives the desktop pet.
+        defaults.set("logo", forKey: "barIcon")
+        XCTAssertEqual(DesktopPetController.pet(defaults), .chonk)
+        defaults.set("chaton", forKey: "desktopPetPet")
+        defaults.set("chonk", forKey: "barIcon")
+        XCTAssertEqual(DesktopPetController.pet(defaults), .chaton)
+        defaults.set("bogus", forKey: "desktopPetPet")
+        XCTAssertEqual(DesktopPetController.pet(defaults), .chaton)
+        defaults.removeObject(forKey: "desktopPetPet")
+        defaults.removeObject(forKey: "barIcon")
+    }
+
     func testIdleCatNeverStartsWalkingOnItsOwn() {
         var motion = DesktopPetMotion()
         motion.place(at: 100)

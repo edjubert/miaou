@@ -197,14 +197,13 @@ final class DesktopPetController {
         nextSpeechPoll = 0
     }
 
-    private var selectedPet: BarPet {
-        let icon = BarIconStyle(rawValue: defaults.string(forKey: "barIcon") ?? "")
-        switch icon {
-        case .chonk: return .chonk
-        case .chaton: return AppModel.shared.isChonkModel ? .chonk : .chaton
-        default: return .chaton
-        }
+    /// The desktop pet has its own chaton/chonk choice, independent of the
+    /// menu bar icon.
+    static func pet(_ defaults: UserDefaults) -> BarPet {
+        BarPet(rawValue: defaults.string(forKey: "desktopPetPet") ?? "") ?? .chaton
     }
+
+    private var selectedPet: BarPet { Self.pet(defaults) }
 
     private func updateSettings() {
         guard defaults.bool(forKey: "desktopPetEnabled") else {
@@ -260,14 +259,38 @@ final class DesktopPetController {
             rawValue: defaults.string(forKey: "desktopPetAnimation") ?? ""
         ) ?? .session
         let autonomous = animationMode == .always || AppModel.shared.hasLiveSessions
-        let colorDuringMovement = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool ?? true
+        let colorMode = Self.colorMode(defaults)
+        let colored = Self.colored(mode: colorMode, live: AppModel.shared.hasLiveSessions)
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
+        // The speech bubble has its own glass intensity, full glass by default.
+        let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
         let message = updateSpeech(at: now)
         for companion in companions.values {
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
-                           autonomous: autonomous, colorDuringMovement: colorDuringMovement,
+                           autonomous: autonomous, colored: colored,
                            glassTransparency: glassTransparency)
-            companion.showSpeech(message, glassTransparency: glassTransparency)
+            companion.showSpeech(message, glassTransparency: speechGlassTransparency)
+        }
+    }
+
+    /// The cat's color mode, migrating the legacy "color while moving"
+    /// boolean: true meant brand colors, false meant grayscale.
+    static func colorMode(_ defaults: UserDefaults) -> ChatonColorMode {
+        if let raw = defaults.string(forKey: "desktopPetColorMode") {
+            return ChatonColorMode(rawValue: raw) ?? .session
+        }
+        if let legacy = defaults.object(forKey: "desktopPetColorDuringSession") as? Bool {
+            return legacy ? .color : .grayscale
+        }
+        return .session
+    }
+
+    /// Whether the cat renders in brand colors for this mode.
+    static func colored(mode: ChatonColorMode, live: Bool) -> Bool {
+        switch mode {
+        case .color: return true
+        case .grayscale: return false
+        case .session: return live
         }
     }
 
@@ -346,7 +369,7 @@ private final class DesktopPetCompanion {
     }
 
     func tick(at now: TimeInterval, elapsed: TimeInterval, pointer: CGPoint,
-              autonomous: Bool, colorDuringMovement: Bool, glassTransparency: Double) {
+              autonomous: Bool, colored: Bool, glassTransparency: Double) {
         let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
         let maxX = max(area.minX, area.maxX - panel.frame.width)
         let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
@@ -369,7 +392,7 @@ private final class DesktopPetCompanion {
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
         artwork.show(frame: frame, mirrored: motion.direction < 0,
-                     colored: colorDuringMovement && !motion.isResting,
+                     colored: colored,
                      glassTransparency: glassTransparency)
     }
 
@@ -388,6 +411,14 @@ private final class DesktopPetCompanion {
             bubble.contentView = view
             speechPanel = bubble
             speechView = view
+        }
+        // The bubble's border dots match the cat's pixels.
+        let metrics = pet.dotMetrics(size: sizeClass.dimensions(for: pet),
+                                     scale: display.backingScaleFactor)
+        if let view = speechView {
+            view.dotPitch = metrics.cell
+            view.dotGap = metrics.gap
+            view.backingScaleFactor = display.backingScaleFactor
         }
         speechPanel?.setFrame(frame, display: false)
         speechView?.tailX = panel.frame.midX - frame.minX

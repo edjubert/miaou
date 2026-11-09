@@ -47,7 +47,7 @@
 "iconStyle.chaton" = "Chaton";
 "iconStyle.chonk" = "Le Chonk";
 "colorMode.session" = "Session";
-"colorMode.color" = "Color";
+"colorMode.color" = "Always";
 "colorMode.grayscale" = "Grayscale";
 "colorMode.picker" = "Color";
 
@@ -59,14 +59,15 @@
 "desktopPet.screen.builtIn" = "Built-in";
 "desktopPet.screen.both" = "Both";
 "desktopPet.size" = "Size";
+"desktopPet.pet" = "Pet";
 "desktopPet.speech" = "Show the last message in a speech bubble";
 "desktopPet.speech.description" = "A short excerpt of the latest completed Vibe reply appears for 5 seconds, even if the session closes. Each new message appears once.";
 "desktopPet.speech.session" = "Vibe session";
-"desktopPet.colorDuringMovement" = "Color while moving";
 "desktopPet.glassIntensity" = "Glass intensity";
+"desktopPet.speechGlassIntensity" = "Speech bubble glass intensity";
 "desktopPet.glassMaximum" = "Full glass";
 "desktopPet.glassHidden" = "No glass";
-"desktopPet.description" = "The cat walks automatically in the selected animation mode, with pauses at the edges. Without an active session, session mode keeps it asleep after its current walk. Hover always makes it hop and walk to an edge. Movement can be colored; rest is gray. Clicks pass through it.";
+"desktopPet.description" = "The cat walks automatically in the selected animation mode. Without an active session, session mode keeps it asleep after its current walk. Hover always makes it hop and walk to an edge. Its color follows the selected color mode. Clicks pass through it.";
 
 /* Budget section */
 "budget.used_of" = "%.2f %@ used of %.2f %@ (%.1f%%)";
