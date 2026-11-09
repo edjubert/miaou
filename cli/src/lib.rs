@@ -13,13 +13,14 @@ pub mod aggregate;
 pub mod budget;
 pub mod calibrate;
 pub mod dates;
+pub mod git;
 pub mod journal;
 pub mod plan;
 pub mod prices;
 pub mod scan;
 pub mod status;
 
-pub use aggregate::{aggregate_by_period, aggregate_by_project, aggregate_by_session, aggregate_daily, aggregate_monthly, Totals};
+pub use aggregate::{aggregate_by_period, aggregate_by_project, aggregate_by_session, aggregate_daily, aggregate_monthly, ProjectRow, Totals};
 pub use journal::{parse_session, UsageEvent};
 pub use scan::{discover_sessions, SessionMeta};
 

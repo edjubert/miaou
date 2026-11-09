@@ -100,22 +100,47 @@ pub fn aggregate_monthly(sessions: &[SessionUsage]) -> Vec<Row> {
     aggregate_by_period(sessions, local_ym)
 }
 
-/// Aggregate by project (basename of the session's working directory).
-pub fn aggregate_by_project(sessions: &[SessionUsage]) -> Vec<Row> {
-    let mut rows: std::collections::BTreeMap<String, Row> = Default::default();
+/// Per-project aggregate row. Sessions are grouped by git remote when the
+/// working directory is a git repo with a remote, else by directory basename.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProjectRow {
+    pub key: String,
+    /// Raw git remote URL of the group, when it is a git repo.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote: Option<String>,
+    /// Paths of linked worktrees used by the group's sessions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub worktrees: Vec<String>,
+    pub sessions: u64,
+    #[serde(flatten)]
+    pub totals: Totals,
+}
+
+/// Aggregate by project: git remote source when the session's working
+/// directory is a git repo, else the directory basename.
+pub fn aggregate_by_project(sessions: &[SessionUsage]) -> Vec<ProjectRow> {
+    let mut rows: std::collections::BTreeMap<String, ProjectRow> = Default::default();
     for s in sessions {
-        let key = s
-            .meta
-            .cwd
-            .as_deref()
-            .map(|c| c.rsplit('/').next().unwrap_or(c))
-            .unwrap_or("(unknown)")
-            .to_string();
-        let row = rows.entry(key.clone()).or_insert_with(|| Row {
+        let cwd = s.meta.cwd.as_deref();
+        let info = cwd.and_then(crate::git::git_info);
+        let key = info
+            .as_ref()
+            .and_then(|g| g.remote_key.clone())
+            .or_else(|| cwd.map(|c| c.rsplit('/').next().unwrap_or(c).to_string()))
+            .unwrap_or_else(|| "(unknown)".to_string());
+        let row = rows.entry(key.clone()).or_insert_with(|| ProjectRow {
             key,
+            remote: info.as_ref().and_then(|g| g.remote.clone()),
+            worktrees: Vec::new(),
             sessions: 0,
             totals: Totals::default(),
         });
+        if let Some(worktree) = info.as_ref().and_then(|g| g.worktree.as_ref()) {
+            let path = worktree.to_string_lossy().to_string();
+            if !row.worktrees.contains(&path) {
+                row.worktrees.push(path);
+            }
+        }
         row.sessions += 1;
         let t = s.totals();
         row.totals.add(&t);
@@ -328,6 +353,45 @@ mod tests {
         assert_eq!(find("proj-x").totals.input_tokens, 10);
         assert_eq!(find("sub").sessions, 1); // basename, not path
         assert_eq!(find("(unknown)").totals.input_tokens, 30);
+    }
+
+    #[test]
+    fn projects_group_by_git_remote_and_list_worktrees() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("miaou");
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::write(
+            repo.join(".git/config"),
+            "[remote \"origin\"]\n\turl = git@github.com:edjubert/miaou.git\n",
+        )
+        .unwrap();
+        // A linked worktree of the same repo.
+        let wt = tmp.path().join("miaou-wt-8809");
+        std::fs::create_dir_all(&wt).unwrap();
+        let gitdir = repo.join(".git/worktrees/wt-8809");
+        std::fs::create_dir_all(&gitdir).unwrap();
+        std::fs::write(wt.join(".git"), format!("gitdir: {}\n", gitdir.display())).unwrap();
+
+        let main = session("a", Some(repo.to_str().unwrap()), 0, vec![event(0, 10, 1)]);
+        let sub = session("b", Some(repo.join("app").to_str().unwrap()), 0, vec![event(0, 20, 2)]);
+        let in_wt = session("c", Some(wt.to_str().unwrap()), 0, vec![event(0, 30, 3)]);
+        let plain = session("d", Some("/home/me/not-a-repo"), 0, vec![event(0, 40, 4)]);
+
+        let rows = aggregate_by_project(&[main, sub, in_wt, plain]);
+        let find = |k: &str| rows.iter().find(|r| r.key == k).unwrap();
+
+        // The repo, its subdirectory and its worktree merge into one row
+        // keyed by the normalized remote.
+        let group = find("github.com/edjubert/miaou");
+        assert_eq!(group.sessions, 3);
+        assert_eq!(group.totals.input_tokens, 60);
+        assert_eq!(
+            group.remote.as_deref(),
+            Some("git@github.com:edjubert/miaou.git")
+        );
+        assert_eq!(group.worktrees, vec![wt.to_string_lossy().to_string()]);
+        // Non-git directories keep the basename fallback.
+        assert_eq!(find("not-a-repo").sessions, 1);
     }
 
     #[test]

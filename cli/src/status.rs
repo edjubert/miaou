@@ -31,9 +31,11 @@ pub fn session_is_active(bumped_at_ms: Option<u64>, now_ms: u64) -> bool {
 }
 
 /// Holder processes whose leases never count as active sessions: the app
-/// server and the ACP server manage their own (API/ACP) sessions, they are
-/// not user-facing runs.
-const EXCLUDED_LEASE_HOLDERS: [&str; 2] = ["vibe-app-server", "vibe-acp"];
+/// server manages its own (API/ACP) sessions, they are not user-facing
+/// runs. The ACP server (vibe-acp) is NOT excluded: user sessions driven
+/// through ACP hold their lease there, and idle ones are filtered by the
+/// metadata freshness window instead.
+const EXCLUDED_LEASE_HOLDERS: [&str; 1] = ["vibe-app-server"];
 
 /// Process id recorded in the `<id>.lock.json` diagnostic beside a lease file.
 fn lease_holder_pid(lock_path: &Path) -> Option<u64> {
@@ -71,6 +73,21 @@ fn lease_holder_excluded(lock_path: &Path) -> bool {
     lease_holder_pid(lock_path)
         .and_then(process_command)
         .is_some_and(|command| is_excluded_holder(&command))
+}
+
+/// Sessions that are live right now: OS lock held AND metadata saved
+/// recently. Idle long-lived processes (ACP/app servers) keep their lease
+/// forever but are filtered out by the freshness window. This is the
+/// single source of truth for "a session is active".
+pub fn live_sessions(vibe_home: &Path, now_ms: u64) -> Vec<ActiveSession> {
+    let bumped: std::collections::HashMap<String, u64> = crate::scan::discover_sessions(vibe_home)
+        .into_iter()
+        .filter_map(|(m, _)| m.bumped_at_ms.map(|b| (m.session_id, b)))
+        .collect();
+    active_sessions(vibe_home)
+        .into_iter()
+        .filter(|a| session_is_active(bumped.get(&a.id).copied(), now_ms))
+        .collect()
 }
 
 /// List sessions whose OS lock is still held, most recently touched first.
@@ -272,20 +289,20 @@ mod tests {
     fn excluded_holder_names() {
         assert!(is_excluded_holder("vibe-app-server"));
         assert!(is_excluded_holder("/usr/local/bin/vibe-app-server"));
-        assert!(is_excluded_holder("vibe-acp"));
-        assert!(is_excluded_holder("/Users/x/.local/bin/vibe-acp"));
         // Script-based tools show the interpreter as executable; the tool
         // name is matched in the command line arguments.
         assert!(is_excluded_holder(
-            "/opt/Python.app/Contents/MacOS/Python /Users/x/.local/bin/vibe-acp"
-        ));
-        assert!(is_excluded_holder(
             "/opt/Python /Users/x/.local/bin/vibe-app-server --port 8080"
         ));
-        // The user-facing CLI is not a server: never excluded.
+        // The ACP server holds user sessions driven through ACP: not
+        // excluded. Neither is the user-facing CLI.
+        assert!(!is_excluded_holder("vibe-acp"));
+        assert!(!is_excluded_holder(
+            "/opt/Python.app/Contents/MacOS/Python /Users/x/.local/bin/vibe-acp"
+        ));
         assert!(!is_excluded_holder("vibe"));
         assert!(!is_excluded_holder("/opt/Python /Users/x/.local/bin/vibe"));
-        assert!(!is_excluded_holder("not-vibe-acp"));
+        assert!(!is_excluded_holder("not-vibe-app-server"));
         assert!(!is_excluded_holder("Python"));
     }
 
@@ -297,5 +314,110 @@ mod tests {
         assert!(!session_is_active(Some(now - ACTIVE_FRESHNESS_MS - 1), now));
         // No metadata: fail open, the held lease is the only signal left.
         assert!(session_is_active(None, now));
+    }
+
+    #[cfg(unix)]
+    fn write_meta(home: &Path, id: &str, bumped_at_ms: Option<u64>) {
+        let dir = home.join("logs/session/unified").join(id);
+        std::fs::create_dir_all(&dir).unwrap();
+        let bumped = bumped_at_ms
+            .map(|ms| {
+                let dt = chrono::DateTime::from_timestamp_millis(ms as i64).unwrap();
+                format!(r#","bumped_at":"{}""#, dt.to_rfc3339())
+            })
+            .unwrap_or_default();
+        std::fs::write(
+            dir.join("meta.json"),
+            format!(r#"{{"session_id":"{id}"{bumped}}}"#),
+        )
+        .unwrap();
+    }
+
+    /// Spawn a child that holds `path`'s lock, with a fake argv[0] so the
+    /// holder-name exclusion can be exercised end to end.
+    #[cfg(unix)]
+    fn spawn_lock_holder(path: &Path, argv0: &str) -> std::process::Child {
+        use std::io::{BufRead, BufReader};
+        use std::os::unix::process::CommandExt;
+
+        let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+        cmd.args(["--exact", "status::tests::lock_holder", "--nocapture"])
+            .env("MIAOU_TEST_LOCK_PATH", path)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .arg0(argv0);
+        let mut child = cmd.spawn().unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        loop {
+            let mut line = String::new();
+            assert!(output.read_line(&mut line).unwrap() > 0);
+            if line.contains("MIAOU_LOCK_READY") {
+                break;
+            }
+        }
+        child
+    }
+
+    /// End-to-end liveness: held lease + fresh metadata is active, stale
+    /// metadata is not, a missing metadata fails open, an orphaned lock is
+    /// not, the maintenance lease and app-server leases are excluded, and
+    /// an ACP-held lease (user session driven through ACP) IS active.
+    #[cfg(unix)]
+    #[test]
+    fn live_sessions_combines_lease_freshness_and_holder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let active = home.join("logs/session/active");
+        std::fs::create_dir_all(&active).unwrap();
+        let now = 1_700_000_000_000u64;
+        let fresh = now - 60_000;
+        let stale = now - ACTIVE_FRESHNESS_MS - 1;
+
+        // Held lease + fresh metadata: active.
+        let _fresh = hold_lock(&active.join("fresh.lock"));
+        write_meta(home, "fresh", Some(fresh));
+        // Held lease + stale metadata: not active.
+        let _stale = hold_lock(&active.join("stale.lock"));
+        write_meta(home, "stale", Some(stale));
+        // Held lease + no metadata: fail open, active.
+        let _nometa = hold_lock(&active.join("nometa.lock"));
+        // Orphaned lock + fresh metadata: not active.
+        std::fs::write(active.join("orphan.lock"), "").unwrap();
+        write_meta(home, "orphan", Some(fresh));
+        // Maintenance lease: never active.
+        let _cleanup = hold_lock(&active.join("process-output-cleanup.lock"));
+        // App-server-held lease: excluded even with fresh metadata.
+        let appserver_lock = active.join("appserver.lock");
+        let mut appserver = spawn_lock_holder(&appserver_lock, "vibe-app-server");
+        std::fs::write(
+            active.join("appserver.lock.json"),
+            format!(r#"{{"process_id":{}}}"#, appserver.id()),
+        )
+        .unwrap();
+        write_meta(home, "appserver", Some(fresh));
+        // ACP-held lease: a user session driven through ACP, must stay active.
+        let acp_lock = active.join("acp.lock");
+        let mut acp = spawn_lock_holder(&acp_lock, "vibe-acp");
+        std::fs::write(
+            active.join("acp.lock.json"),
+            format!(r#"{{"process_id":{}}}"#, acp.id()),
+        )
+        .unwrap();
+        write_meta(home, "acp", Some(fresh));
+
+        let live = live_sessions(home, now);
+        let mut ids: Vec<&str> = live.iter().map(|a| a.id.as_str()).collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec!["acp", "fresh", "nometa"]);
+
+        // Once the ACP child releases its lease, the session goes inactive.
+        acp.kill().unwrap();
+        acp.wait().unwrap();
+        appserver.kill().unwrap();
+        appserver.wait().unwrap();
+        let live = live_sessions(home, now);
+        let mut ids: Vec<&str> = live.iter().map(|a| a.id.as_str()).collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec!["fresh", "nometa"]);
     }
 }

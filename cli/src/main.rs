@@ -273,9 +273,11 @@ fn main() {
             );
 
             let daily = priced(miaou::aggregate_daily(&sessions), &price_of);
-            let mut monthly = priced(miaou::aggregate_monthly(&sessions), &price_of);
+            // Full monthly history in the dashboard; only the current month
+            // row is floored to the anchored month-to-date figure.
+            let mut monthly = priced(miaou::aggregate_monthly(&all_sessions), &price_of);
             apply_current_month_floor(&mut monthly, &sessions, &current_month, &price_of, &vibe_config, &currency);
-            let projects = priced(miaou::aggregate_by_project(&sessions), &price_of);
+            let projects = priced_projects(miaou::aggregate_by_project(&sessions), &price_of);
             // Live metadata for every session dir, including event-less ones
             // (merged_sessions only returns sessions with archived events).
             let live_metas: std::collections::HashMap<String, _> = miaou::discover_sessions(&vibe_home)
@@ -284,13 +286,7 @@ fn main() {
                 .collect();
             // Held lease + recent metadata save: idle long-lived processes
             // (ACP servers, app server) keep their lease but are not active.
-            let active: Vec<_> = miaou::status::active_sessions(&vibe_home)
-                .into_iter()
-                .filter(|a| {
-                    let bumped = live_metas.get(&a.id).and_then(|m| m.bumped_at_ms);
-                    miaou::status::session_is_active(bumped, now_ms)
-                })
-                .collect();
+            let active: Vec<_> = miaou::status::live_sessions(&vibe_home, now_ms);
             let active_ids: std::collections::HashSet<&str> =
                 active.iter().map(|a| a.id.as_str()).collect();
             let mut session_rows = miaou::aggregate_by_session(&sessions);
@@ -614,31 +610,24 @@ fn main() {
         }
         Command::Projects => {
             let (sessions, price_of, json) = render(cli.json);
-            let rows = priced(miaou::aggregate_by_project(&sessions), &price_of);
+            let rows = priced_projects(miaou::aggregate_by_project(&sessions), &price_of);
             if json {
                 println!("{}", serde_json::to_string_pretty(&rows).unwrap());
             } else {
-                let w = key_width(7, &rows);
-                println!("{:<w$} sessions  requests     input   cached    output     total      cost", "project");
+                let w = project_key_width(7, &rows);
+                println!("{:<w$} sessions  requests     input   cached    output     total      cost  remote  worktree", "project");
                 for row in &rows {
-                    print_row(row, w, &price_of, &currency);
+                    print_project_row(row, w, &price_of, &currency);
                 }
             }
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
-            let live_metas: std::collections::HashMap<String, _> = miaou::discover_sessions(&vibe_home)
-                .into_iter()
-                .map(|(m, _)| (m.session_id.clone(), m))
-                .collect();
-            let active_ids: std::collections::HashSet<String> = miaou::status::active_sessions(&vibe_home)
-                .into_iter()
-                .filter(|a| {
-                    let bumped = live_metas.get(&a.id).and_then(|m| m.bumped_at_ms);
-                    miaou::status::session_is_active(bumped, now_ms())
-                })
-                .map(|a| a.id)
-                .collect();
+            let active_ids: std::collections::HashSet<String> =
+                miaou::status::live_sessions(&vibe_home, now_ms())
+                    .into_iter()
+                    .map(|a| a.id)
+                    .collect();
             let mut rows: Vec<SessionRow> = miaou::aggregate_by_session(&sessions);
             for r in &mut rows {
                 r.totals.cost_usd = price_of(&r.totals);
@@ -986,6 +975,38 @@ fn priced(mut rows: Vec<Row>, price_of: &impl Fn(&Totals) -> Option<f64>) -> Vec
     rows
 }
 
+fn priced_projects(
+    mut rows: Vec<miaou::ProjectRow>,
+    price_of: &impl Fn(&Totals) -> Option<f64>,
+) -> Vec<miaou::ProjectRow> {
+    for r in &mut rows {
+        r.totals.cost_usd = price_of(&r.totals);
+    }
+    rows
+}
+
+fn print_project_row(
+    row: &miaou::ProjectRow,
+    key_width: usize,
+    price_of: &impl Fn(&Totals) -> Option<f64>,
+    currency: &str,
+) {
+    let cost = row.totals.cost_usd.or_else(|| price_of(&row.totals));
+    let remote = row.remote.as_deref().unwrap_or("");
+    let worktrees = row.worktrees.join(", ");
+    println!(
+        "{:<key_width$} {:<8} {:>8} {:>9} {:>8} {:>8} {:>9} {:>10}  {remote} {worktrees}",
+        row.key,
+        row.sessions,
+        row.totals.requests,
+        row.totals.input_tokens,
+        row.totals.cached_input_tokens,
+        row.totals.output_tokens,
+        row.totals.total_tokens,
+        cost_str(cost, currency),
+    );
+}
+
 fn print_totals(t: &Totals, currency: &str) {
     println!(
         "requests={:<6} input={:<10} cached={:<10} output={:<9} total={:<10} cost={}",
@@ -1017,6 +1038,14 @@ fn print_row(row: &Row, key_width: usize, price_of: &impl Fn(&Totals) -> Option<
 
 /// Column width for a key: at least the header length, at most the longest key.
 fn key_width(header_len: usize, rows: &[Row]) -> usize {
+    rows.iter()
+        .map(|r| r.key.len())
+        .max()
+        .unwrap_or(0)
+        .max(header_len)
+}
+
+fn project_key_width(header_len: usize, rows: &[miaou::ProjectRow]) -> usize {
     rows.iter()
         .map(|r| r.key.len())
         .max()
