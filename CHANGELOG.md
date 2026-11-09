@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-09
+
+### Added
+
+- Desktop cat pet selector: Chaton or Le Chonk for the desktop companion,
+  independent of the menu bar icon.
+- Desktop cat color mode: Session (default), Always, or Grayscale, replacing
+  the "color while moving" toggle.
+- Speech bubble glass intensity slider; the bubble keeps its Liquid Glass
+  background by default.
+
+### Changed
+
+- The speech bubble's border dots match the desktop cat's pixel size and
+  spacing at every size.
+
 ## [0.6.3] - 2026-11-09
 
 ### Fixed
