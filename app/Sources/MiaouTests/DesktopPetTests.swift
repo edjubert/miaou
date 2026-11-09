@@ -13,16 +13,22 @@ final class DesktopPetTests: XCTestCase {
                        autonomous: autonomous)
     }
 
-    func testColorModeFollowsTheSelectedModeAndLiveSessions() {
+    func testColorModeFollowsTheSelectedModeLiveSessionsAndMovement() {
         for mode in ChatonColorMode.allCases {
             for live in [false, true] {
-                let expected: Bool
-                switch mode {
-                case .color: expected = true
-                case .grayscale: expected = false
-                case .session: expected = live
+                for resting in [false, true] {
+                    let expected: Bool
+                    switch mode {
+                    case .color: expected = true
+                    case .grayscale: expected = false
+                    // Session mode: colored while a session is live, and
+                    // while the cat moves (e.g. a hover-triggered walk).
+                    case .session: expected = live || !resting
+                    }
+                    XCTAssertEqual(
+                        DesktopPetController.colored(mode: mode, live: live, resting: resting),
+                        expected)
                 }
-                XCTAssertEqual(DesktopPetController.colored(mode: mode, live: live), expected)
             }
         }
     }

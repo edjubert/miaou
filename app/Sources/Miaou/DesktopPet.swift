@@ -260,14 +260,14 @@ final class DesktopPetController {
         ) ?? .session
         let autonomous = animationMode == .always || AppModel.shared.hasLiveSessions
         let colorMode = Self.colorMode(defaults)
-        let colored = Self.colored(mode: colorMode, live: AppModel.shared.hasLiveSessions)
+        let live = AppModel.shared.hasLiveSessions
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         // The speech bubble has its own glass intensity, full glass by default.
         let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
         let message = updateSpeech(at: now)
         for companion in companions.values {
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
-                           autonomous: autonomous, colored: colored,
+                           autonomous: autonomous, colorMode: colorMode, live: live,
                            glassTransparency: glassTransparency)
             companion.showSpeech(message, glassTransparency: speechGlassTransparency)
         }
@@ -285,12 +285,14 @@ final class DesktopPetController {
         return .session
     }
 
-    /// Whether the cat renders in brand colors for this mode.
-    static func colored(mode: ChatonColorMode, live: Bool) -> Bool {
+    /// Whether the cat renders in brand colors for this mode. In session
+    /// mode the cat is colored while a session is live, and also while it
+    /// moves (a hover-triggered hop and walk) even without a session.
+    static func colored(mode: ChatonColorMode, live: Bool, resting: Bool) -> Bool {
         switch mode {
         case .color: return true
         case .grayscale: return false
-        case .session: return live
+        case .session: return live || !resting
         }
     }
 
@@ -369,7 +371,8 @@ private final class DesktopPetCompanion {
     }
 
     func tick(at now: TimeInterval, elapsed: TimeInterval, pointer: CGPoint,
-              autonomous: Bool, colored: Bool, glassTransparency: Double) {
+              autonomous: Bool, colorMode: ChatonColorMode, live: Bool,
+              glassTransparency: Double) {
         let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
         let maxX = max(area.minX, area.maxX - panel.frame.width)
         let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
@@ -392,7 +395,8 @@ private final class DesktopPetCompanion {
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
                                      y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
         artwork.show(frame: frame, mirrored: motion.direction < 0,
-                     colored: colored,
+                     colored: DesktopPetController.colored(mode: colorMode, live: live,
+                                                           resting: motion.isResting),
                      glassTransparency: glassTransparency)
     }
 
