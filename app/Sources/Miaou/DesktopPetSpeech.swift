@@ -157,7 +157,30 @@ struct DesktopPetMessageReader {
         return journal
     }
 
+    /// Markers wrapping a feature message: only its output is shown, labeled.
+    static let featureStart = "FEATURE_NAME_START"
+    static let featureEnd = "FEATURE_NAME_END"
+
+    /// When the message is wrapped in the feature markers, return its
+    /// output; an optional `<output>…</output>` wrapper is stripped.
+    static func featureOutput(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix(Self.featureStart), trimmed.hasSuffix(Self.featureEnd),
+              trimmed.count > Self.featureStart.count + Self.featureEnd.count else { return nil }
+        var inner = String(trimmed.dropFirst(Self.featureStart.count)
+                                .dropLast(Self.featureEnd.count))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if inner.hasPrefix("<output>"), inner.hasSuffix("</output>") {
+            inner = String(inner.dropFirst("<output>".count).dropLast("</output>".count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return inner.isEmpty ? nil : inner
+    }
+
     static func excerpt(_ text: String, limit: Int = 280) -> String {
+        if let output = featureOutput(text) {
+            return L10n.t("desktopPet.speech.renamedSession", output)
+        }
         let lines = text.components(separatedBy: .newlines)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("```") }
             .map { $0.replacingOccurrences(of: #"^\s*(?:#{1,6}\s+|[-*+]\s+|>\s+)"#,

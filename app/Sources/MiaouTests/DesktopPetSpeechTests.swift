@@ -124,6 +124,29 @@ final class DesktopPetSpeechTests: XCTestCase {
         XCTAssertTrue(text.hasSuffix("…"))
     }
 
+    func testFeatureMarkersYieldTheLabeledOutput() {
+        let start = DesktopPetMessageReader.featureStart
+        let end = DesktopPetMessageReader.featureEnd
+        XCTAssertEqual(DesktopPetMessageReader.featureOutput("\(start)Mon nouveau titre\(end)"),
+                       "Mon nouveau titre")
+        XCTAssertEqual(DesktopPetMessageReader.featureOutput("\(start)\n<output>Mon titre</output>\n\(end)"),
+                       "Mon titre")
+        XCTAssertEqual(DesktopPetMessageReader.featureOutput("  \(start)  titre  \(end)  "),
+                       "titre")
+        // Not wrapped, empty, or only markers: no feature output.
+        XCTAssertNil(DesktopPetMessageReader.featureOutput("titre sans marqueurs"))
+        XCTAssertNil(DesktopPetMessageReader.featureOutput("\(start)\(end)"))
+        XCTAssertNil(DesktopPetMessageReader.featureOutput("\(start)seulement le début"))
+        XCTAssertNil(DesktopPetMessageReader.featureOutput("seulement la fin\(end)"))
+        // The excerpt formats the output with the localized label.
+        let excerpt = DesktopPetMessageReader.excerpt("\(start)Mon nouveau titre\(end)")
+        XCTAssertTrue(excerpt.hasSuffix("Mon nouveau titre"))
+        XCTAssertTrue(excerpt.contains(":"))
+        // A normal message is untouched by the feature parsing.
+        XCTAssertEqual(DesktopPetMessageReader.excerpt("Bonjour le monde"),
+                       "Bonjour le monde")
+    }
+
     func testMessageExpiresAtFiveSecondsAndRepeatedPollingDoesNotExtendIt() {
         var presentation = DesktopPetSpeechPresentation()
         presentation.receive(message(), at: 10)

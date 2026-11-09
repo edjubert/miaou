@@ -63,6 +63,7 @@
 "desktopPet.speech" = "Show the last message in a speech bubble";
 "desktopPet.speech.description" = "A short excerpt of the latest completed Vibe reply appears for 5 seconds, even if the session closes. Each new message appears once.";
 "desktopPet.speech.session" = "Vibe session";
+"desktopPet.speech.renamedSession" = "Renamed session: %@";
 "desktopPet.glassIntensity" = "Glass intensity";
 "desktopPet.speechGlassIntensity" = "Speech bubble glass intensity";
 "desktopPet.glassMaximum" = "Full glass";
