@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-11-09
+
+### Added
+
+- Projects are grouped by git remote when the session's working directory is a
+  git repo (key `host/owner/repo`), with the raw remote URL and the linked
+  worktree paths shown per project; non-git directories keep the basename.
+- The Months view shows the full monthly history, not just the plan month.
+- Desktop cat: pet selector (Chaton / Le Chonk) independent of the menu bar
+  icon, color mode (Session / Always / Grayscale), per-screen-kind bottom
+  offset sliders (-10..+10 pt) and a walking speed slider (10..120 pt/s).
+- Speech bubble: own glass intensity slider (full Liquid Glass by default) and
+  border dots matching the cat's pixel size and spacing.
+
+### Changed
+
+- The desktop cat walks on the physical bottom edge of each screen, so its
+  position is identical on every display regardless of Dock or DPI.
+- Dot grids snap to whole device pixels per screen scale, so small sizes keep
+  a visible margin between pixels; the glass backdrop is clipped to the dot
+  outline and no longer sticks out past the pet.
+- A message wrapped in FEATURE_NAME markers is shown as a small gray
+  "Renamed session:" label above the white output; the "Vibe session" title is
+  hidden for those messages.
+
+### Fixed
+
+- Session liveness: ACP-held leases (user sessions driven through ACP) count as
+  active again; only vibe-app-server leases are excluded, now matched on the
+  full command line since the Vibe tools are Python scripts.
+
 ## [0.6.4] - 2026-11-09
 
 ### Added
