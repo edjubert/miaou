@@ -32,8 +32,17 @@ enum DesktopPetScreenMode: String, CaseIterable {
 struct DesktopPetDisplay {
     let id: CGDirectDisplayID
     let isBuiltIn: Bool
+    /// Physical screen frame: the cat walks along its bottom edge, so its
+    /// position is identical on every screen regardless of Dock or DPI.
+    let frame: CGRect
+    /// Visible frame (excludes menu bar and Dock): used for the speech bubble.
     let visibleFrame: CGRect
     let backingScaleFactor: CGFloat
+
+    /// The strip along the physical bottom edge the cat walks on. Uses the
+    /// physical frame, not the visible one, so the cat sits at the same
+    /// edge on every screen regardless of Dock or DPI.
+    var walkArea: CGRect { frame.insetBy(dx: 8, dy: 0) }
 
     static var available: [Self] {
         NSScreen.screens.compactMap { screen in
@@ -42,6 +51,7 @@ struct DesktopPetDisplay {
             ] as? NSNumber else { return nil }
             let id = number.uint32Value
             return Self(id: id, isBuiltIn: CGDisplayIsBuiltin(id) != 0,
+                        frame: screen.frame,
                         visibleFrame: screen.visibleFrame,
                         backingScaleFactor: screen.backingScaleFactor)
         }
@@ -68,8 +78,13 @@ enum DesktopPetSize: String, CaseIterable {
 
 /// Movement uses a monotonic clock, independently of drawing and mouse events.
 struct DesktopPetMotion {
+    /// Default walking speed, in points per second.
     static let walkingSpeed: CGFloat = 42
     static let hopDuration: TimeInterval = 0.3
+
+    /// Current walking speed, in points per second; set from the user
+    /// setting before each advance.
+    var speed: CGFloat = Self.walkingSpeed
 
     private struct Hop {
         let startedAt: TimeInterval
@@ -141,7 +156,7 @@ struct DesktopPetMotion {
             isResting = true
             return
         }
-        let next = x + direction * Self.walkingSpeed * min(max(elapsed, 0), 0.1)
+        let next = x + direction * speed * min(max(elapsed, 0), 0.1)
         x = min(max(next, limits.lowerBound), limits.upperBound)
         if (direction < 0 && next <= limits.lowerBound) ||
             (direction > 0 && next >= limits.upperBound) {
@@ -258,19 +273,47 @@ final class DesktopPetController {
         let animationMode = ChatonAnimationMode(
             rawValue: defaults.string(forKey: "desktopPetAnimation") ?? ""
         ) ?? .session
-        let autonomous = animationMode == .always || AppModel.shared.hasLiveSessions
+        let autonomous = Self.autonomous(animationMode: animationMode,
+                                          live: AppModel.shared.hasLiveSessions)
         let colorMode = Self.colorMode(defaults)
         let live = AppModel.shared.hasLiveSessions
+        let speed = Self.speed(defaults)
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         // The speech bubble has its own glass intensity, full glass by default.
         let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
         let message = updateSpeech(at: now)
         for companion in companions.values {
+            let bottomOffset = Self.bottomOffset(defaults, isBuiltIn: companion.isBuiltIn)
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
                            autonomous: autonomous, colorMode: colorMode, live: live,
+                           bottomOffset: bottomOffset, speed: speed,
                            glassTransparency: glassTransparency)
             companion.showSpeech(message, glassTransparency: speechGlassTransparency)
         }
+    }
+
+    /// Whether the cat walks on its own: in "always" animation mode, or
+    /// while a session is live.
+    static func autonomous(animationMode: ChatonAnimationMode, live: Bool) -> Bool {
+        animationMode == .always || live
+    }
+
+    /// Vertical offset of the cat from the screen's bottom edge, in points,
+    /// per screen kind: the built-in and external displays can need
+    /// different corrections. Negative values sink the cat below the edge.
+    /// Falls back to the legacy global key when the per-kind key is absent.
+    static func bottomOffset(_ defaults: UserDefaults, isBuiltIn: Bool) -> CGFloat {
+        let key = isBuiltIn ? "desktopPetBottomOffsetBuiltIn" : "desktopPetBottomOffsetExternal"
+        return CGFloat(defaults.object(forKey: key) as? Double
+                       ?? defaults.object(forKey: "desktopPetBottomOffset") as? Double
+                       ?? 0)
+    }
+
+    /// Walking speed in points per second, clamped to a sane range.
+    static func speed(_ defaults: UserDefaults) -> CGFloat {
+        let raw = defaults.object(forKey: "desktopPetSpeed") as? Double
+            ?? Double(DesktopPetMotion.walkingSpeed)
+        return CGFloat(min(max(raw, 1), 500))
     }
 
     /// The cat's color mode, migrating the legacy "color while moving"
@@ -323,6 +366,7 @@ final class DesktopPetController {
 /// Each selected display has independent movement, hover detection and windows.
 private final class DesktopPetCompanion {
     private var display: DesktopPetDisplay
+    var isBuiltIn: Bool { display.isBuiltIn }
     private var pet: BarPet
     private var sizeClass: DesktopPetSize
     private let panel: DesktopPetPanel
@@ -343,17 +387,19 @@ private final class DesktopPetCompanion {
                                 identifier: "miaou-desktop-pet-\(display.id)",
                                 title: L10n.t("desktopPet.headline"))
         panel.contentView = artwork
-        let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
+        let area = display.walkArea
         let maxX = max(area.minX, area.maxX - dimensions.width)
         motion.place(at: area.minX + (maxX - area.minX) * startingFraction, direction: direction)
-        panel.setFrameOrigin(CGPoint(x: motion.x, y: area.minY + 4))
+        panel.setFrameOrigin(CGPoint(x: motion.x,
+                                     y: area.minY + DesktopPetController.bottomOffset(
+                                         UserDefaults.standard, isBuiltIn: display.isBuiltIn)))
         panel.orderFrontRegardless()
     }
 
     func configure(display: DesktopPetDisplay, pet: BarPet, size: DesktopPetSize) {
         // A display can move in global coordinates when another is connected.
         // Preserve the current hop/walk on that display.
-        motion.translate(by: display.visibleFrame.minX - self.display.visibleFrame.minX)
+        motion.translate(by: display.frame.minX - self.display.frame.minX)
         self.display = display
         guard self.pet != pet || sizeClass != size else { return }
         self.pet = pet
@@ -372,12 +418,13 @@ private final class DesktopPetCompanion {
 
     func tick(at now: TimeInterval, elapsed: TimeInterval, pointer: CGPoint,
               autonomous: Bool, colorMode: ChatonColorMode, live: Bool,
-              glassTransparency: Double) {
-        let area = display.visibleFrame.insetBy(dx: 8, dy: 0)
+              bottomOffset: CGFloat, speed: CGFloat, glassTransparency: Double) {
+        let area = display.walkArea
         let maxX = max(area.minX, area.maxX - panel.frame.width)
         let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
                                    y: pointer.y - panel.frame.minY)
         let hovered = panel.frame.contains(pointer) && artwork.containsPet(at: localPointer)
+        motion.speed = speed
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
                        petSize: panel.frame.size, autonomous: autonomous)
@@ -393,7 +440,7 @@ private final class DesktopPetCompanion {
         }
         let scale = display.backingScaleFactor
         panel.setFrameOrigin(CGPoint(x: (motion.x * scale).rounded() / scale,
-                                     y: ((area.minY + 4 + elevation) * scale).rounded() / scale))
+                                     y: ((area.minY + bottomOffset + elevation) * scale).rounded() / scale))
         artwork.show(frame: frame, mirrored: motion.direction < 0,
                      colored: DesktopPetController.colored(mode: colorMode, live: live,
                                                            resting: motion.isResting),

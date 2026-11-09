@@ -13,6 +13,70 @@ final class DesktopPetTests: XCTestCase {
                        autonomous: autonomous)
     }
 
+    func testSpeedDefaultsToTheWalkingSpeedAndClampsToASaneRange() {
+        let defaults = UserDefaults(suiteName: "miaou-test-speed")!
+        defaults.removeObject(forKey: "desktopPetSpeed")
+        XCTAssertEqual(DesktopPetController.speed(defaults), DesktopPetMotion.walkingSpeed)
+        defaults.set(80.0, forKey: "desktopPetSpeed")
+        XCTAssertEqual(DesktopPetController.speed(defaults), 80)
+        defaults.set(-50.0, forKey: "desktopPetSpeed")
+        XCTAssertEqual(DesktopPetController.speed(defaults), 1)
+        defaults.set(10_000.0, forKey: "desktopPetSpeed")
+        XCTAssertEqual(DesktopPetController.speed(defaults), 500)
+        defaults.removeObject(forKey: "desktopPetSpeed")
+    }
+
+    func testMotionSpeedChangesTheDistanceWalkedPerTick() {
+        var slow = DesktopPetMotion()
+        slow.place(at: 100)
+        slow.speed = 10
+        advance(&slow, at: 1, autonomous: true)
+        var fast = DesktopPetMotion()
+        fast.place(at: 100)
+        fast.speed = 100
+        advance(&fast, at: 1, autonomous: true)
+        XCTAssertEqual(slow.x, 101, accuracy: 0.001)
+        XCTAssertEqual(fast.x, 110, accuracy: 0.001)
+    }
+
+    func testBottomOffsetIsPerScreenKindWithLegacyGlobalFallback() {
+        let defaults = UserDefaults(suiteName: "miaou-test-bottom-offset")!
+        for key in ["desktopPetBottomOffsetBuiltIn", "desktopPetBottomOffsetExternal",
+                    "desktopPetBottomOffset"] {
+            defaults.removeObject(forKey: key)
+        }
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: true), 0)
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: false), 0)
+        defaults.set(-7.5, forKey: "desktopPetBottomOffsetBuiltIn")
+        defaults.set(3.0, forKey: "desktopPetBottomOffsetExternal")
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: true), -7.5)
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: false), 3)
+        // Legacy global key applies to both kinds when no per-kind key.
+        defaults.removeObject(forKey: "desktopPetBottomOffsetBuiltIn")
+        defaults.removeObject(forKey: "desktopPetBottomOffsetExternal")
+        defaults.set(2.0, forKey: "desktopPetBottomOffset")
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: true), 2)
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: false), 2)
+        // A per-kind key wins over the legacy global one.
+        defaults.set(-1.0, forKey: "desktopPetBottomOffsetExternal")
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: false), -1)
+        XCTAssertEqual(DesktopPetController.bottomOffset(defaults, isBuiltIn: true), 2)
+        for key in ["desktopPetBottomOffsetBuiltIn", "desktopPetBottomOffsetExternal",
+                    "desktopPetBottomOffset"] {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    func testAutonomousWalkingFollowsAnimationModeAndLiveSessions() {
+        for mode in ChatonAnimationMode.allCases {
+            for live in [false, true] {
+                XCTAssertEqual(
+                    DesktopPetController.autonomous(animationMode: mode, live: live),
+                    mode == .always || live)
+            }
+        }
+    }
+
     func testColorModeFollowsTheSelectedModeLiveSessionsAndMovement() {
         for mode in ChatonColorMode.allCases {
             for live in [false, true] {

@@ -5,16 +5,19 @@ import XCTest
 final class DesktopPetScreenTests: XCTestCase {
     private let builtIn = DesktopPetDisplay(
         id: 1, isBuiltIn: true,
-        visibleFrame: CGRect(x: -1512, y: -200, width: 1512, height: 950),
+        frame: CGRect(x: -1512, y: -200, width: 1512, height: 950),
+        visibleFrame: CGRect(x: -1512, y: -168, width: 1512, height: 918),
         backingScaleFactor: 2
     )
     private let external = DesktopPetDisplay(
         id: 2, isBuiltIn: false,
+        frame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
         visibleFrame: CGRect(x: 0, y: 25, width: 2560, height: 1415),
         backingScaleFactor: 1
     )
     private let otherExternal = DesktopPetDisplay(
         id: 3, isBuiltIn: false,
+        frame: CGRect(x: 2560, y: 0, width: 1920, height: 1080),
         visibleFrame: CGRect(x: 2560, y: 0, width: 1920, height: 1080),
         backingScaleFactor: 1
     )
@@ -34,6 +37,20 @@ final class DesktopPetScreenTests: XCTestCase {
         XCTAssertEqual(selected.map(\.id), [builtIn.id])
         XCTAssertEqual(selected.first?.visibleFrame, builtIn.visibleFrame)
         XCTAssertEqual(selected.first?.backingScaleFactor, 2)
+    }
+
+    func testWalkAreaSitsOnThePhysicalBottomEdgeOfEveryScreen() {
+        // The visible frame can start higher (menu bar, Dock), but the cat
+        // must walk on the physical bottom edge, identically on every
+        // screen regardless of DPI.
+        for display in [builtIn, external, otherExternal] {
+            XCTAssertEqual(display.walkArea.minY, display.frame.minY)
+            XCTAssertEqual(display.walkArea.minX, display.frame.minX + 8)
+            XCTAssertEqual(display.walkArea.maxX, display.frame.maxX - 8)
+        }
+        // The fixtures really differ in visible vs physical bottom edge.
+        XCTAssertNotEqual(builtIn.visibleFrame.minY, builtIn.frame.minY)
+        XCTAssertNotEqual(external.visibleFrame.minY, external.frame.minY)
     }
 
     func testBothIncludesOnlyPrimaryAndBuiltIn() {
@@ -86,7 +103,7 @@ final class DesktopPetScreenTests: XCTestCase {
                 for pet in BarPet.allCases {
                     let dimensions = size.dimensions(for: pet)
                     for x in [screen.minX + 8, screen.maxX - dimensions.width - 8] {
-                        let cat = CGRect(origin: CGPoint(x: x, y: screen.minY + 4),
+                        let cat = CGRect(origin: CGPoint(x: x, y: screen.minY),
                                          size: dimensions)
                         let bubble = DesktopPetSpeechView.frame(above: cat, within: screen)
                         XCTAssertTrue(screen.contains(bubble))

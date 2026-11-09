@@ -20,6 +20,8 @@
 "col.month" = "Mois";
 "col.session" = "Session";
 "col.project" = "Projet";
+"col.remote" = "Dépôt distant";
+"col.worktree" = "Worktree";
 "col.requests" = "Requêtes";
 "col.tokens" = "Tokens";
 "col.cost" = "Coût";
@@ -63,9 +65,12 @@
 "desktopPet.speech" = "Afficher le dernier message dans une bulle";
 "desktopPet.speech.description" = "Un extrait court de la dernière réponse Vibe terminée apparaît pendant 5 secondes, même si la session se ferme. Chaque nouveau message apparaît une seule fois.";
 "desktopPet.speech.session" = "Session Vibe";
-"desktopPet.speech.renamedSession" = "Session renommée : %@";
+"desktopPet.speech.renamedSession" = "Session renommée :";
 "desktopPet.glassIntensity" = "Intensité du verre";
 "desktopPet.speechGlassIntensity" = "Intensité du verre de la bulle";
+"desktopPet.bottomOffsetBuiltIn" = "Décalage bas, intégré (pt)";
+"desktopPet.bottomOffsetExternal" = "Décalage bas, externe (pt)";
+"desktopPet.speed" = "Vitesse (pt/s)";
 "desktopPet.glassMaximum" = "Verre maximal";
 "desktopPet.glassHidden" = "Sans verre";
 "desktopPet.description" = "Le chat marche automatiquement selon le mode d'animation. Sans session active, le mode session le laisse dormir après son trajet. Le survol le fait toujours bondir puis rejoindre un bord. Sa couleur suit le mode de couleur choisi. Les clics le traversent.";

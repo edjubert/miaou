@@ -127,24 +127,92 @@ final class DesktopPetSpeechTests: XCTestCase {
     func testFeatureMarkersYieldTheLabeledOutput() {
         let start = DesktopPetMessageReader.featureStart
         let end = DesktopPetMessageReader.featureEnd
+        // Canonical double-underscore markers, as emitted by the harness.
         XCTAssertEqual(DesktopPetMessageReader.featureOutput("\(start)Mon nouveau titre\(end)"),
                        "Mon nouveau titre")
+        // Any underscore count matches: bare and single-underscore variants.
+        XCTAssertEqual(DesktopPetMessageReader.featureOutput("FEATURE_NAME_STARTMon titreFEATURE_NAME_END"),
+                       "Mon titre")
+        XCTAssertEqual(DesktopPetMessageReader.featureOutput("_FEATURE_NAME_START_Mon titre_FEATURE_NAME_END_"),
+                       "Mon titre")
         XCTAssertEqual(DesktopPetMessageReader.featureOutput("\(start)\n<output>Mon titre</output>\n\(end)"),
                        "Mon titre")
         XCTAssertEqual(DesktopPetMessageReader.featureOutput("  \(start)  titre  \(end)  "),
                        "titre")
+        // Markers wrapped in other tags: first START to last END, and longer
+        // tags like __FEATURE_NAME_END_FOR_REAL__ never match.
+        XCTAssertEqual(
+            DesktopPetMessageReader.featureOutput(
+                "__COMMIT_AND_EXPLAIN_PR_ERROR__wrong tag: no test__FEATURE_NAME_END_FOR_REAL__: " +
+                "__FEATURE_NAME_START__PR #22 Last Message Check __FEATURE_NAME_END"),
+            "PR #22 Last Message Check")
         // Not wrapped, empty, or only markers: no feature output.
         XCTAssertNil(DesktopPetMessageReader.featureOutput("titre sans marqueurs"))
         XCTAssertNil(DesktopPetMessageReader.featureOutput("\(start)\(end)"))
         XCTAssertNil(DesktopPetMessageReader.featureOutput("\(start)seulement le début"))
         XCTAssertNil(DesktopPetMessageReader.featureOutput("seulement la fin\(end)"))
-        // The excerpt formats the output with the localized label.
-        let excerpt = DesktopPetMessageReader.excerpt("\(start)Mon nouveau titre\(end)")
-        XCTAssertTrue(excerpt.hasSuffix("Mon nouveau titre"))
-        XCTAssertTrue(excerpt.contains(":"))
-        // A normal message is untouched by the feature parsing.
-        XCTAssertEqual(DesktopPetMessageReader.excerpt("Bonjour le monde"),
-                       "Bonjour le monde")
+        // displayText flags feature messages and yields the bare output;
+        // normal messages go through the excerpt untouched.
+        let feature = DesktopPetMessageReader.displayText("\(start)Mon nouveau titre\(end)")
+        XCTAssertEqual(feature.text, "Mon nouveau titre")
+        XCTAssertTrue(feature.feature)
+        let normal = DesktopPetMessageReader.displayText("Bonjour le monde")
+        XCTAssertEqual(normal.text, "Bonjour le monde")
+        XCTAssertFalse(normal.feature)
+    }
+
+    func testFeatureCompletionIsFlaggedAndStrippedInTheReader() throws {
+        let root = try home()
+        try write(root, session: "a", lines: [
+            anchor(1, 1_000),
+            answer(2, "__FEATURE_NAME_START__Mon nouveau titre__FEATURE_NAME_END__"),
+        ])
+        var reader = DesktopPetMessageReader()
+        let result = try XCTUnwrap(reader.latestMessage(
+            sessions: [ActiveSessionReport(id: "a", ageMs: 0)], vibeHome: root))
+        XCTAssertEqual(result.text, "Mon nouveau titre")
+        XCTAssertTrue(result.feature)
+    }
+
+    func testFeatureMessageRendersSmallGrayLabelThenWhiteOutput() throws {
+        let view = DesktopPetSpeechView()
+        view.show(DesktopPetMessage(sessionID: "a", title: nil, text: "Mon nouveau titre",
+                                   completedAt: 1, sequence: 1, feature: true))
+        let field = try XCTUnwrap(view.subviews.compactMap { $0 as? NSTextField }.last)
+        let attr = field.attributedStringValue
+        // Label line, then a carriage return, then the output.
+        let lines = attr.string.split(separator: "\n", omittingEmptySubsequences: false)
+        XCTAssertEqual(lines.count, 2)
+        XCTAssertTrue(lines[0].hasSuffix(":"))
+        XCTAssertEqual(lines[1], "Mon nouveau titre")
+        // The label is smaller and grayed; the body keeps the 13 pt white style.
+        var labelFont: NSFont?
+        var bodyFont: NSFont?
+        var labelColor: NSColor?
+        let full = NSRange(location: 0, length: attr.length)
+        attr.enumerateAttribute(.font, in: full) { value, range, _ in
+            guard let font = value as? NSFont else { return }
+            if range.location == 0 { labelFont = font } else { bodyFont = font }
+        }
+        attr.enumerateAttribute(.foregroundColor, in: full) { value, range, _ in
+            if range.location == 0, let color = value as? NSColor { labelColor = color }
+        }
+        XCTAssertEqual(try XCTUnwrap(labelFont).pointSize, 10)
+        XCTAssertEqual(try XCTUnwrap(bodyFont).pointSize, 13)
+        XCTAssertEqual(labelColor, .secondaryLabelColor)
+        // A feature message hides the title line (it is just a title call).
+        let titleField = try XCTUnwrap(view.subviews.compactMap { $0 as? NSTextField }.first)
+        XCTAssertTrue(titleField.isHidden)
+        XCTAssertEqual(titleField.font?.pointSize, 10)
+        XCTAssertEqual(titleField.textColor, .secondaryLabelColor)
+        // A normal message renders as plain body text, no label line, and
+        // shows the "Vibe session" fallback title in the same small gray style.
+        view.show(DesktopPetMessage(sessionID: "a", title: nil, text: "Bonjour",
+                                   completedAt: 1, sequence: 2, feature: false))
+        XCTAssertEqual(field.attributedStringValue.string, "Bonjour")
+        XCTAssertFalse(titleField.isHidden)
+        XCTAssertEqual(titleField.stringValue, L10n.t("desktopPet.speech.session"))
+        XCTAssertEqual(titleField.font?.pointSize, 10)
     }
 
     func testMessageExpiresAtFiveSecondsAndRepeatedPollingDoesNotExtendIt() {

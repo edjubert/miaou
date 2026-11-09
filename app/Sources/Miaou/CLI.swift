@@ -23,6 +23,10 @@ struct PeriodRow: Codable, Equatable, Identifiable {
     let cachedInputTokens: Int
     let totalTokens: Int
     let costUsd: Double?
+    /// Git remote URL and worktree paths for project rows; nil for period
+    /// rows. Optional + default so old JSON stays readable.
+    var remote: String? = nil
+    var worktrees: [String]? = nil
 }
 
 struct SessionRow: Codable, Equatable, Identifiable {

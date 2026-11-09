@@ -31,9 +31,15 @@ final class DecodeTests: XCTestCase {
         "monthly": [["key": "2026-09", "sessions": 4, "requests": 100,
                      "input_tokens": 1000, "output_tokens": 50,
                      "cached_input_tokens": 900, "total_tokens": 1050, "cost_usd": nil] as [String: Any?]],
-        "projects": [["key": "dotfiles", "sessions": 2, "requests": 40,
+        "projects": [["key": "github.com/edjubert/miaou", "sessions": 2, "requests": 40,
                       "input_tokens": 400, "output_tokens": 20,
-                      "cached_input_tokens": 360, "total_tokens": 420, "cost_usd": nil] as [String: Any?]],
+                      "cached_input_tokens": 360, "total_tokens": 420, "cost_usd": nil,
+                      "remote": "git@github.com:edjubert/miaou.git",
+                      "worktrees": ["/Users/x/.cadencr/worktrees/miaou/feature-a",
+                                    "/Users/x/.cadencr/worktrees/miaou/feature-b"]] as [String: Any?],
+                     ["key": "plain-dir", "sessions": 1, "requests": 5,
+                      "input_tokens": 50, "output_tokens": 5,
+                      "cached_input_tokens": 45, "total_tokens": 55, "cost_usd": nil] as [String: Any?]],
         "sessions": [["session_id": "abcd1234-rest", "short_id": "abcd1234", "project": "dotfiles",
                       "title": "Fix the thing", "title_source": "manual", "active": true,
                       "subagent": false, "started_ms": 1790600000000,
@@ -58,7 +64,12 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(report.budgetStatus.budget.monthlyUsd, 255.0)
         XCTAssertEqual(report.daily.count, 1)
         XCTAssertEqual(report.daily[0].totalTokens, 1050)
-        XCTAssertEqual(report.projects[0].key, "dotfiles")
+        XCTAssertEqual(report.projects[0].key, "github.com/edjubert/miaou")
+        XCTAssertEqual(report.projects[0].remote, "git@github.com:edjubert/miaou.git")
+        XCTAssertEqual(report.projects[0].worktrees?.count, 2)
+        XCTAssertEqual(report.projects[1].key, "plain-dir")
+        XCTAssertNil(report.projects[1].remote)
+        XCTAssertNil(report.projects[1].worktrees)
         XCTAssertEqual(report.sessions[0].shortId, "abcd1234")
         XCTAssertEqual(report.sessions[0].title, "Fix the thing")
         XCTAssertEqual(report.sessions[0].titleSource, "manual")

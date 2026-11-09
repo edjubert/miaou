@@ -104,6 +104,12 @@ struct MainWindow: View {
     @AppStorage("desktopPetGlassTransparency") private var desktopPetGlassTransparency = 0.0
     // The speech bubble keeps its glass by default; this slider tunes it.
     @AppStorage("desktopPetSpeechGlassTransparency") private var desktopPetSpeechGlassTransparency = 0.0
+    // Vertical offset from the screen's bottom edge, per screen kind;
+    // negative sinks the cat.
+    @AppStorage("desktopPetBottomOffsetBuiltIn") private var desktopPetBottomOffsetBuiltIn = 0.0
+    @AppStorage("desktopPetBottomOffsetExternal") private var desktopPetBottomOffsetExternal = 0.0
+    // Walking speed in points per second.
+    @AppStorage("desktopPetSpeed") private var desktopPetSpeed = Double(DesktopPetMotion.walkingSpeed)
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -256,7 +262,7 @@ struct MainWindow: View {
     }
 
     private func monthlyTable(_ dashboard: DashboardReport) -> some View {
-        Table(dashboard.monthly) {
+        Table(dashboard.monthly.sorted { $0.key > $1.key }) {
             TableColumn(L10n.t("col.month")) { row in Text(row.key) }
             TableColumn(L10n.t("col.requests")) { row in Text("\(row.requests)") }
             TableColumn(L10n.t("col.tokens")) { row in Text(formatTokens(Double(row.totalTokens))).monospacedDigit() }
@@ -352,6 +358,19 @@ struct MainWindow: View {
                 TableColumn(L10n.t("col.project")) { row in
                     Text(row.key).fontWeight(.medium)
                 }.width(min: 200, ideal: 320)
+                TableColumn(L10n.t("col.remote")) { row in
+                    Text(row.remote ?? "")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }.width(min: 140, ideal: 220)
+                TableColumn(L10n.t("col.worktree")) { row in
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(row.worktrees ?? [], id: \.self) { path in
+                            Text((path as NSString).lastPathComponent).fontWeight(.medium)
+                            Text(path).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }.width(min: 140, ideal: 220)
                 TableColumn(L10n.t("col.share")) { row in
                     let share = total > 0 ? Double(row.totalTokens) / Double(total) * 100 : 0
                     Text(String(format: "%.0f%%", share)).monospacedDigit()
@@ -557,6 +576,75 @@ struct MainWindow: View {
                     .foregroundStyle(.secondary)
                 }
                 .disabled(!desktopPetEnabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(L10n.t("desktopPet.bottomOffsetBuiltIn"))
+                        Spacer()
+                        Text(desktopPetBottomOffsetBuiltIn,
+                             format: .number.precision(.fractionLength(0...1)).locale(L10n.locale))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $desktopPetBottomOffsetBuiltIn, in: -10...10, step: 0.5) {
+                        Text(L10n.t("desktopPet.bottomOffsetBuiltIn"))
+                    }
+                    .labelsHidden()
+                    .accessibilityValue(Text(desktopPetBottomOffsetBuiltIn,
+                                             format: .number.precision(.fractionLength(0...1)).locale(L10n.locale)))
+                    HStack {
+                        Text("-10")
+                        Spacer()
+                        Text("+10")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .disabled(!desktopPetEnabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(L10n.t("desktopPet.bottomOffsetExternal"))
+                        Spacer()
+                        Text(desktopPetBottomOffsetExternal,
+                             format: .number.precision(.fractionLength(0...1)).locale(L10n.locale))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $desktopPetBottomOffsetExternal, in: -10...10, step: 0.5) {
+                        Text(L10n.t("desktopPet.bottomOffsetExternal"))
+                    }
+                    .labelsHidden()
+                    .accessibilityValue(Text(desktopPetBottomOffsetExternal,
+                                             format: .number.precision(.fractionLength(0...1)).locale(L10n.locale)))
+                    HStack {
+                        Text("-10")
+                        Spacer()
+                        Text("+10")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .disabled(!desktopPetEnabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(L10n.t("desktopPet.speed"))
+                        Spacer()
+                        Text(desktopPetSpeed,
+                             format: .number.precision(.fractionLength(0)).locale(L10n.locale))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $desktopPetSpeed, in: 10...120, step: 1) {
+                        Text(L10n.t("desktopPet.speed"))
+                    }
+                    .labelsHidden()
+                    .accessibilityValue(Text(desktopPetSpeed,
+                                             format: .number.precision(.fractionLength(0)).locale(L10n.locale)))
+                    HStack {
+                        Text("10")
+                        Spacer()
+                        Text("120")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .disabled(!desktopPetEnabled)
                 Text(L10n.t("desktopPet.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -586,6 +674,9 @@ struct MainWindow: View {
         UserDefaults.standard.removeObject(forKey: "desktopPetColorDuringSession")
         desktopPetGlassTransparency = 0
         desktopPetSpeechGlassTransparency = 0
+        desktopPetBottomOffsetBuiltIn = 0
+        desktopPetBottomOffsetExternal = 0
+        desktopPetSpeed = Double(DesktopPetMotion.walkingSpeed)
         languageRaw = "system"
     }
 }

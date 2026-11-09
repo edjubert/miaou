@@ -6,6 +6,9 @@ struct DesktopPetMessage: Equatable {
     let text: String
     let completedAt: TimeInterval
     let sequence: Int
+    /// True when the message is a feature message (FEATURE_NAME markers):
+    /// `text` is its output, shown under a small gray label.
+    var feature: Bool = false
 }
 
 /// A completion is shown once, for five seconds measured by the animation clock.
@@ -71,6 +74,7 @@ struct DesktopPetMessageReader {
     private struct Completion {
         let sequence: Int
         let text: String
+        let feature: Bool
     }
 
     private struct Journal {
@@ -113,7 +117,7 @@ struct DesktopPetMessageReader {
                 .max { $0.sequence < $1.sequence }?.time ?? latest.modified.timeIntervalSince1970
             messages.append(DesktopPetMessage(
                 sessionID: session.id, title: session.title, text: completion.text,
-                completedAt: time, sequence: completion.sequence
+                completedAt: time, sequence: completion.sequence, feature: completion.feature
             ))
         }
         cache = cache.filter { usedFiles.contains($0.key) }
@@ -147,9 +151,9 @@ struct DesktopPetMessageReader {
                   let parts = answer["parts"] as? [[String: Any]] else { continue }
             let text = parts.filter { $0["type"] as? String == "text" }
                 .compactMap { $0["text"] as? String }.joined(separator: "\n")
-            let excerpt = Self.excerpt(text)
-            if !excerpt.isEmpty && sequence > (completion?.sequence ?? -1) {
-                completion = Completion(sequence: sequence, text: excerpt)
+            let (display, feature) = Self.displayText(text)
+            if !display.isEmpty && sequence > (completion?.sequence ?? -1) {
+                completion = Completion(sequence: sequence, text: display, feature: feature)
             }
         }
         let journal = Journal(modified: modified, size: size, completion: completion, anchors: anchors)
@@ -157,30 +161,55 @@ struct DesktopPetMessageReader {
         return journal
     }
 
-    /// Markers wrapping a feature message: only its output is shown, labeled.
-    static let featureStart = "FEATURE_NAME_START"
-    static let featureEnd = "FEATURE_NAME_END"
+    /// Canonical markers wrapping a feature message: only its output is
+    /// shown, labeled. Matched with any underscore count (`__…__`, `_…_`).
+    static let featureStart = "__FEATURE_NAME_START__"
+    static let featureEnd = "__FEATURE_NAME_END__"
 
-    /// When the message is wrapped in the feature markers, return its
-    /// output; an optional `<output>…</output>` wrapper is stripped.
+    /// When the message carries the feature markers, return its output; an
+    /// optional `<output>…</output>` wrapper is stripped. The canonical
+    /// markers may sit anywhere in the message (other tags can wrap them):
+    /// first `__FEATURE_NAME_START__` to the last `__FEATURE_NAME_END__`.
+    /// The bare prefix/suffix form is also accepted.
     static func featureOutput(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.hasPrefix(Self.featureStart), trimmed.hasSuffix(Self.featureEnd),
-              trimmed.count > Self.featureStart.count + Self.featureEnd.count else { return nil }
-        var inner = String(trimmed.dropFirst(Self.featureStart.count)
-                                .dropLast(Self.featureEnd.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if inner.hasPrefix("<output>"), inner.hasSuffix("</output>") {
-            inner = String(inner.dropFirst("<output>".count).dropLast("</output>".count))
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+        func extract(_ inner: Substring) -> String? {
+            var s = inner.trimmingCharacters(in: .whitespacesAndNewlines)
+            if s.hasPrefix("<output>"), s.hasSuffix("</output>") {
+                s = String(s.dropFirst("<output>".count).dropLast("</output>".count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return s.isEmpty ? nil : s
         }
-        return inner.isEmpty ? nil : inner
+        if let start = trimmed.range(of: Self.featureStart) {
+            let rest = start.upperBound..<trimmed.endIndex
+            // Last full marker after the start; fall back to a trailing
+            // marker with fewer underscores. Longer tags such as
+            // __FEATURE_NAME_END_FOR_REAL__ never match the full marker.
+            let end = trimmed.range(of: Self.featureEnd, options: .backwards, range: rest)
+                ?? trimmed.range(of: #"__FEATURE_NAME_END_*$"#, options: .regularExpression, range: rest)
+            if let end, end.lowerBound > start.upperBound {
+                return extract(trimmed[start.upperBound..<end.lowerBound])
+            }
+        }
+        if let start = trimmed.range(of: #"^_*FEATURE_NAME_START_*"#, options: .regularExpression),
+           let end = trimmed.range(of: #"_*FEATURE_NAME_END_*$"#, options: .regularExpression),
+           end.lowerBound > start.upperBound {
+            return extract(trimmed[start.upperBound..<end.lowerBound])
+        }
+        return nil
+    }
+
+    /// Display text for a completion: a feature message yields its parsed
+    /// output flagged as feature, anything else goes through the excerpt.
+    static func displayText(_ text: String, limit: Int = 280) -> (text: String, feature: Bool) {
+        if let output = featureOutput(text) {
+            return (output, true)
+        }
+        return (excerpt(text, limit: limit), false)
     }
 
     static func excerpt(_ text: String, limit: Int = 280) -> String {
-        if let output = featureOutput(text) {
-            return L10n.t("desktopPet.speech.renamedSession", output)
-        }
         let lines = text.components(separatedBy: .newlines)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("```") }
             .map { $0.replacingOccurrences(of: #"^\s*(?:#{1,6}\s+|[-*+]\s+|>\s+)"#,
@@ -244,7 +273,8 @@ final class DesktopPetSpeechView: NSView {
         glass.layer?.mask = mask
         outline.frame = bounds
         outline.autoresizingMask = [.width, .height]
-        title.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        // Same style as the "Renamed session" label: small and grayed.
+        title.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         title.textColor = .secondaryLabelColor
         title.lineBreakMode = .byTruncatingTail
         message.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
@@ -261,12 +291,44 @@ final class DesktopPetSpeechView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    private var shownFeature = false
+
     func show(_ value: DesktopPetMessage, glassTransparency: Double = 0) {
         DesktopPetGlass.apply(transparency: glassTransparency, to: glass)
-        let heading = value.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let text = heading?.isEmpty == false ? heading! : L10n.t("desktopPet.speech.session")
-        if title.stringValue != text { title.stringValue = text }
-        if message.stringValue != value.text { message.stringValue = value.text }
+        // A feature message is just a title call, not a Vibe session: the
+        // "Renamed session" label replaces the title line.
+        title.isHidden = value.feature
+        if !value.feature {
+            let heading = value.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = heading?.isEmpty == false ? heading! : L10n.t("desktopPet.speech.session")
+            if title.stringValue != text { title.stringValue = text }
+        }
+        let rendered = Self.renderedMessage(value)
+        if message.attributedStringValue.string != rendered.string || shownFeature != value.feature {
+            shownFeature = value.feature
+            message.attributedStringValue = rendered
+        }
+    }
+
+    /// A feature message renders its label small and gray, then a line
+    /// break, then the output in the normal white body style.
+    private static func renderedMessage(_ value: DesktopPetMessage) -> NSAttributedString {
+        let body: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+            .foregroundColor: NSColor.labelColor,
+        ]
+        guard value.feature else {
+            return NSAttributedString(string: value.text, attributes: body)
+        }
+        let label: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ]
+        let combined = NSMutableAttributedString()
+        combined.append(NSAttributedString(
+            string: L10n.t("desktopPet.speech.renamedSession") + "\n", attributes: label))
+        combined.append(NSAttributedString(string: value.text, attributes: body))
+        return combined
     }
 
     override func layout() {
