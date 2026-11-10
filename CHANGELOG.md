@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-11-10
+
+### Added
+
+- Desktop cat end-of-session setting: sleep immediately in place or walk to
+  the nearest screen edge before sleeping (default), turning around if needed.
+- Animated cat SVG exports in `chaton.svg` and `chaton-carre.svg`.
+
 ### Fixed
 
+- Restore the CLI's `status` subcommand used by the app's activity polling.
 - Session activity follows Vibe's explicit turn state: completed, failed and
   interrupted ACP tasks stop counting as active even when their server keeps
   the session lease. Resumed and long-running tasks remain detectable.
