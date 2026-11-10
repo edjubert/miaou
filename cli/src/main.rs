@@ -79,6 +79,8 @@ enum Command {
     Projects,
     /// Combined JSON snapshot for menu bar / bar widget consumers.
     Dashboard,
+    /// Running tasks only, without scanning usage history.
+    Status,
     /// Show the plan type from Vibe's local whoami cache.
     Plan,
     /// Calibrate per-token prices against Mistral Console costs.
@@ -156,6 +158,31 @@ fn main() {
     };
 
     match cli.command {
+        Command::Status => {
+            let generated_at_ms = now_ms();
+            let active = miaou::status::live_sessions(&vibe_home, generated_at_ms);
+            let rows: Vec<_> = active.iter().map(|session| {
+                let meta = std::fs::read_to_string(vibe_home
+                    .join("logs/session/unified").join(&session.id).join("meta.json"))
+                    .ok().and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok());
+                serde_json::json!({
+                    "id": session.id,
+                    "age_ms": session.age_ms,
+                    "title": meta.as_ref().and_then(|m| m.get("title")),
+                    "title_source": meta.as_ref().and_then(|m| m.get("title_source")),
+                })
+            }).collect();
+            if cli.json {
+                println!("{}", serde_json::json!({
+                    "generated_at_ms": generated_at_ms, "active": rows,
+                }));
+            } else {
+                for row in rows {
+                    println!("{}\t{}", row["id"].as_str().unwrap_or(""),
+                        row["title"].as_str().unwrap_or(""));
+                }
+            }
+        }
         Command::Summary => {
             let (sessions, price_of, json) = render(cli.json);
             let mut grand = Totals::default();
@@ -284,9 +311,7 @@ fn main() {
                 .into_iter()
                 .map(|(m, _)| (m.session_id.clone(), m))
                 .collect();
-            // Held lease + recent metadata save: idle long-lived processes
-            // (ACP servers, app server) keep their lease but are not active.
-            let active: Vec<_> = miaou::status::live_sessions(&vibe_home, now_ms);
+            let active = miaou::status::live_sessions(&vibe_home, now_ms);
             let active_ids: std::collections::HashSet<&str> =
                 active.iter().map(|a| a.id.as_str()).collect();
             let mut session_rows = miaou::aggregate_by_session(&sessions);
@@ -623,11 +648,10 @@ fn main() {
         }
         Command::Sessions => {
             let (sessions, price_of, json) = render(cli.json);
-            let active_ids: std::collections::HashSet<String> =
-                miaou::status::live_sessions(&vibe_home, now_ms())
-                    .into_iter()
-                    .map(|a| a.id)
-                    .collect();
+            let active_ids: std::collections::HashSet<String> = miaou::status::live_sessions(&vibe_home, now_ms())
+                .into_iter()
+                .map(|a| a.id)
+                .collect();
             let mut rows: Vec<SessionRow> = miaou::aggregate_by_session(&sessions);
             for r in &mut rows {
                 r.totals.cost_usd = price_of(&r.totals);
