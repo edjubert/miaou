@@ -110,6 +110,8 @@ struct MainWindow: View {
     @AppStorage("desktopPetBottomOffsetExternal") private var desktopPetBottomOffsetExternal = 0.0
     // Walking speed in points per second.
     @AppStorage("desktopPetSpeed") private var desktopPetSpeed = Double(DesktopPetMotion.walkingSpeed)
+    // What the cat does when the last session ends.
+    @AppStorage("desktopPetSleepMode") private var desktopPetSleepModeRaw = DesktopPetSleepMode.edge.rawValue
     @AppStorage("analyticsTab") private var analyticsTab: String = "daily"
     @AppStorage("language") private var languageRaw: String = "system"
     @State private var loginError: String?
@@ -511,6 +513,14 @@ struct MainWindow: View {
                 .pickerStyle(.segmented)
                 .id("desktopPetAnimation-\(languageRaw)")
                 .disabled(!desktopPetEnabled)
+                Picker(L10n.t("desktopPet.sleepMode"), selection: $desktopPetSleepModeRaw) {
+                    ForEach(DesktopPetSleepMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .id("desktopPetSleepMode-\(languageRaw)")
+                .disabled(!desktopPetEnabled)
                 Picker(L10n.t("colorMode.picker"), selection: $desktopPetColorModeRaw) {
                     ForEach(ChatonColorMode.allCases) { mode in
                         Text(mode.label).tag(mode.rawValue)
@@ -677,6 +687,7 @@ struct MainWindow: View {
         desktopPetBottomOffsetBuiltIn = 0
         desktopPetBottomOffsetExternal = 0
         desktopPetSpeed = Double(DesktopPetMotion.walkingSpeed)
+        desktopPetSleepModeRaw = DesktopPetSleepMode.edge.rawValue
         languageRaw = "system"
     }
 }

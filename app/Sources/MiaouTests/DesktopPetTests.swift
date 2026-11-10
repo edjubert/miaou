@@ -7,10 +7,11 @@ final class DesktopPetTests: XCTestCase {
 
     private func advance(_ motion: inout DesktopPetMotion, at time: TimeInterval,
                          elapsed: TimeInterval = 0.1, limits: ClosedRange<CGFloat> = 0...400,
-                         pointerOnLeft: Bool? = nil, autonomous: Bool = false) {
+                         pointerOnLeft: Bool? = nil, autonomous: Bool = false,
+                         sleepMode: DesktopPetSleepMode = .edge) {
         motion.advance(at: time, elapsed: elapsed, within: limits,
                        pointerOnLeft: pointerOnLeft, petSize: petSize,
-                       autonomous: autonomous)
+                       autonomous: autonomous, sleepMode: sleepMode)
     }
 
     func testSpeedDefaultsToTheWalkingSpeedAndClampsToASaneRange() {
@@ -243,6 +244,62 @@ final class DesktopPetTests: XCTestCase {
         }
     }
 
+    func testSleepModeDefaultsToEdgeAndReadsTheStoredValue() {
+        let defaults = UserDefaults(suiteName: "miaou-test-sleep-mode")!
+        defaults.removeObject(forKey: "desktopPetSleepMode")
+        XCTAssertEqual(DesktopPetController.sleepMode(defaults), .edge)
+        defaults.set("immediate", forKey: "desktopPetSleepMode")
+        XCTAssertEqual(DesktopPetController.sleepMode(defaults), .immediate)
+        defaults.set("bogus", forKey: "desktopPetSleepMode")
+        XCTAssertEqual(DesktopPetController.sleepMode(defaults), .edge)
+        defaults.removeObject(forKey: "desktopPetSleepMode")
+    }
+
+    func testImmediateSleepModeRestsWhereTheCatStandsWhenTheSessionEnds() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 100)
+        advance(&motion, at: 1, autonomous: true, sleepMode: .immediate)
+        XCTAssertFalse(motion.isResting)
+        XCTAssertEqual(motion.x, 104.2, accuracy: 0.001)
+        // Session ends mid-walk: the cat sleeps immediately, not at an edge.
+        advance(&motion, at: 1.1, sleepMode: .immediate)
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.x, 104.2, accuracy: 0.001)
+        advance(&motion, at: 3600, sleepMode: .immediate)
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.x, 104.2, accuracy: 0.001)
+    }
+
+    func testEdgeSleepModeStillWalksToTheEdgeWhenTheSessionEnds() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 190)
+        advance(&motion, at: 1, limits: 0...200, autonomous: true, sleepMode: .edge)
+        XCTAssertFalse(motion.isResting)
+        advance(&motion, at: 1.1, limits: 0...200, sleepMode: .edge)
+        XCTAssertFalse(motion.isResting)
+        advance(&motion, at: 1.2, limits: 0...200, sleepMode: .edge)
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.x, 200)
+    }
+
+    func testEdgeSleepModeSeeksTheNearestEdgeEvenTurningAround() {
+        var motion = DesktopPetMotion()
+        motion.place(at: 190, direction: -1)
+        advance(&motion, at: 1, limits: 0...200, autonomous: true, sleepMode: .edge)
+        // Walking left, away from the nearest (right) edge.
+        XCTAssertEqual(motion.direction, -1)
+        XCTAssertEqual(motion.x, 185.8, accuracy: 0.001)
+        // Session ends: the cat turns around toward the nearest edge.
+        advance(&motion, at: 1.1, limits: 0...200, sleepMode: .edge)
+        XCTAssertEqual(motion.direction, 1)
+        XCTAssertFalse(motion.isResting)
+        for time in [1.2, 1.3, 1.4] {
+            advance(&motion, at: time, limits: 0...200, sleepMode: .edge)
+        }
+        XCTAssertTrue(motion.isResting)
+        XCTAssertEqual(motion.x, 200)
+    }
+
     func testDisablingAutonomousWalkingFinishesTheTripThenStaysAsleep() {
         var motion = DesktopPetMotion()
         motion.place(at: 190)
@@ -285,8 +342,11 @@ final class DesktopPetTests: XCTestCase {
         advance(&motion, at: 2.3)
         XCTAssertEqual(motion.x, 300, accuracy: 0.001)
         XCTAssertFalse(motion.isHopping)
+        // The session ended during the hop: the cat seeks the nearest edge
+        // (the right one at 400), turning around.
         advance(&motion, at: 2.4)
-        XCTAssertEqual(motion.x, 295.8, accuracy: 0.001)
+        XCTAssertEqual(motion.direction, 1)
+        XCTAssertEqual(motion.x, 304.2, accuracy: 0.001)
         XCTAssertFalse(motion.isResting)
     }
 

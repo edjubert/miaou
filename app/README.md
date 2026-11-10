@@ -98,8 +98,9 @@ Hovering the cat triggers a sideways hop, even while sleeping.
 Its glass body keeps the intensity selected in settings during hover,
 hops and walks.
 The hop rises by half the cat's height, lands one cat-width away within the
-screen bounds, and immediately starts walking to the corner in that direction.
-At the corner, it lies down. A continuous hover
+screen bounds. In **Walk to an edge** mode, it then walks to the corner in
+that direction and lies down; **Sleep now** keeps it resting after the hop
+when no session is active. A continuous hover
 triggers one hop; move away and hover again to trigger another.
 The dots remain visible and clicks still pass through it.
 **Color while moving** is enabled by default: dots use brand colors during hops
@@ -108,9 +109,11 @@ edge and lies down. Turn this color option off to keep the pet gray.
 The desktop cat has its own **Animation** setting, independent of the menu bar:
 **Always** walks automatically even without a session; **When a session is
 active** (the default) only starts automatic walks during live sessions.
-Automatic walks pause for 40–120 seconds at each edge. When session mode loses
-its last session, the pet finishes its current trip to the edge and stays
-asleep until another session or hover. Hover remains responsive in both modes.
+Automatic walks turn around at each edge while a session is active or animation
+is set to **Always**. **When a session ends** chooses what happens when session
+mode loses its last running task: **Walk to an edge** (default) heads toward the
+nearest edge, turning around if needed; **Sleep now** rests immediately in place.
+An ongoing hop finishes before the cat rests. Hover remains responsive in both modes.
 Switching Chonk back to Chaton when a session ends preserves the current trip.
 **Show the last message in a speech bubble** is optional and off by default.
 It shows a short plain-text excerpt (up to 280 characters) of the latest

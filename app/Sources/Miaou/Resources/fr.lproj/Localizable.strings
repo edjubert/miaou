@@ -71,6 +71,9 @@
 "desktopPet.bottomOffsetBuiltIn" = "Décalage bas, intégré (pt)";
 "desktopPet.bottomOffsetExternal" = "Décalage bas, externe (pt)";
 "desktopPet.speed" = "Vitesse (pt/s)";
+"desktopPet.sleepMode" = "À la fin d'une session";
+"desktopPet.sleepMode.edge" = "Rejoindre un bord";
+"desktopPet.sleepMode.immediate" = "Dormir immédiatement";
 "desktopPet.glassMaximum" = "Verre maximal";
 "desktopPet.glassHidden" = "Sans verre";
 "desktopPet.description" = "Le chat marche automatiquement selon le mode d'animation. Sans session active, le mode session le laisse dormir après son trajet. Le survol le fait toujours bondir puis rejoindre un bord. Sa couleur suit le mode de couleur choisi. Les clics le traversent.";

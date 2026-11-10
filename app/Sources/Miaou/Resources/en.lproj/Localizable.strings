@@ -71,6 +71,9 @@
 "desktopPet.bottomOffsetBuiltIn" = "Bottom offset, built-in (pt)";
 "desktopPet.bottomOffsetExternal" = "Bottom offset, external (pt)";
 "desktopPet.speed" = "Speed (pt/s)";
+"desktopPet.sleepMode" = "When a session ends";
+"desktopPet.sleepMode.edge" = "Walk to an edge";
+"desktopPet.sleepMode.immediate" = "Sleep now";
 "desktopPet.glassMaximum" = "Full glass";
 "desktopPet.glassHidden" = "No glass";
 "desktopPet.description" = "The cat walks automatically in the selected animation mode. Without an active session, session mode keeps it asleep after its current walk. Hover always makes it hop and walk to an edge. Its color follows the selected color mode. Clicks pass through it.";

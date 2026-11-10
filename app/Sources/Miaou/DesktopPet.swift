@@ -76,6 +76,21 @@ enum DesktopPetSize: String, CaseIterable {
     }
 }
 
+/// What the cat does when the last session ends.
+enum DesktopPetSleepMode: String, CaseIterable {
+    /// Walk to a screen edge, then sleep (default).
+    case edge
+    /// Sleep immediately, where the cat stands.
+    case immediate
+
+    var label: String {
+        switch self {
+        case .edge: return L10n.t("desktopPet.sleepMode.edge")
+        case .immediate: return L10n.t("desktopPet.sleepMode.immediate")
+        }
+    }
+}
+
 /// Movement uses a monotonic clock, independently of drawing and mouse events.
 struct DesktopPetMotion {
     /// Default walking speed, in points per second.
@@ -99,6 +114,8 @@ struct DesktopPetMotion {
     private(set) var isResting = true
     private var hop: Hop?
     private var wasHovered = false
+    private var wasAutonomous = false
+    private var seekNearestEdge = false
 
     var isHopping: Bool { hop != nil }
 
@@ -109,6 +126,8 @@ struct DesktopPetMotion {
         verticalOffset = 0
         isResting = true
         wasHovered = false
+        wasAutonomous = false
+        seekNearestEdge = false
     }
 
     mutating func translate(by offset: CGFloat) {
@@ -121,8 +140,15 @@ struct DesktopPetMotion {
 
     mutating func advance(at time: TimeInterval, elapsed: TimeInterval,
                           within limits: ClosedRange<CGFloat>, pointerOnLeft: Bool?,
-                          petSize: CGSize, autonomous: Bool = false) {
+                          petSize: CGSize, autonomous: Bool = false,
+                          sleepMode: DesktopPetSleepMode = .edge) {
         x = min(max(x, limits.lowerBound), limits.upperBound)
+        let sessionEnded = wasAutonomous && !autonomous
+        wasAutonomous = autonomous
+        // Set before the hop branch, which returns early while hopping.
+        if sessionEnded && sleepMode == .edge {
+            seekNearestEdge = true
+        }
         let hovered = pointerOnLeft != nil
         let entered = hovered && !wasHovered
         defer { wasHovered = hovered }
@@ -150,6 +176,19 @@ struct DesktopPetMotion {
         }
         if isResting && autonomous {
             isResting = false
+        }
+        // No session and the cat is still moving: in immediate mode it
+        // sleeps where it stands instead of walking to an edge.
+        if !autonomous && !isResting && sleepMode == .immediate {
+            isResting = true
+        }
+        // In edge mode, when a session just ended, head for the nearest
+        // edge, turning around if it is behind the cat.
+        if !autonomous && !isResting && sleepMode == .edge && seekNearestEdge {
+            let toLower = x - limits.lowerBound
+            let toUpper = limits.upperBound - x
+            direction = toLower <= toUpper ? -1 : 1
+            seekNearestEdge = false
         }
         guard !isResting else { return }
         guard limits.lowerBound < limits.upperBound else {
@@ -278,6 +317,7 @@ final class DesktopPetController {
         let colorMode = Self.colorMode(defaults)
         let live = AppModel.shared.hasLiveSessions
         let speed = Self.speed(defaults)
+        let sleepMode = Self.sleepMode(defaults)
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         // The speech bubble has its own glass intensity, full glass by default.
         let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
@@ -286,7 +326,7 @@ final class DesktopPetController {
             let bottomOffset = Self.bottomOffset(defaults, isBuiltIn: companion.isBuiltIn)
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
                            autonomous: autonomous, colorMode: colorMode, live: live,
-                           bottomOffset: bottomOffset, speed: speed,
+                           bottomOffset: bottomOffset, speed: speed, sleepMode: sleepMode,
                            glassTransparency: glassTransparency)
             companion.showSpeech(message, glassTransparency: speechGlassTransparency)
         }
@@ -314,6 +354,11 @@ final class DesktopPetController {
         let raw = defaults.object(forKey: "desktopPetSpeed") as? Double
             ?? Double(DesktopPetMotion.walkingSpeed)
         return CGFloat(min(max(raw, 1), 500))
+    }
+
+    /// What the cat does when the last session ends.
+    static func sleepMode(_ defaults: UserDefaults) -> DesktopPetSleepMode {
+        DesktopPetSleepMode(rawValue: defaults.string(forKey: "desktopPetSleepMode") ?? "") ?? .edge
     }
 
     /// The cat's color mode, migrating the legacy "color while moving"
@@ -418,7 +463,8 @@ private final class DesktopPetCompanion {
 
     func tick(at now: TimeInterval, elapsed: TimeInterval, pointer: CGPoint,
               autonomous: Bool, colorMode: ChatonColorMode, live: Bool,
-              bottomOffset: CGFloat, speed: CGFloat, glassTransparency: Double) {
+              bottomOffset: CGFloat, speed: CGFloat, sleepMode: DesktopPetSleepMode,
+              glassTransparency: Double) {
         let area = display.walkArea
         let maxX = max(area.minX, area.maxX - panel.frame.width)
         let localPointer = CGPoint(x: pointer.x - panel.frame.minX,
@@ -427,7 +473,7 @@ private final class DesktopPetCompanion {
         motion.speed = speed
         motion.advance(at: now, elapsed: elapsed, within: area.minX...maxX,
                        pointerOnLeft: hovered ? localPointer.x < panel.frame.width / 2 : nil,
-                       petSize: panel.frame.size, autonomous: autonomous)
+                       petSize: panel.frame.size, autonomous: autonomous, sleepMode: sleepMode)
         let frame: Int
         var elevation = motion.verticalOffset
         if motion.isResting {
