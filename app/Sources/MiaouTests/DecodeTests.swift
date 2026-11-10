@@ -134,6 +134,43 @@ final class DecodeTests: XCTestCase {
         XCTAssertEqual(dashboard.liveSessions.map(\.id), ["a"])
     }
 
+    func testActivityPollClearsSessionRowsAndRejectsOlderDashboardState() throws {
+        let data = try JSONSerialization.data(withJSONObject: sample)
+        let dashboard = try decoder.decode(DashboardReport.self, from: data)
+        var activity = SessionActivity()
+        let endedAt = dashboard.generatedAtMs + 2_000
+        activity.record(ActivityReport(generatedAtMs: endedAt, active: []))
+        let stopped = activity.applying(to: dashboard)
+        XCTAssertTrue(stopped.liveSessions.isEmpty)
+        XCTAssertFalse(stopped.sessions[0].isActive)
+
+        // A dashboard started before the poll can finish after it.
+        activity.record(ActivityReport(
+            generatedAtMs: dashboard.generatedAtMs, active: dashboard.active))
+        XCTAssertTrue(activity.applying(to: dashboard).liveSessions.isEmpty)
+        // Out-of-order activity subprocess results cannot resurrect it either.
+        activity.record(ActivityReport(
+            generatedAtMs: endedAt - 1, active: dashboard.active))
+        XCTAssertTrue(activity.applying(to: dashboard).liveSessions.isEmpty)
+
+        let resumed = ActiveSessionReport(id: dashboard.sessions[0].sessionId, ageMs: 900_000)
+        activity.record(ActivityReport(generatedAtMs: endedAt + 2_000, active: [resumed]))
+        let running = activity.applying(to: dashboard)
+        XCTAssertEqual(running.liveSessions.map(\.id), [resumed.id])
+        XCTAssertTrue(running.sessions[0].isActive)
+        // Usage figures and their timestamp keep their own refresh cadence.
+        XCTAssertEqual(running.generatedAtMs, dashboard.generatedAtMs)
+        XCTAssertEqual(running.totals, dashboard.totals)
+    }
+
+    func testActivityReportDecodesWithoutSessionMetadata() throws {
+        let data = Data(#"{"generated_at_ms":123,"active":[{"id":"acp","age_ms":900000}]}"#.utf8)
+        let report = try decoder.decode(ActivityReport.self, from: data)
+        XCTAssertEqual(report.generatedAtMs, 123)
+        XCTAssertEqual(report.active.map(\.id), ["acp"])
+        XCTAssertNil(report.active[0].title)
+    }
+
     func testTokenFormatting() {
         XCTAssertEqual(formatTokens(18_000_020), "18.0M")
         XCTAssertEqual(formatTokens(999), "999")

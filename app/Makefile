@@ -1,8 +1,9 @@
 APP_NAME = Miaou
 APP_BUNDLE = $(APP_NAME).app
 APP_DIR = $(HOME)/Applications
-CLI_NAME = miaou
-CLI_BIN ?= $(shell command -v $(CLI_NAME) 2>/dev/null || echo $(HOME)/.cargo/bin/$(CLI_NAME))
+# Empty means build-app.py builds the CLI from this checkout. An explicit
+# CLI_BIN still permits bundling a separately built release artifact.
+CLI_BIN ?=
 
 # Package.swift enumerates sources; cached manifests can omit newly added files.
 .PHONY: build app install-app install-only icon clean test

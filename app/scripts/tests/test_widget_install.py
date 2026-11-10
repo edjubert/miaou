@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
 import plistlib
@@ -11,6 +12,79 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("miaou_builder", Path(__file__).resolve().parents[2] / "build-app.py")
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+
+
+class CLIEmbeddingTests(unittest.TestCase):
+    def test_default_build_rebuilds_checkout_cli_instead_of_using_path_or_old_binary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cli = root / "cli/target/release/miaou"
+            cli.parent.mkdir(parents=True)
+            cli.write_text("old binary")
+            cli.chmod(0o755)
+
+            def rebuild(*args, **kwargs):
+                cli.write_text("rebuilt from current checkout")
+
+            with patch.object(builder, "APP", root / "app"), \
+                    patch.dict(os.environ, {"CLI_BIN": ""}), \
+                    patch.object(builder.shutil, "which", return_value="/old/bin/miaou") as lookup, \
+                    patch.object(builder, "run", side_effect=rebuild) as build:
+                embedded = builder.cli_for_bundle()
+            self.assertEqual(embedded.read_text(), "rebuilt from current checkout")
+            build.assert_called_once_with(
+                "cargo", "build", "--release",
+                "--manifest-path", str(root / "cli/Cargo.toml"),
+                "--target-dir", str(root / "cli/target"))
+            lookup.assert_not_called()
+
+    def test_explicit_cli_artifact_is_preserved_without_rebuilding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cli = Path(directory) / "miaou"
+            cli.write_text("release artifact")
+            cli.chmod(0o755)
+            with patch.dict(os.environ, {"CLI_BIN": str(cli)}), \
+                    patch.object(builder, "run") as build:
+                self.assertEqual(builder.cli_for_bundle(), cli)
+            build.assert_not_called()
+
+
+class CLIActivityTests(unittest.TestCase):
+    def test_checks_checkpoint_completion_and_journal_resume_in_an_isolated_home(self):
+        calls = []
+
+        def cli_result(*args, **kwargs):
+            home = Path(args[2])
+            self.assertEqual(args[3:], ("status", "--json"))
+            self.assertEqual(kwargs["env"]["VIBE_HOME"], str(home))
+            self.assertEqual(kwargs["env"]["MIAOU_ARCHIVE_PATH"], str(home / "archive.jsonl"))
+            session = home / "logs/session/unified/activity-check"
+            state = json.loads((session / "generations/0000000000000001/projection-state.json")
+                               .read_text())["snapshot"]
+            tail = session / "journal/0000000000000002.jsonl"
+            if tail.exists():
+                state = json.loads(tail.read_text().splitlines()[-1])["payload"]["delta"][0]["state"]
+            calls.append(state["latestTurn"]["status"])
+            active = [{"id": "activity-check"}] if calls[-1] == "in_progress" else []
+            return subprocess.CompletedProcess(args, 0, stdout=json.dumps({"active": active}))
+
+        with patch.object(builder, "run", side_effect=cli_result):
+            builder.verify_cli_activity(Path("/selected/miaou"))
+        self.assertEqual(calls, ["in_progress", "completed", "in_progress", "completed"])
+
+    def test_rejects_a_cli_that_keeps_completed_tasks_active(self):
+        response = subprocess.CompletedProcess([], 0,
+                                               stdout='{"active":[{"id":"activity-check"}]}')
+        with patch.object(builder, "run", return_value=response) as cli:
+            with self.assertRaisesRegex(SystemExit, "activity detection \\(completed\\)"):
+                builder.verify_cli_activity(Path("/stale/miaou"))
+        self.assertEqual(cli.call_count, 2)
+
+    def test_rejects_a_cli_that_hides_running_tasks(self):
+        with patch.object(builder, "run",
+                          return_value=subprocess.CompletedProcess([], 0, stdout='{"active":[]}')):
+            with self.assertRaisesRegex(SystemExit, "activity detection \\(in_progress\\)"):
+                builder.verify_cli_activity(Path("/stale/miaou"))
 
 
 class WidgetInstallTests(unittest.TestCase):
@@ -35,6 +109,7 @@ class WidgetInstallTests(unittest.TestCase):
             patch.dict(os.environ, environment, clear=True),
             patch.object(builder, "stop_old_widget"),
             patch.object(builder, "verify_widget_entitlements"),
+            patch.object(builder, "verify_cli_activity"),
             self.stop_old_app_patch,
             patch.object(builder.subprocess, "run",
                          return_value=subprocess.CompletedProcess([], 0, stdout="", stderr="")),
@@ -113,6 +188,14 @@ class WidgetInstallTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 builder.install()
         self.assertEqual(self.number(self.destination), "1")
+        self.assertFalse((self.install_root / ".Miaou.installing.app").exists())
+
+    def test_stale_cli_failure_keeps_the_installed_app_running(self):
+        with patch.object(builder, "verify_cli_activity", side_effect=SystemExit("stale CLI")):
+            with self.assertRaisesRegex(SystemExit, "stale CLI"):
+                builder.install()
+        self.assertEqual(self.number(self.destination), "1")
+        builder.stop_old_app.assert_not_called()
         self.assertFalse((self.install_root / ".Miaou.installing.app").exists())
 
     def test_build_number_advances_past_installed_version_and_local_counter(self):

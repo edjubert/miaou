@@ -5,6 +5,7 @@
 //! survive a crash or be touched by maintenance, so its mtime is not liveness.
 
 use serde::Serialize;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -15,9 +16,8 @@ pub struct ActiveSession {
     pub age_ms: u64,
 }
 
-/// A held lease only proves a live process owns the session. Long-lived
-/// processes (ACP servers, the app server) keep their lease forever, so a
-/// session counts as active only when its metadata was saved recently too.
+/// Compatibility fallback for old stores without an explicit turn state.
+/// Modern stores use the public projection's latestTurn instead.
 pub const ACTIVE_FRESHNESS_MS: u64 = 15 * 60 * 1000;
 
 /// True when the last metadata save (`bumped_at`) is within the freshness
@@ -30,11 +30,8 @@ pub fn session_is_active(bumped_at_ms: Option<u64>, now_ms: u64) -> bool {
     }
 }
 
-/// Holder processes whose leases never count as active sessions: the app
-/// server manages its own (API/ACP) sessions, they are not user-facing
-/// runs. The ACP server (vibe-acp) is NOT excluded: user sessions driven
-/// through ACP hold their lease there, and idle ones are filtered by the
-/// metadata freshness window instead.
+/// The ACP server holds user sessions even between prompts. Keep its leases:
+/// live_sessions distinguishes a running turn from an idle server.
 const EXCLUDED_LEASE_HOLDERS: [&str; 1] = ["vibe-app-server"];
 
 /// Process id recorded in the `<id>.lock.json` diagnostic beside a lease file.
@@ -75,19 +72,137 @@ fn lease_holder_excluded(lock_path: &Path) -> bool {
         .is_some_and(|command| is_excluded_holder(&command))
 }
 
-/// Sessions that are live right now: OS lock held AND metadata saved
-/// recently. Idle long-lived processes (ACP/app servers) keep their lease
-/// forever but are filtered out by the freshness window. This is the
-/// single source of truth for "a session is active".
+/// A held lease is necessary, but does not prove a task is running.
+/// Explicit turn state takes priority over metadata freshness, including for
+/// long-running turns and for completed turns whose metadata was just saved.
 pub fn live_sessions(vibe_home: &Path, now_ms: u64) -> Vec<ActiveSession> {
-    let bumped: std::collections::HashMap<String, u64> = crate::scan::discover_sessions(vibe_home)
-        .into_iter()
-        .filter_map(|(m, _)| m.bumped_at_ms.map(|b| (m.session_id, b)))
-        .collect();
     active_sessions(vibe_home)
         .into_iter()
-        .filter(|a| session_is_active(bumped.get(&a.id).copied(), now_ms))
+        .filter(|session| {
+            let dir = vibe_home.join("logs/session/unified").join(&session.id);
+            turn_is_running(&dir).unwrap_or_else(|| {
+                let bumped = read_json(&dir.join("meta.json"))
+                    .and_then(|m| {
+                        m.get("bumped_at")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                    })
+                    .map(|dt| dt.timestamp_millis().max(0) as u64);
+                session_is_active(bumped, now_ms)
+            })
+        })
         .collect()
+}
+
+fn read_json(path: &Path) -> Option<serde_json::Value> {
+    serde_json::from_reader(std::fs::File::open(path).ok()?).ok()
+}
+
+/// Read the committed projection and then its journal tail. Generations are
+/// published through CURRENT; picking the largest directory can observe an
+/// unpublished generation. Journal projections are newer than the checkpoint
+/// while a prompt is running, so reading only the checkpoint misses resumes.
+fn turn_is_running(session_dir: &Path) -> Option<bool> {
+    let pointer = read_json(&session_dir.join("CURRENT"));
+    let snapshot_sequence = pointer
+        .as_ref()
+        .and_then(|p| p.get("snapshot_sequence"))
+        .and_then(|s| s.as_u64())
+        .unwrap_or(0);
+    let snapshot = pointer
+        .as_ref()
+        .and_then(|p| p.get("generation"))
+        .and_then(|g| g.as_str())
+        .filter(|g| {
+            !g.is_empty() && *g != "." && *g != ".." && !g.contains('/') && !g.contains('\\')
+        })
+        .and_then(|generation| {
+            read_json(
+                &session_dir
+                    .join("generations")
+                    .join(generation)
+                    .join("projection-state.json"),
+            )
+        });
+    let baseline = snapshot
+        .as_ref()
+        .and_then(|p| p.get("snapshot"))
+        .and_then(projection_is_running);
+
+    let Ok(entries) = std::fs::read_dir(session_dir.join("journal")) else {
+        return baseline;
+    };
+    let mut files: Vec<_> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let first_sequence = path
+                .file_name()?
+                .to_str()?
+                .strip_suffix(".jsonl")?
+                .parse::<u64>()
+                .ok()?;
+            // Publishing a generation starts a new segment at snapshot + 1.
+            // No old transcript needs to be read on the two-second activity poll.
+            (first_sequence > snapshot_sequence).then_some((first_sequence, path))
+        })
+        .collect();
+    files.sort_by_key(|(sequence, _)| *sequence);
+    for (_, path) in files.into_iter().rev() {
+        let Ok(file) = std::fs::File::open(path) else {
+            continue;
+        };
+        let mut latest = None;
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
+            // A writer can leave a partial final JSONL record while appending.
+            let Ok(record) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue;
+            };
+            let Some(sequence) = record.get("sequence").and_then(|s| s.as_u64()) else {
+                continue;
+            };
+            if sequence <= snapshot_sequence {
+                continue;
+            }
+            let state = match record.get("type").and_then(|t| t.as_str()) {
+                Some("projection_advanced") => record.pointer("/payload/snapshot"),
+                Some("projection_delta") => record
+                    .pointer("/payload/delta")
+                    .and_then(|d| d.as_array())
+                    .and_then(|ops| {
+                        ops.iter().rev().find(|op| {
+                            op.get("op").and_then(|v| v.as_str()) == Some("set_envelope")
+                        })
+                    })
+                    .and_then(|op| op.get("state")),
+                _ => None,
+            };
+            if let Some(state) = state {
+                if latest
+                    .as_ref()
+                    .is_none_or(|(previous, _)| sequence > *previous)
+                {
+                    latest = Some((sequence, projection_is_running(state)));
+                }
+            }
+        }
+        if let Some((_, running)) = latest {
+            return running;
+        }
+    }
+    baseline
+}
+
+fn projection_is_running(state: &serde_json::Value) -> Option<bool> {
+    let turn = state.get("latestTurn")?;
+    if turn.is_null() {
+        return Some(false);
+    }
+    match turn.get("status").and_then(|s| s.as_str())? {
+        "in_progress" => Some(true),
+        "completed" | "failed" | "interrupted" => Some(false),
+        _ => None,
+    }
 }
 
 /// List sessions whose OS lock is still held, most recently touched first.
@@ -160,7 +275,29 @@ mod tests {
     use super::*;
 
     #[cfg(unix)]
-    fn hold_lock(path: &Path) -> std::fs::File {
+    struct TestLease(std::fs::File);
+
+    #[cfg(unix)]
+    impl std::ops::Deref for TestLease {
+        type Target = std::fs::File;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for TestLease {
+        fn drop(&mut self) {
+            use std::os::fd::AsRawFd;
+            // Like Vibe's lease release, unlock explicitly. Another parallel
+            // test can be between fork and exec and briefly inherit this fd;
+            // closing our copy alone would then leave its lock held.
+            assert_eq!(unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) }, 0);
+        }
+    }
+
+    #[cfg(unix)]
+    fn hold_lock(path: &Path) -> TestLease {
         use std::os::fd::AsRawFd;
 
         let file = std::fs::File::create(path).unwrap();
@@ -168,7 +305,7 @@ mod tests {
             unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
             0
         );
-        file
+        TestLease(file)
     }
 
     #[cfg(unix)]
@@ -289,20 +426,20 @@ mod tests {
     fn excluded_holder_names() {
         assert!(is_excluded_holder("vibe-app-server"));
         assert!(is_excluded_holder("/usr/local/bin/vibe-app-server"));
+        assert!(!is_excluded_holder("vibe-acp"));
+        assert!(!is_excluded_holder("/Users/x/.local/bin/vibe-acp"));
         // Script-based tools show the interpreter as executable; the tool
         // name is matched in the command line arguments.
-        assert!(is_excluded_holder(
-            "/opt/Python /Users/x/.local/bin/vibe-app-server --port 8080"
-        ));
-        // The ACP server holds user sessions driven through ACP: not
-        // excluded. Neither is the user-facing CLI.
-        assert!(!is_excluded_holder("vibe-acp"));
         assert!(!is_excluded_holder(
             "/opt/Python.app/Contents/MacOS/Python /Users/x/.local/bin/vibe-acp"
         ));
+        assert!(is_excluded_holder(
+            "/opt/Python /Users/x/.local/bin/vibe-app-server --port 8080"
+        ));
+        // The user-facing CLI is not a server: never excluded.
         assert!(!is_excluded_holder("vibe"));
         assert!(!is_excluded_holder("/opt/Python /Users/x/.local/bin/vibe"));
-        assert!(!is_excluded_holder("not-vibe-app-server"));
+        assert!(!is_excluded_holder("not-vibe-acp"));
         assert!(!is_excluded_holder("Python"));
     }
 
@@ -316,6 +453,182 @@ mod tests {
         assert!(session_is_active(None, now));
     }
 
+    fn write_projection(dir: &Path, sequence: u64, status: Option<&str>) {
+        let generation = format!("{sequence:016}");
+        let path = dir.join("generations").join(&generation);
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(
+            dir.join("CURRENT"),
+            serde_json::json!({
+                "generation": generation, "snapshot_sequence": sequence,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            path.join("projection-state.json"),
+            serde_json::json!({
+                "snapshot": {"latestTurn": status.map(|s| serde_json::json!({"status": s}))},
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    fn projection_record(sequence: u64, status: &str) -> String {
+        serde_json::json!({
+            "sequence": sequence, "type": "projection_delta",
+            "payload": {"delta": [{"op": "set_envelope", "state": {
+                "latestTurn": {"status": status}
+            }}]},
+        })
+        .to_string()
+            + "\n"
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn explicit_turn_state_overrides_freshness_and_survives_resume() {
+        use std::io::Write;
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let active = home.join("logs/session/active");
+        let dir = home.join("logs/session/unified/acp");
+        std::fs::create_dir_all(&active).unwrap();
+        std::fs::create_dir_all(dir.join("journal")).unwrap();
+        let held = hold_lock(&active.join("acp.lock"));
+        let now = 1_700_000_000_000u64;
+        let fresh = chrono::DateTime::from_timestamp_millis(now as i64).unwrap();
+        std::fs::write(
+            dir.join("meta.json"),
+            serde_json::json!({
+                "session_id": "acp", "bumped_at": fresh.to_rfc3339(),
+                "end_time": fresh.to_rfc3339(),
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        for status in [Some("completed"), Some("failed"), Some("interrupted"), None] {
+            write_projection(&dir, 10, status);
+            assert!(live_sessions(home, now).is_empty(), "{status:?}");
+        }
+        // A task cannot disappear just because it runs longer than 15 minutes.
+        write_projection(&dir, 10, Some("in_progress"));
+        assert_eq!(live_sessions(home, now + ACTIVE_FRESHNESS_MS + 1).len(), 1);
+
+        write_projection(&dir, 10, Some("completed"));
+        // Old journal state cannot resurrect a newer committed terminal state.
+        std::fs::write(
+            dir.join("journal/0000000000000001.jsonl"),
+            projection_record(9, "in_progress"),
+        )
+        .unwrap();
+        assert!(live_sessions(home, now).is_empty());
+
+        let mut journal =
+            std::fs::File::create(dir.join("journal/0000000000000011.jsonl")).unwrap();
+        journal
+            .write_all(projection_record(11, "in_progress").as_bytes())
+            .unwrap();
+        assert_eq!(live_sessions(home, now).len(), 1);
+        // Tool completions and malformed concurrent writes do not end a turn.
+        journal.write_all(b"{\"sequence\":12,\"type\":\"action_result\",\"payload\":{\"result\":{\"type\":\"completion_succeeded\",\"result\":{\"finish_reason\":\"stop\"}}}}\n{\"sequence\":13,").unwrap();
+        assert_eq!(live_sessions(home, now).len(), 1);
+        journal.write_all(b"\"type\":\"ignored\"}\n").unwrap();
+        journal
+            .write_all(projection_record(14, "completed").as_bytes())
+            .unwrap();
+        assert!(live_sessions(home, now).is_empty());
+        // Resume after another idle boundary, without releasing the ACP lease.
+        journal
+            .write_all(projection_record(15, "in_progress").as_bytes())
+            .unwrap();
+        assert_eq!(live_sessions(home, now).len(), 1);
+        drop(held);
+        assert!(live_sessions(home, now).is_empty());
+    }
+
+    #[test]
+    fn projection_reader_handles_empty_tails_rotation_and_legacy_records() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        std::fs::create_dir_all(dir.join("journal")).unwrap();
+        write_projection(dir, 10, Some("in_progress"));
+        std::fs::write(dir.join("journal/0000000000000011.jsonl"), "").unwrap();
+        assert_eq!(turn_is_running(dir), Some(true));
+        std::fs::write(
+            dir.join("journal/0000000000000011.jsonl"),
+            projection_record(11, "interrupted"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("journal/0000000000000012.jsonl"),
+            "{\"sequence\":12,\"type\":\"action_result\"}\n",
+        )
+        .unwrap();
+        assert_eq!(turn_is_running(dir), Some(false));
+        // Before projection deltas, Vibe emitted whole public snapshots.
+        std::fs::write(
+            dir.join("journal/0000000000000012.jsonl"),
+            serde_json::json!({"sequence":12,"type":"projection_advanced",
+                "payload":{"snapshot":{"latestTurn":{"status":"in_progress"}}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        assert_eq!(turn_is_running(dir), Some(true));
+        // A newer unknown format must not reuse an older known state.
+        std::fs::write(
+            dir.join("journal/0000000000000013.jsonl"),
+            projection_record(13, "future_state"),
+        )
+        .unwrap();
+        assert_eq!(turn_is_running(dir), None);
+    }
+
+    #[test]
+    fn only_the_generation_published_by_current_defines_the_baseline() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        write_projection(dir, 10, Some("completed"));
+        let pending = dir.join("generations/0000000000000099");
+        std::fs::create_dir_all(&pending).unwrap();
+        std::fs::write(
+            pending.join("projection-state.json"),
+            r#"{"snapshot":{"latestTurn":{"status":"in_progress"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(turn_is_running(dir), Some(false));
+        write_projection(dir, 99, Some("in_progress"));
+        assert_eq!(turn_is_running(dir), Some(true));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn legacy_stores_keep_freshness_fallback() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let active = home.join("logs/session/active");
+        let dir = home.join("logs/session/unified/legacy");
+        std::fs::create_dir_all(&active).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        let _held = hold_lock(&active.join("legacy.lock"));
+        let now = 1_700_000_000_000u64;
+        let fresh = chrono::DateTime::from_timestamp_millis(now as i64).unwrap();
+        std::fs::write(
+            dir.join("meta.json"),
+            serde_json::json!({
+                "bumped_at": fresh.to_rfc3339(),
+            })
+            .to_string(),
+        )
+        .unwrap();
+        assert_eq!(live_sessions(home, now).len(), 1);
+        assert!(live_sessions(home, now + ACTIVE_FRESHNESS_MS + 1).is_empty());
+        std::fs::write(dir.join("CURRENT"), "{").unwrap();
+        assert_eq!(live_sessions(home, now).len(), 1);
+    }
     #[cfg(unix)]
     fn write_meta(home: &Path, id: &str, bumped_at_ms: Option<u64>) {
         let dir = home.join("logs/session/unified").join(id);

@@ -38,7 +38,7 @@ struct SessionRow: Codable, Equatable, Identifiable {
     /// Nil when the CLI is too old to report it. `var` + default so the
     /// synthesized Codable still decodes it and old JSON stays readable.
     var titleSource: String? = nil
-    /// True while the session's OS lock is held (the session is running).
+    /// True while a task is running in the session.
     /// Nil when the CLI is too old to report it.
     var active: Bool? = nil
     let subagent: Bool
@@ -102,6 +102,33 @@ struct ActiveSessionReport: Codable, Equatable {
     var titleSource: String? = nil
 }
 
+struct ActivityReport: Codable, Equatable {
+    let generatedAtMs: Int
+    let active: [ActiveSessionReport]
+}
+
+/// Full dashboards and activity polls run independently. A slow dashboard
+/// must not resurrect a task that a newer activity poll already saw finish.
+struct SessionActivity {
+    private(set) var latest: ActivityReport?
+
+    mutating func record(_ report: ActivityReport) {
+        guard latest.map({ report.generatedAtMs >= $0.generatedAtMs }) ?? true else { return }
+        latest = report
+    }
+
+    func applying(to dashboard: DashboardReport) -> DashboardReport {
+        guard let latest, latest.generatedAtMs >= dashboard.generatedAtMs else { return dashboard }
+        var updated = dashboard
+        updated.active = latest.active
+        let ids = Set(latest.active.map(\.id))
+        for index in updated.sessions.indices {
+            updated.sessions[index].active = ids.contains(updated.sessions[index].sessionId)
+        }
+        return updated
+    }
+}
+
 /// Vibe's active model, resolved from `config.toml` by the CLI.
 struct ModelRefReport: Codable, Equatable {
     let name: String
@@ -139,11 +166,11 @@ struct DashboardReport: Codable, Equatable {
     let daily: [PeriodRow]
     let monthly: [PeriodRow]
     let projects: [PeriodRow]
-    let sessions: [SessionRow]
+    var sessions: [SessionRow]
     var active: [ActiveSessionReport]
 
     var liveSessions: [ActiveSessionReport] {
-        // The CLI checks the OS lock; orphaned files are already excluded.
+        // The CLI checks the held lease and the explicit turn state.
         active
     }
 }
@@ -208,6 +235,13 @@ enum MiaouCLI {
         } catch {
             throw MiaouError.badJSON(String(data: data, encoding: .utf8) ?? "<no data>")
         }
+    }
+
+    static func activity() throws -> ActivityReport {
+        let data = try run(arguments: ["status", "--json"])
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(ActivityReport.self, from: data)
     }
 
     /// Records the Console month total in the display currency at the

@@ -33,10 +33,14 @@ is a consumer of its JSON output and bundles a copy of the binary inside
 
 ## Install
 
-`make -C app install-app` builds and installs the app, but it does not build
-`miaou`: the CLI binary is embedded into the bundle at build time, so it
-must be on the machine once, in `PATH` or `~/.cargo/bin`. After that the
-installed app is self-contained and no longer depends on the CLI install.
+`make -C app install-app` builds the CLI from this checkout, embeds it into
+the app, then installs the app. This keeps the app and its CLI on the same
+source revision even when an older `miaou` exists in `PATH` or `~/.cargo/bin`.
+Set `CLI_BIN=/path/to/miaou` to embed an explicitly selected release artifact.
+The installed app is self-contained and does not depend on a global CLI install.
+Before building or replacing the installed app, the selected CLI is checked
+against an isolated session: it must detect running, completed and resumed
+tasks while the same session lease stays held. Stale artifacts are rejected.
 
 From scratch (monorepo root):
 
@@ -44,9 +48,7 @@ From scratch (monorepo root):
 # Prerequisites: full Xcode (app and widget), Rust (cargo), Python 3
 git clone git@github.com:edjubert/miaou.git
 cd miaou
-# 1. Build and install the CLI (single source of truth for parsing)
-cargo install --path cli
-# 2. Build and install the app (embeds the CLI into Miaou.app)
+# Build the CLI and app, then install the self-contained bundle
 make -C app install-app
 ```
 
@@ -231,7 +233,9 @@ Milestone 2: menu bar app consuming the single `miaou dashboard`
 JSON endpoint. Bar shows the envelope percentage (tokens fallback) plus a
 live-session dot; the window shows budget progress, today's usage, a
 14-day token sparkline (Swift Charts), top-5 projects and quick commands.
-Refreshes every 60 s and on menu open. The CLI binary is looked up in
+Usage refreshes every 60 s and on menu open. Running tasks are checked every
+two seconds through `miaou status --json`, including ACP tasks whose lock
+files remain present between prompts. The CLI binary is looked up in
 the app bundle first (embedded by `make app`), then `~/.cargo/bin` and
 Homebrew paths: GUI processes inherit a minimal PATH.
 

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Build and install Miaou with its native WidgetKit extension."""
 import os
+import datetime
+import fcntl
+import json
 import plistlib
 import re
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent
@@ -161,10 +165,75 @@ def build_number():
     return number
 
 
-def build():
-    cli = Path(os.environ.get("CLI_BIN") or shutil.which("miaou") or Path.home() / ".cargo/bin/miaou")
+def cli_for_bundle():
+    configured = os.environ.get("CLI_BIN")
+    if configured:
+        cli = Path(configured)
+    else:
+        target = APP.parent / "cli/target"
+        run("cargo", "build", "--release",
+            "--manifest-path", str(APP.parent / "cli/Cargo.toml"),
+            "--target-dir", str(target))
+        cli = target / "release/miaou"
     if not cli.is_file() or not os.access(cli, os.X_OK):
-        raise SystemExit("miaou CLI not found; install it with cargo install --path cli.")
+        raise SystemExit(f"miaou CLI is not executable: {cli}")
+    return cli
+
+
+def verify_cli_activity(cli):
+    """Check the selected artifact, including explicit CLI_BIN overrides."""
+    with tempfile.TemporaryDirectory(prefix="miaou-activity-check-") as directory:
+        home = Path(directory)
+        session = home / "logs/session/unified/activity-check"
+        generation = session / "generations/0000000000000001"
+        generation.mkdir(parents=True)
+        journal = session / "journal"
+        journal.mkdir()
+        active = home / "logs/session/active"
+        active.mkdir()
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        (session / "meta.json").write_text(json.dumps({
+            "session_id": "activity-check", "bumped_at": now, "end_time": now,
+        }))
+        (session / "CURRENT").write_text(json.dumps({
+            "generation": generation.name, "snapshot_sequence": 1,
+        }))
+        environment = dict(os.environ, VIBE_HOME=str(home),
+                           MIAOU_ARCHIVE_PATH=str(home / "archive.jsonl"),
+                           XDG_CONFIG_HOME=str(home / "config"))
+        with (active / "activity-check.lock").open("w") as lease:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            for sequence, state, running in [
+                (1, "in_progress", True), (1, "completed", False),
+                (2, "in_progress", True), (3, "completed", False),
+            ]:
+                envelope = {"latestTurn": {"status": state}}
+                if sequence == 1:
+                    (generation / "projection-state.json").write_text(
+                        json.dumps({"snapshot": envelope}))
+                else:
+                    with (journal / "0000000000000002.jsonl").open("a") as tail:
+                        tail.write(json.dumps({
+                            "sequence": sequence, "type": "projection_delta",
+                            "payload": {"delta": [{"op": "set_envelope", "state": envelope}]},
+                        }) + "\n")
+                try:
+                    result = run(str(cli), "--vibe-home", str(home), "status", "--json",
+                                 capture_output=True, text=True, env=environment, timeout=10)
+                    rows = json.loads(result.stdout)["active"]
+                    ids = [row["id"] for row in rows]
+                    if ids != (["activity-check"] if running else []):
+                        raise ValueError(f"unexpected active sessions: {ids}")
+                except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as error:
+                    raise SystemExit(
+                        f"The selected CLI fails task activity detection ({state}): {error}. "
+                        "Rebuild the CLI from this checkout before installing."
+                    ) from error
+
+
+def build():
+    cli = cli_for_bundle()
+    verify_cli_activity(cli)
     identity, team, group = signing()
     BUILD.mkdir(parents=True, exist_ok=True)
     version = re.search(r'^version = "([^"]+)"', (APP.parent / "cli/Cargo.toml").read_text(), re.M)[1]
@@ -270,6 +339,7 @@ def install():
     try:
         run("codesign", "--verify", "--deep", "--strict", str(temporary))
         verify_widget_entitlements(temporary)
+        verify_cli_activity(temporary / "Contents/MacOS/miaou-cli")
         if previous.exists():
             shutil.rmtree(previous)
         stop_old_app()

@@ -30,6 +30,14 @@ miaou summary
 
 ## What it reads
 
+`miaou status --json` reports running tasks without reading usage history.
+Activity requires a held session lease and uses `snapshot.latestTurn.status`
+from the generation published by `CURRENT`, followed by newer journal
+projections (`projection_delta` or `projection_advanced`). An `in_progress`
+turn is active; a completed, failed or interrupted turn is inactive, even
+when an ACP server retains its lease. Older stores without this signal use
+the existing 15-minute metadata freshness fallback.
+
 ```
 $VIBE_HOME/logs/session/unified/<session-id>/
 ├── meta.json        # session metadata: cwd, start/end time, parent, title

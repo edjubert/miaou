@@ -82,6 +82,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastRefresh: Date?
 
     private var timer: AnyCancellable?
+    private var activityTimer: AnyCancellable?
+    private var activityInFlight = false
+    private var activity = SessionActivity()
     private let widgetPublisher = MiaouWidgetPublisher()
 
     /// Watcher on Vibe's active-session lock directory, so a session
@@ -97,10 +100,16 @@ final class AppModel: ObservableObject {
         timer = Timer.publish(every: pollInterval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
+        // ACP keeps its lease between prompts, so lock directory events alone
+        // cannot report a turn starting or ending.
+        activityTimer = Timer.publish(every: 2, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in self?.refreshActivity() }
     }
 
     func refresh() {
         watchSessionLocks()
+        refreshActivity()
         // The CLI subprocess blocks for its whole run. Never run it on the
         // main thread: the lock watcher fires exactly when a session ends
         // (when the pet freezes), and a slow `miaou dashboard` would hang
@@ -110,13 +119,39 @@ final class AppModel: ObservableObject {
             do {
                 let dashboard = try MiaouCLI.dashboard()
                 DispatchQueue.main.async {
-                    self.dashboard = dashboard
+                    self.activity.record(ActivityReport(
+                        generatedAtMs: dashboard.generatedAtMs, active: dashboard.active))
+                    self.dashboard = self.activity.applying(to: dashboard)
                     self.lastError = nil
                     self.lastRefresh = Date()
                     self.publishWidget()
                 }
             } catch {
                 DispatchQueue.main.async {
+                    self.lastError = Self.describe(error)
+                }
+            }
+        }
+    }
+
+    private func refreshActivity() {
+        guard !activityInFlight else { return }
+        activityInFlight = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let result = Result { try MiaouCLI.activity() }
+            DispatchQueue.main.async {
+                self.activityInFlight = false
+                switch result {
+                case .success(let report):
+                    self.activity.record(report)
+                    guard let dashboard = self.dashboard else { return }
+                    let updated = self.activity.applying(to: dashboard)
+                    if updated != dashboard {
+                        self.dashboard = updated
+                        self.publishWidget()
+                    }
+                case .failure(let error):
                     self.lastError = Self.describe(error)
                 }
             }
@@ -134,7 +169,7 @@ final class AppModel: ObservableObject {
         BarTitle.text(mode, dashboard: dashboard)
     }
 
-    /// Whether a Vibe session currently holds its OS lock.
+    /// Whether a task is currently running in a Vibe session.
     var hasLiveSessions: Bool {
         dashboard?.liveSessions.isEmpty == false
     }

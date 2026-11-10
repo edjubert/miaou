@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Session activity follows Vibe's explicit turn state: completed, failed and
+  interrupted ACP tasks stop counting as active even when their server keeps
+  the session lease. Resumed and long-running tasks remain detectable.
+- The app checks activity every two seconds without rescanning usage history.
+  Older dashboard responses cannot restore a task already reported as finished.
+- App builds embed the CLI rebuilt from the same checkout by default, instead
+  of silently using an older globally installed binary.
+- App builds and installs validate the selected CLI's activity detection,
+  including explicit `CLI_BIN` artifacts, before replacing the installed app.
+
 ## [0.6.5] - 2026-11-09
 
 ### Added
