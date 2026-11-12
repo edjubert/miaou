@@ -242,6 +242,14 @@ files remain present between prompts. The CLI binary is looked up in
 the app bundle first (embedded by `make app`), then `~/.cargo/bin` and
 Homebrew paths: GUI processes inherit a minimal PATH.
 
+If Vibe leaves a finished task marked as running, expand the active sessions
+in the menu or dashboard and click the moon button (**Force idle**) beside
+the affected session. Miaou immediately clears its activity in the app,
+desktop cat and widgets without stopping Vibe or modifying its journals
+and locks. The choice survives app relaunches and ends automatically when
+a new turn starts or the session lease changes. **Restore automatic
+detection** in the menu or settings cancels all manual overrides.
+
 When the CLI's calibration ledger holds a Console observation for the
 current month, the month cost anchors on it (see the CLI README) and the
 budget section shows the applied anchor: its cost and the time it was

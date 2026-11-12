@@ -100,6 +100,8 @@ struct ActiveSessionReport: Codable, Equatable {
     /// synthesized Codable still decodes them and old JSON stays readable.
     var title: String? = nil
     var titleSource: String? = nil
+    /// Stable for a running turn; changes on the next prompt or lease.
+    var activityToken: String? = nil
 }
 
 struct ActivityReport: Codable, Equatable {
@@ -111,17 +113,44 @@ struct ActivityReport: Codable, Equatable {
 /// must not resurrect a task that a newer activity poll already saw finish.
 struct SessionActivity {
     private(set) var latest: ActivityReport?
+    private(set) var forcedIdleTokens: [String: String]
+
+    init(forcedIdleTokens: [String: String] = [:]) {
+        self.forcedIdleTokens = forcedIdleTokens
+    }
 
     mutating func record(_ report: ActivityReport) {
         guard latest.map({ report.generatedAtMs >= $0.generatedAtMs }) ?? true else { return }
         latest = report
+        for session in report.active {
+            if let forced = forcedIdleTokens[session.id], forced != session.activityToken {
+                forcedIdleTokens.removeValue(forKey: session.id)
+            }
+        }
+    }
+
+    mutating func forceIdle(_ session: ActiveSessionReport) {
+        guard let token = session.activityToken,
+              latest?.active.contains(where: {
+                  $0.id == session.id && $0.activityToken == token
+              }) == true else { return }
+        forcedIdleTokens[session.id] = token
+    }
+
+    mutating func restoreAutomaticDetection() {
+        forcedIdleTokens.removeAll()
     }
 
     func applying(to dashboard: DashboardReport) -> DashboardReport {
-        guard let latest, latest.generatedAtMs >= dashboard.generatedAtMs else { return dashboard }
         var updated = dashboard
-        updated.active = latest.active
-        let ids = Set(latest.active.map(\.id))
+        if let latest, latest.generatedAtMs >= dashboard.generatedAtMs {
+            updated.active = latest.active
+        }
+        updated.active.removeAll { session in
+            guard let token = session.activityToken else { return false }
+            return forcedIdleTokens[session.id] == token
+        }
+        let ids = Set(updated.active.map(\.id))
         for index in updated.sessions.indices {
             updated.sessions[index].active = ids.contains(updated.sessions[index].sessionId)
         }

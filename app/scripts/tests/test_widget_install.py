@@ -65,7 +65,8 @@ class CLIActivityTests(unittest.TestCase):
             if tail.exists():
                 state = json.loads(tail.read_text().splitlines()[-1])["payload"]["delta"][0]["state"]
             calls.append(state["latestTurn"]["status"])
-            active = [{"id": "activity-check"}] if calls[-1] == "in_progress" else []
+            active = [{"id": "activity-check", "activity_token": state["latestTurn"]["id"]}] \
+                if calls[-1] == "in_progress" else []
             return subprocess.CompletedProcess(args, 0, stdout=json.dumps({"active": active}))
 
         with patch.object(builder, "run", side_effect=cli_result):
@@ -74,7 +75,7 @@ class CLIActivityTests(unittest.TestCase):
 
     def test_rejects_a_cli_that_keeps_completed_tasks_active(self):
         response = subprocess.CompletedProcess([], 0,
-                                               stdout='{"active":[{"id":"activity-check"}]}')
+                                               stdout='{"active":[{"id":"activity-check","activity_token":"turn"}]}')
         with patch.object(builder, "run", return_value=response) as cli:
             with self.assertRaisesRegex(SystemExit, "activity detection \\(completed\\)"):
                 builder.verify_cli_activity(Path("/stale/miaou"))
@@ -84,6 +85,25 @@ class CLIActivityTests(unittest.TestCase):
         with patch.object(builder, "run",
                           return_value=subprocess.CompletedProcess([], 0, stdout='{"active":[]}')):
             with self.assertRaisesRegex(SystemExit, "activity detection \\(in_progress\\)"):
+                builder.verify_cli_activity(Path("/stale/miaou"))
+
+    def test_rejects_a_cli_without_manual_idle_support(self):
+        with patch.object(builder, "run", return_value=subprocess.CompletedProcess(
+                [], 0, stdout='{"active":[{"id":"activity-check"}]}')):
+            with self.assertRaisesRegex(SystemExit, "activity_token"):
+                builder.verify_cli_activity(Path("/stale/miaou"))
+
+    def test_rejects_a_cli_that_reuses_the_token_after_a_resume(self):
+        results = [
+            subprocess.CompletedProcess([], 0, stdout=json.dumps({"active": active}))
+            for active in [
+                [{"id": "activity-check", "activity_token": "same-turn"}],
+                [],
+                [{"id": "activity-check", "activity_token": "same-turn"}],
+            ]
+        ]
+        with patch.object(builder, "run", side_effect=results):
+            with self.assertRaisesRegex(SystemExit, "activity_token"):
                 builder.verify_cli_activity(Path("/stale/miaou"))
 
 

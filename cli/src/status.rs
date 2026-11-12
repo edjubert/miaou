@@ -14,6 +14,9 @@ pub struct ActiveSession {
     pub id: String,
     /// Milliseconds since the lock was last touched.
     pub age_ms: u64,
+    /// Identifies this lease and turn, so a manual idle override cannot hide
+    /// the next prompt or a session reopened by a different process.
+    pub activity_token: Option<String>,
 }
 
 /// Compatibility fallback for old stores without an explicit turn state.
@@ -78,10 +81,13 @@ fn lease_holder_excluded(lock_path: &Path) -> bool {
 pub fn live_sessions(vibe_home: &Path, now_ms: u64) -> Vec<ActiveSession> {
     active_sessions(vibe_home)
         .into_iter()
-        .filter(|session| {
+        .filter_map(|mut session| {
             let dir = vibe_home.join("logs/session/unified").join(&session.id);
-            turn_is_running(&dir).unwrap_or_else(|| {
-                let bumped = read_json(&dir.join("meta.json"))
+            let turn = latest_turn_state(&dir);
+            let meta = read_json(&dir.join("meta.json"));
+            let running = turn.as_ref().and_then(|t| t.running).unwrap_or_else(|| {
+                let bumped = meta
+                    .as_ref()
                     .and_then(|m| {
                         m.get("bumped_at")
                             .and_then(|v| v.as_str())
@@ -89,7 +95,33 @@ pub fn live_sessions(vibe_home: &Path, now_ms: u64) -> Vec<ActiveSession> {
                     })
                     .map(|dt| dt.timestamp_millis().max(0) as u64);
                 session_is_active(bumped, now_ms)
-            })
+            });
+            if !running {
+                return None;
+            }
+            let lock = vibe_home
+                .join("logs/session/active")
+                .join(format!("{}.lock", session.id));
+            // Modern turns have stable ids across journal updates. Legacy
+            // stores re-enable detection when their metadata is bumped.
+            let turn_identity = turn.and_then(|t| t.identity).unwrap_or_else(|| {
+                meta.as_ref()
+                    .and_then(|m| m.get("bumped_at"))
+                    .cloned()
+                    .unwrap_or_default()
+            });
+            session.activity_token = Some(
+                serde_json::json!([
+                    vibe_home
+                        .canonicalize()
+                        .unwrap_or_else(|_| vibe_home.to_path_buf()),
+                    session.id,
+                    lease_identity(&lock),
+                    turn_identity,
+                ])
+                .to_string(),
+            );
+            Some(session)
         })
         .collect()
 }
@@ -102,7 +134,7 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
 /// published through CURRENT; picking the largest directory can observe an
 /// unpublished generation. Journal projections are newer than the checkpoint
 /// while a prompt is running, so reading only the checkpoint misses resumes.
-fn turn_is_running(session_dir: &Path) -> Option<bool> {
+fn latest_turn_state(session_dir: &Path) -> Option<TurnState> {
     let pointer = read_json(&session_dir.join("CURRENT"));
     let snapshot_sequence = pointer
         .as_ref()
@@ -127,7 +159,7 @@ fn turn_is_running(session_dir: &Path) -> Option<bool> {
     let baseline = snapshot
         .as_ref()
         .and_then(|p| p.get("snapshot"))
-        .and_then(projection_is_running);
+        .map(TurnState::from_projection);
 
     let Ok(entries) = std::fs::read_dir(session_dir.join("journal")) else {
         return baseline;
@@ -182,15 +214,56 @@ fn turn_is_running(session_dir: &Path) -> Option<bool> {
                     .as_ref()
                     .is_none_or(|(previous, _)| sequence > *previous)
                 {
-                    latest = Some((sequence, projection_is_running(state)));
+                    latest = Some((sequence, TurnState::from_projection(state)));
                 }
             }
         }
-        if let Some((_, running)) = latest {
-            return running;
+        if let Some((_, projection)) = latest {
+            return Some(projection);
         }
     }
     baseline
+}
+
+#[cfg(test)]
+fn turn_is_running(session_dir: &Path) -> Option<bool> {
+    latest_turn_state(session_dir).and_then(|t| t.running)
+}
+
+/// Retain only the activity envelope, not the potentially large transcript.
+struct TurnState {
+    running: Option<bool>,
+    identity: Option<serde_json::Value>,
+}
+
+impl TurnState {
+    fn from_projection(state: &serde_json::Value) -> Self {
+        Self {
+            running: projection_is_running(state),
+            identity: state
+                .get("latestTurn")
+                .and_then(|t| t.get("id").or_else(|| t.get("startedAt")))
+                .cloned(),
+        }
+    }
+}
+
+fn lease_identity(lock_path: &Path) -> serde_json::Value {
+    let diagnostic = read_json(&lock_path.with_extension("lock.json"));
+    #[cfg(unix)]
+    let file_identity = {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::metadata(lock_path)
+            .ok()
+            .map(|m| (m.dev(), m.ino()))
+    };
+    #[cfg(not(unix))]
+    let file_identity: Option<(u64, u64)> = None;
+    serde_json::json!({
+        "file": file_identity,
+        "pid": diagnostic.as_ref().and_then(|d| d.get("process_id")),
+        "acquired_at": diagnostic.as_ref().and_then(|d| d.get("acquired_at")),
+    })
 }
 
 fn projection_is_running(state: &serde_json::Value) -> Option<bool> {
@@ -244,6 +317,7 @@ pub fn active_sessions(vibe_home: &Path) -> Vec<ActiveSession> {
         out.push(ActiveSession {
             id: id.to_owned(),
             age_ms: age,
+            activity_token: None,
         });
     }
     out.sort_by_key(|s| s.age_ms);

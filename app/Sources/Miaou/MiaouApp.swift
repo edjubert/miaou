@@ -285,6 +285,12 @@ struct MenuContent: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
             }
+            if model.hasForcedIdleSessions {
+                Button(L10n.t("sessions.restore_detection")) {
+                    model.restoreAutomaticDetection()
+                }
+                .font(.caption)
+            }
             Divider()
             HStack {
                 Button(L10n.t("refresh.button")) { model.refresh() }
@@ -481,6 +487,7 @@ struct MenuContent: View {
 struct SessionFold: View {
     let row: SessionRow
     let currency: String
+    var forceIdle: (() -> Void)? = nil
 
     @State private var expanded = false
 
@@ -506,6 +513,14 @@ struct SessionFold: View {
                     .lineLimit(1)
                 Spacer()
                 CopyIdButton(sessionId: row.sessionId)
+                if let forceIdle {
+                    Button(action: forceIdle) {
+                        Image(systemName: "moon.zzz")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L10n.t("sessions.force_idle.help"))
+                    .accessibilityLabel(L10n.t("sessions.force_idle"))
+                }
             } else {
                 Text(row.subagent ? "\(row.shortId)*" : row.shortId)
                     .font(.caption)
@@ -591,6 +606,7 @@ struct CopyIdButton: View {
 /// the id copies it.
 struct LiveSessionsFold: View {
     let dashboard: DashboardReport
+    @EnvironmentObject private var model: AppModel
 
     @State private var expanded = false
 
@@ -633,7 +649,8 @@ struct LiveSessionsFold: View {
         row.titleSource = row.titleSource ?? live.titleSource
         // Each live session is its own fold: hover unfolds it to show the
         // metadata, click on the id copies it.
-        return SessionFold(row: row, currency: dashboard.currency)
+        return SessionFold(row: row, currency: dashboard.currency,
+                           forceIdle: live.activityToken == nil ? nil : { model.forceIdle(live) })
     }
 }
 

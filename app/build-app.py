@@ -203,11 +203,15 @@ def verify_cli_activity(cli):
                            XDG_CONFIG_HOME=str(home / "config"))
         with (active / "activity-check.lock").open("w") as lease:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            previous_token = None
             for sequence, state, running in [
                 (1, "in_progress", True), (1, "completed", False),
                 (2, "in_progress", True), (3, "completed", False),
             ]:
-                envelope = {"latestTurn": {"status": state}}
+                envelope = {"latestTurn": {
+                    "id": "first-turn" if sequence == 1 else "resumed-turn",
+                    "status": state,
+                }}
                 if sequence == 1:
                     (generation / "projection-state.json").write_text(
                         json.dumps({"snapshot": envelope}))
@@ -224,6 +228,11 @@ def verify_cli_activity(cli):
                     ids = [row["id"] for row in rows]
                     if ids != (["activity-check"] if running else []):
                         raise ValueError(f"unexpected active sessions: {ids}")
+                    if running:
+                        token = rows[0].get("activity_token")
+                        if not isinstance(token, str) or not token or token == previous_token:
+                            raise ValueError("missing or unchanged activity_token for the new turn")
+                        previous_token = token
                 except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as error:
                     raise SystemExit(
                         f"The selected CLI fails task activity detection ({state}): {error}. "
