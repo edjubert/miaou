@@ -102,8 +102,10 @@ final class AppModel: ObservableObject {
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
         // ACP keeps its lease between prompts, so lock directory events alone
-        // cannot report a turn starting or ending.
-        activityTimer = Timer.publish(every: 2, on: .main, in: .common)
+        // cannot report a turn starting or ending. The watcher covers session
+        // start/stop immediately; this poll only tracks turn-level changes, so
+        // it does not need to spawn the CLI subprocess every 2 s.
+        activityTimer = Timer.publish(every: 5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refreshActivity() }
     }

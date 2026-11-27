@@ -218,6 +218,7 @@ final class DesktopPetController {
     private var speechSessions = DesktopPetSpeechSessions()
     private var nextSpeechPoll: TimeInterval = 0
     private var timer: Timer?
+    private var timerInterval: TimeInterval = 1 / 30
     private var previousTime: TimeInterval = 0
 
     func start() {
@@ -295,8 +296,17 @@ final class DesktopPetController {
         }
         if timer == nil { previousTime = ProcessInfo.processInfo.systemUptime }
         tick()
-        guard timer == nil else { return }
-        let animation = Timer(timeInterval: 1 / 30, repeats: true) { [weak self] _ in self?.tick() }
+        ensureTimer(interval: timerInterval)
+    }
+
+    /// Runs the animation timer at full rate while the cat moves and drops to
+    /// a slow tick when it rests, so an idle pet costs almost no CPU.
+    private func ensureTimer(interval: TimeInterval) {
+        guard interval != timerInterval || timer == nil else { return }
+        timer?.invalidate()
+        timer = nil
+        timerInterval = interval
+        let animation = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.tick() }
         timer = animation
         RunLoop.main.add(animation, forMode: .common)
     }
@@ -322,6 +332,8 @@ final class DesktopPetController {
         // The speech bubble has its own glass intensity, full glass by default.
         let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
         let message = updateSpeech(at: now)
+        let moving = autonomous || companions.values.contains(where: \.isAnimating)
+        ensureTimer(interval: moving ? 1 / 30 : 0.1)
         for companion in companions.values {
             let bottomOffset = Self.bottomOffset(defaults, isBuiltIn: companion.isBuiltIn)
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
@@ -412,6 +424,8 @@ final class DesktopPetController {
 private final class DesktopPetCompanion {
     private var display: DesktopPetDisplay
     var isBuiltIn: Bool { display.isBuiltIn }
+    /// True while the cat is walking or hopping on this display.
+    var isAnimating: Bool { !motion.isResting || motion.isHopping }
     private var pet: BarPet
     private var sizeClass: DesktopPetSize
     private let panel: DesktopPetPanel
