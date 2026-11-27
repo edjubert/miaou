@@ -220,6 +220,8 @@ final class DesktopPetController {
     private var timer: Timer?
     private var timerInterval: TimeInterval = 1 / 30
     private var previousTime: TimeInterval = 0
+    private var mouseMonitor: Any?
+    private var speechTimer: Timer?
 
     func start() {
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
@@ -234,17 +236,32 @@ final class DesktopPetController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.updateSettings() }
             .store(in: &observations)
+        // Wake the pet on pointer movement so a resting cat still hops when
+        // hovered, without running an animation timer while idle.
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            self?.tick()
+            return event
+        }
+        speechTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            self?.pollSpeech()
+        }
+        if let speechTimer { RunLoop.main.add(speechTimer, forMode: .common) }
         updateSettings()
     }
 
     func stop() {
         removeCompanions()
         observations.removeAll()
+        if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
+        mouseMonitor = nil
+        speechTimer?.invalidate()
+        speechTimer = nil
     }
 
     private func removeCompanions() {
         timer?.invalidate()
         timer = nil
+        timerInterval = 0
         companions.values.forEach { $0.close() }
         companions.removeAll()
         speechPresentation.hide()
@@ -296,12 +313,18 @@ final class DesktopPetController {
         }
         if timer == nil { previousTime = ProcessInfo.processInfo.systemUptime }
         tick()
-        ensureTimer(interval: timerInterval)
     }
 
-    /// Runs the animation timer at full rate while the cat moves and drops to
-    /// a slow tick when it rests, so an idle pet costs almost no CPU.
+    /// Runs the animation timer at full rate while the cat moves and stops it
+    /// entirely when it rests: an idle pet costs no CPU, the mouse monitor and
+    /// the speech timer wake it when something actually changes.
     private func ensureTimer(interval: TimeInterval) {
+        if interval == 0 {
+            timer?.invalidate()
+            timer = nil
+            timerInterval = 0
+            return
+        }
         guard interval != timerInterval || timer == nil else { return }
         timer?.invalidate()
         timer = nil
@@ -331,15 +354,25 @@ final class DesktopPetController {
         let glassTransparency = defaults.object(forKey: "desktopPetGlassTransparency") as? Double ?? 0
         // The speech bubble has its own glass intensity, full glass by default.
         let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
-        let message = updateSpeech(at: now)
         let moving = autonomous || companions.values.contains(where: \.isAnimating)
-        ensureTimer(interval: moving ? 1 / 30 : 0.1)
+        ensureTimer(interval: moving ? 1 / 30 : 0)
         for companion in companions.values {
             let bottomOffset = Self.bottomOffset(defaults, isBuiltIn: companion.isBuiltIn)
             companion.tick(at: now, elapsed: elapsed, pointer: pointer,
                            autonomous: autonomous, colorMode: colorMode, live: live,
                            bottomOffset: bottomOffset, speed: speed, sleepMode: sleepMode,
                            glassTransparency: glassTransparency)
+        }
+    }
+
+    /// Speech bubbles refresh on their own timer; the animation timer stays
+    /// stopped while the cat rests.
+    private func pollSpeech() {
+        guard !companions.isEmpty else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let message = updateSpeech(at: now)
+        let speechGlassTransparency = defaults.object(forKey: "desktopPetSpeechGlassTransparency") as? Double ?? 0
+        for companion in companions.values {
             companion.showSpeech(message, glassTransparency: speechGlassTransparency)
         }
     }
