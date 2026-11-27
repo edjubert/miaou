@@ -92,6 +92,7 @@ fn status_dashboard_and_session_flags_agree_on_turn_boundaries() {
         if running {
             assert_eq!(status["active"][0]["title"], "A task");
             assert_eq!(status["active"][0]["title_source"], "manual");
+            assert!(status["active"][0]["activity_token"].as_str().is_some());
         }
         let dashboard = output(home, "dashboard");
         assert_eq!(
@@ -99,6 +100,12 @@ fn status_dashboard_and_session_flags_agree_on_turn_boundaries() {
             usize::from(running)
         );
         assert_eq!(dashboard["sessions"][0]["active"], running);
+        if running {
+            assert_eq!(
+                status["active"][0]["activity_token"],
+                dashboard["active"][0]["activity_token"]
+            );
+        }
         let sessions = output(home, "sessions");
         assert_eq!(sessions[0]["active"], running);
     }
@@ -107,4 +114,82 @@ fn status_dashboard_and_session_flags_agree_on_turn_boundaries() {
         .as_array()
         .unwrap()
         .is_empty());
+}
+
+#[test]
+fn activity_token_is_stable_during_a_turn_and_changes_on_resume_or_reopen() {
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path();
+    let dir = home.join("logs/session/unified/acp");
+    let active = home.join("logs/session/active");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&active).unwrap();
+    let lease = std::fs::File::create(active.join("acp.lock")).unwrap();
+    assert_eq!(
+        unsafe { libc::flock(lease.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+        0
+    );
+    let generation = dir.join("generations/0000000000000001");
+    std::fs::create_dir_all(&generation).unwrap();
+    std::fs::write(
+        dir.join("CURRENT"),
+        r#"{"generation":"0000000000000001","snapshot_sequence":1}"#,
+    )
+    .unwrap();
+    let write_turn = |id: &str| {
+        std::fs::write(
+            generation.join("projection-state.json"),
+            serde_json::json!({
+                "snapshot": {"latestTurn": {"id": id, "status": "in_progress"}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+    };
+    write_turn("first");
+    let initial = output(home, "status")["active"][0]["activity_token"].clone();
+    assert!(initial.as_str().is_some_and(|s| !s.is_empty()));
+    // Checkpoint publication and lock mtime are unrelated to a new turn.
+    std::fs::write(
+        dir.join("meta.json"),
+        r#"{"bumped_at":"2026-11-12T09:00:00Z"}"#,
+    )
+    .unwrap();
+    lease.set_modified(std::time::SystemTime::now()).unwrap();
+    assert_eq!(
+        output(home, "status")["active"][0]["activity_token"],
+        initial
+    );
+    std::fs::create_dir_all(dir.join("journal")).unwrap();
+    std::fs::write(
+        dir.join("journal/0000000000000002.jsonl"),
+        serde_json::json!({
+            "sequence": 2, "type": "projection_delta", "payload": {
+                "delta": [{"op": "set_envelope", "state": {
+                    "latestTurn": {"id": "first", "status": "in_progress"}
+                }}]
+            }
+        })
+        .to_string()
+            + "\n",
+    )
+    .unwrap();
+    assert_eq!(
+        output(home, "status")["active"][0]["activity_token"],
+        initial
+    );
+    std::fs::write(dir.join("journal/0000000000000002.jsonl"), "").unwrap();
+    write_turn("second");
+    let resumed = output(home, "status")["active"][0]["activity_token"].clone();
+    assert_ne!(resumed, initial);
+    std::fs::write(
+        active.join("acp.lock.json"),
+        r#"{"process_id":1,"acquired_at":"later"}"#,
+    )
+    .unwrap();
+    assert_ne!(
+        output(home, "status")["active"][0]["activity_token"],
+        resumed
+    );
+    assert_eq!(unsafe { libc::flock(lease.as_raw_fd(), libc::LOCK_UN) }, 0);
 }

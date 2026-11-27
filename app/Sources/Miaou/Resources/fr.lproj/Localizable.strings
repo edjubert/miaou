@@ -124,6 +124,9 @@
 "sessions.detail.title" = "Titre";
 "sessions.detail.title_source" = "Source du titre";
 "sessions.detail.live" = "En cours";
+"sessions.force_idle" = "Forcer au repos";
+"sessions.force_idle.help" = "Forcer au repos dans Miaou jusqu'à la prochaine tâche, sans arrêter Vibe.";
+"sessions.restore_detection" = "Rétablir la détection automatique";
 
 /* Errors */
 "error.exited" = "miaou a terminé avec le code %d";

@@ -38,6 +38,12 @@ turn is active; a completed, failed or interrupted turn is inactive, even
 when an ACP server retains its lease. Older stores without this signal use
 the existing 15-minute metadata freshness fallback.
 
+Active rows also carry an `activity_token`, stable for the current turn and
+lease. Miaou uses it for **Force idle**: a manual override survives app
+relaunches and disappears when the next prompt starts or the lease changes.
+The override only changes Miaou's display; CLI output continues to report
+Vibe's stored state. No Vibe process, lock or journal is modified.
+
 ```
 $VIBE_HOME/logs/session/unified/<session-id>/
 ├── meta.json        # session metadata: cwd, start/end time, parent, title

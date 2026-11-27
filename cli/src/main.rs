@@ -168,6 +168,7 @@ fn main() {
                 serde_json::json!({
                     "id": session.id,
                     "age_ms": session.age_ms,
+                    "activity_token": session.activity_token,
                     "title": meta.as_ref().and_then(|m| m.get("title")),
                     "title_source": meta.as_ref().and_then(|m| m.get("title_source")),
                 })
@@ -372,6 +373,7 @@ fn main() {
                         serde_json::json!({
                             "id": a.id,
                             "age_ms": a.age_ms,
+                            "activity_token": a.activity_token,
                             "title": meta.and_then(|m| m.title.clone()),
                             "title_source": meta.and_then(|m| m.title_source.clone()),
                         })

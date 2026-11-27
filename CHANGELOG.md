@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add **Force idle** to active sessions in the menu and dashboard, with a
+  persistent override for the current Vibe turn and automatic detection on
+  the next prompt. A restore action cancels manual overrides.
+
+### Fixed
+
+- Verify bundled CLIs expose a distinct activity token for each resumed turn.
+
 ## [0.6.6] - 2026-11-10
 
 ### Added

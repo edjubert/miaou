@@ -84,7 +84,8 @@ final class AppModel: ObservableObject {
     private var timer: AnyCancellable?
     private var activityTimer: AnyCancellable?
     private var activityInFlight = false
-    private var activity = SessionActivity()
+    private var activity = SessionActivity(forcedIdleTokens:
+        UserDefaults.standard.dictionary(forKey: "forcedIdleSessions") as? [String: String] ?? [:])
     private let widgetPublisher = MiaouWidgetPublisher()
 
     /// Watcher on Vibe's active-session lock directory, so a session
@@ -101,8 +102,10 @@ final class AppModel: ObservableObject {
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
         // ACP keeps its lease between prompts, so lock directory events alone
-        // cannot report a turn starting or ending.
-        activityTimer = Timer.publish(every: 2, on: .main, in: .common)
+        // cannot report a turn starting or ending. The watcher covers session
+        // start/stop immediately; this poll only tracks turn-level changes, so
+        // it does not need to spawn the CLI subprocess every 2 s.
+        activityTimer = Timer.publish(every: 5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refreshActivity() }
     }
@@ -119,7 +122,7 @@ final class AppModel: ObservableObject {
             do {
                 let dashboard = try MiaouCLI.dashboard()
                 DispatchQueue.main.async {
-                    self.activity.record(ActivityReport(
+                    self.recordActivity(ActivityReport(
                         generatedAtMs: dashboard.generatedAtMs, active: dashboard.active))
                     self.dashboard = self.activity.applying(to: dashboard)
                     self.lastError = nil
@@ -144,7 +147,7 @@ final class AppModel: ObservableObject {
                 self.activityInFlight = false
                 switch result {
                 case .success(let report):
-                    self.activity.record(report)
+                    self.recordActivity(report)
                     guard let dashboard = self.dashboard else { return }
                     let updated = self.activity.applying(to: dashboard)
                     if updated != dashboard {
@@ -156,6 +159,41 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func recordActivity(_ report: ActivityReport) {
+        let previous = activity.forcedIdleTokens
+        activity.record(report)
+        if previous != activity.forcedIdleTokens {
+            saveForcedIdleSessions()
+        }
+    }
+
+    var hasForcedIdleSessions: Bool { !activity.forcedIdleTokens.isEmpty }
+
+    /// Reset Miaou's activity for this turn without touching Vibe's lease,
+    /// journal or process. A new prompt restores detection automatically.
+    func forceIdle(_ session: ActiveSessionReport) {
+        activity.forceIdle(session)
+        saveForcedIdleSessions()
+        applyActivity()
+    }
+
+    func restoreAutomaticDetection() {
+        activity.restoreAutomaticDetection()
+        saveForcedIdleSessions()
+        applyActivity()
+        refresh()
+    }
+
+    private func saveForcedIdleSessions() {
+        UserDefaults.standard.set(activity.forcedIdleTokens, forKey: "forcedIdleSessions")
+    }
+
+    private func applyActivity() {
+        guard let dashboard else { return }
+        self.dashboard = activity.applying(to: dashboard)
+        publishWidget()
     }
 
     func publishWidget() {

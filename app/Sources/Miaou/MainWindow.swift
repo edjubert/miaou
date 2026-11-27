@@ -236,6 +236,11 @@ struct MainWindow: View {
             .padding(.horizontal, 24)
             .padding(.top, 24)
 
+            if !dashboard.liveSessions.isEmpty {
+                LiveSessionsFold(dashboard: dashboard)
+                    .padding(.horizontal, 24)
+            }
+
             Picker("", selection: $analyticsTab) {
                 Text(L10n.t("tab.daily")).tag("daily")
                 Text(L10n.t("tab.monthly")).tag("monthly")
@@ -407,6 +412,13 @@ struct MainWindow: View {
                         .font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
                 Text(L10n.t("settings.tagline")).foregroundStyle(.secondary)
+            }
+            if model.hasForcedIdleSessions {
+                Section(L10n.t("metric.active")) {
+                    Button(L10n.t("sessions.restore_detection")) {
+                        model.restoreAutomaticDetection()
+                    }
+                }
             }
             Section(L10n.t("settings.section.bar")) {
                 Toggle(L10n.t("bar.toggle"), isOn: $showInMenuBar)
